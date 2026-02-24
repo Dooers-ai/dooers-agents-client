@@ -12,6 +12,11 @@ export interface WorkerActions {
   onThreadDeleted: (threadId: string) => void
   onThreadSnapshot: (thread: Thread, events: ThreadEvent[], runs: Run[]) => void
   onEventAppend: (threadId: string, events: ThreadEvent[]) => void
+  reconcileEvents: (
+    threadId: string,
+    events: ThreadEvent[],
+    resolvedClientEventIds: string[]
+  ) => void
   onEventListResult: (
     threadId: string,
     events: ThreadEvent[],
@@ -209,6 +214,33 @@ export function createWorkerStore() {
           const unique = newEvents.filter((e) => !existingIds.has(e.id))
           return {
             events: { ...s.events, [threadId]: [...existing, ...unique] },
+          }
+        }),
+
+      reconcileEvents: (threadId, newEvents, resolvedClientEventIds) =>
+        set((s) => {
+          // Append confirmed events
+          const existing = s.events[threadId] ?? []
+          const existingIds = new Set(existing.map((e) => e.id))
+          const unique = newEvents.filter((e) => !existingIds.has(e.id))
+
+          // Remove reconciled optimistic events
+          let optEvents = s.optimistic[threadId] ?? []
+          let optKeys = s.optimisticKeys[threadId] ?? []
+          for (const clientEventId of resolvedClientEventIds) {
+            const idx = optKeys.indexOf(clientEventId)
+            if (idx >= 0) {
+              optEvents = [...optEvents]
+              optEvents.splice(idx, 1)
+              optKeys = [...optKeys]
+              optKeys.splice(idx, 1)
+            }
+          }
+
+          return {
+            events: { ...s.events, [threadId]: [...existing, ...unique] },
+            optimistic: { ...s.optimistic, [threadId]: optEvents },
+            optimisticKeys: { ...s.optimisticKeys, [threadId]: optKeys },
           }
         }),
 

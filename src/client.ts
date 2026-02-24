@@ -1,7 +1,7 @@
 import type { ServerToClient } from './protocol/frames'
-import type { WireContentPart } from './protocol/models'
+import type { WireC2S_ContentPart } from './protocol/models'
 import type { WorkerActions } from './store'
-import type { ContentPart, ThreadEvent } from './types'
+import type { DisplayContentPart, SendContentPart, ThreadEvent } from './types'
 import {
   toAnalyticsEvent,
   toRun,
@@ -29,6 +29,13 @@ export interface WorkerConnectionConfig {
 
 export type OnErrorCallback = (error: { code: string; message: string; frameType: string }) => void
 
+export interface UploadResult {
+  refId: string
+  mimeType: string
+  filename: string
+  sizeBytes: number
+}
+
 export class WorkerClient {
   private ws: WebSocket | null = null
   private callbacks: WorkerActions
@@ -36,6 +43,7 @@ export class WorkerClient {
 
   private url = ''
   private workerId = ''
+  private uploadUrl: string | undefined
   private config: WorkerConnectionConfig = {
     organizationId: '',
     workspaceId: '',
@@ -75,6 +83,42 @@ export class WorkerClient {
 
   setOnError(cb: OnErrorCallback | null) {
     this.onError = cb
+  }
+
+  setUploadUrl(url: string | undefined) {
+    this.uploadUrl = url
+  }
+
+  async upload(file: File | Blob): Promise<UploadResult> {
+    if (!this.uploadUrl) {
+      throw new Error('uploadUrl not configured')
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const headers: Record<string, string> = {}
+    if (this.config.authToken) {
+      headers.Authorization = `Bearer ${this.config.authToken}`
+    }
+
+    const response = await fetch(this.uploadUrl, {
+      method: 'POST',
+      body: formData,
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    return {
+      refId: result.ref_id,
+      mimeType: result.mime_type,
+      filename: result.filename,
+      sizeBytes: result.size_bytes,
+    }
   }
 
   connect(url: string, workerId: string, config?: WorkerConnectionConfig) {
@@ -209,11 +253,29 @@ export class WorkerClient {
   sendMessage(params: {
     text?: string
     threadId?: string
-    content?: ContentPart[]
+    content?: SendContentPart[]
   }): Promise<{ threadId: string }> {
     const clientEventId = crypto.randomUUID()
-    const content: WireContentPart[] = params.content
+    const content: WireC2S_ContentPart[] = params.content
       ? params.content.map(toWireContentPart)
+      : [{ type: 'text', text: params.text ?? '' }]
+
+    // Build optimistic display content from send parts
+    const displayContent: DisplayContentPart[] = params.content
+      ? params.content.map((p): DisplayContentPart => {
+          switch (p.type) {
+            case 'text':
+              return { type: 'text', text: p.text }
+            case 'audio':
+              return { type: 'audio', duration: p.duration }
+            case 'image':
+              return { type: 'image' }
+            case 'document':
+              return { type: 'document' }
+            default:
+              return { type: 'text', text: '' }
+          }
+        })
       : [{ type: 'text', text: params.text ?? '' }]
 
     // Build optimistic event
@@ -232,7 +294,7 @@ export class WorkerClient {
         organizationRole: this.config.organizationRole ?? 'member',
         workspaceRole: this.config.workspaceRole ?? 'member',
       },
-      content: params.content ?? [{ type: 'text', text: params.text ?? '' }],
+      content: displayContent,
       createdAt: new Date().toISOString(),
     }
 
@@ -391,14 +453,12 @@ export class WorkerClient {
 
       case 'event.append': {
         const events = frame.payload.events.map(toThreadEvent)
-        // Reconcile optimistic events and resolve pending message promises
+        // Collect reconciled client event IDs and resolve pending message promises
+        const resolvedClientEventIds: string[] = []
         for (const event of events) {
           if (event.clientEventId && this.pendingOptimistic.has(event.clientEventId)) {
-            const pending = this.pendingOptimistic.get(event.clientEventId)
-            if (pending) {
-              this.callbacks.removeOptimistic(pending.threadId, event.clientEventId)
-              this.pendingOptimistic.delete(event.clientEventId)
-            }
+            resolvedClientEventIds.push(event.clientEventId)
+            this.pendingOptimistic.delete(event.clientEventId)
           }
           if (event.clientEventId && this.pendingMessages.has(event.clientEventId)) {
             const pendingMessage = this.pendingMessages.get(event.clientEventId)
@@ -414,7 +474,12 @@ export class WorkerClient {
         if (lastEvent) {
           this.lastEventIds.set(frame.payload.thread_id, lastEvent.id)
         }
-        this.callbacks.onEventAppend(frame.payload.thread_id, events)
+        // Atomically append confirmed events and remove reconciled optimistic events
+        if (resolvedClientEventIds.length > 0) {
+          this.callbacks.reconcileEvents(frame.payload.thread_id, events, resolvedClientEventIds)
+        } else {
+          this.callbacks.onEventAppend(frame.payload.thread_id, events)
+        }
         break
       }
 

@@ -23,29 +23,76 @@ export interface WireThread {
   last_event_at: string
 }
 
-export interface WireTextPart {
+// --- C2S wire format (ref_id for uploads) ---
+
+export interface WireC2S_TextPart {
   type: 'text'
   text: string
 }
 
-export interface WireImagePart {
+export interface WireC2S_AudioPart {
+  type: 'audio'
+  ref_id: string
+  duration?: number
+}
+
+export interface WireC2S_ImagePart {
   type: 'image'
-  url: string
+  ref_id: string
+}
+
+export interface WireC2S_DocumentPart {
+  type: 'document'
+  ref_id: string
+}
+
+export type WireC2S_ContentPart =
+  | WireC2S_TextPart
+  | WireC2S_AudioPart
+  | WireC2S_ImagePart
+  | WireC2S_DocumentPart
+
+// --- S2C wire format (URLs/metadata from server) ---
+
+export interface WireS2C_TextPart {
+  type: 'text'
+  text: string
+}
+
+export interface WireS2C_AudioPart {
+  type: 'audio'
+  url?: string
+  mime_type?: string
+  duration?: number
+  filename?: string
+}
+
+export interface WireS2C_ImagePart {
+  type: 'image'
+  url?: string
   mime_type?: string
   width?: number
   height?: number
   alt?: string
+  filename?: string
 }
 
-export interface WireDocumentPart {
+export interface WireS2C_DocumentPart {
   type: 'document'
-  url: string
-  filename: string
-  mime_type: string
+  url?: string
+  filename?: string
+  mime_type?: string
   size_bytes?: number
 }
 
-export type WireContentPart = WireTextPart | WireImagePart | WireDocumentPart
+export type WireS2C_ContentPart =
+  | WireS2C_TextPart
+  | WireS2C_AudioPart
+  | WireS2C_ImagePart
+  | WireS2C_DocumentPart
+
+// Backward-compatible alias
+export type WireContentPart = WireS2C_ContentPart
 
 export type WireActor = 'user' | 'assistant' | 'system' | 'tool'
 export type WireEventType =
@@ -65,7 +112,7 @@ export interface WireThreadEvent {
   actor: WireActor
   author: string | null
   user?: WireUser
-  content?: WireContentPart[]
+  content?: WireS2C_ContentPart[]
   data?: Record<string, unknown>
   created_at: string
   streaming?: boolean

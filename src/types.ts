@@ -1,25 +1,73 @@
-// --- Public types (camelCase) ---
+// --- Send content parts (client → server, used in send()) ---
 
-export interface TextPart {
+export interface TextSendPart {
   type: 'text'
   text: string
 }
 
-export interface ImagePart {
+export interface AudioSendPart {
+  type: 'audio'
+  refId: string
+  duration?: number
+}
+
+export interface ImageSendPart {
   type: 'image'
-  url: string
-  mimeType?: string
-  alt?: string
+  refId: string
 }
 
-export interface DocumentPart {
+export interface DocumentSendPart {
   type: 'document'
-  url: string
-  filename: string
-  mimeType: string
+  refId: string
 }
 
-export type ContentPart = TextPart | ImagePart | DocumentPart
+export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | DocumentSendPart
+
+// --- Display content parts (server → client, rendered in chat) ---
+
+export interface TextDisplayPart {
+  type: 'text'
+  text: string
+}
+
+export interface AudioDisplayPart {
+  type: 'audio'
+  url?: string
+  mimeType?: string
+  duration?: number
+  filename?: string
+}
+
+export interface ImageDisplayPart {
+  type: 'image'
+  url?: string
+  mimeType?: string
+  width?: number
+  height?: number
+  alt?: string
+  filename?: string
+}
+
+export interface DocumentDisplayPart {
+  type: 'document'
+  url?: string
+  filename?: string
+  mimeType?: string
+  sizeBytes?: number
+}
+
+export type DisplayContentPart =
+  | TextDisplayPart
+  | AudioDisplayPart
+  | ImageDisplayPart
+  | DocumentDisplayPart
+
+// Backward-compatible aliases
+export type ContentPart = SendContentPart
+export type TextPart = TextSendPart
+export type ImagePart = ImageSendPart
+export type DocumentPart = DocumentSendPart
+export type AudioPart = AudioSendPart
 
 export type Actor = 'user' | 'assistant' | 'system' | 'tool'
 export type EventType =
@@ -62,7 +110,7 @@ export interface ThreadEvent {
   actor: Actor
   author: string | null
   user?: User
-  content?: ContentPart[]
+  content?: DisplayContentPart[]
   data?: Record<string, unknown>
   createdAt: string
   clientEventId?: string
@@ -156,8 +204,9 @@ export interface ThreadState {
 
 import type {
   WireAnalyticsEvent,
-  WireContentPart,
+  WireC2S_ContentPart,
   WireRun,
+  WireS2C_ContentPart,
   WireSettingsField,
   WireSettingsFieldGroup,
   WireSettingsItem,
@@ -195,16 +244,41 @@ export function toThread(w: WireThread): Thread {
   }
 }
 
-export function toContentPart(w: WireContentPart): ContentPart {
+export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart {
   switch (w.type) {
     case 'text':
       return { type: 'text', text: w.text }
+    case 'audio':
+      return {
+        type: 'audio',
+        url: w.url,
+        mimeType: w.mime_type,
+        duration: w.duration,
+        filename: w.filename,
+      }
     case 'image':
-      return { type: 'image', url: w.url, mimeType: w.mime_type, alt: w.alt }
+      return {
+        type: 'image',
+        url: w.url,
+        mimeType: w.mime_type,
+        width: w.width,
+        height: w.height,
+        alt: w.alt,
+        filename: w.filename,
+      }
     case 'document':
-      return { type: 'document', url: w.url, filename: w.filename, mimeType: w.mime_type }
+      return {
+        type: 'document',
+        url: w.url,
+        filename: w.filename,
+        mimeType: w.mime_type,
+        sizeBytes: w.size_bytes,
+      }
   }
 }
+
+// Backward-compatible alias
+export const toContentPart = toDisplayContentPart
 
 export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
   return {
@@ -215,7 +289,7 @@ export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
     actor: w.actor,
     author: w.author,
     user: toUser(w.user),
-    content: w.content?.map(toContentPart),
+    content: w.content?.map(toDisplayContentPart),
     data: w.data,
     createdAt: w.created_at,
     clientEventId: w.client_event_id,
@@ -285,13 +359,15 @@ export function toAnalyticsEvent(w: WireAnalyticsEvent): AnalyticsEvent {
 
 // --- Public → Wire transforms (for sending content) ---
 
-export function toWireContentPart(p: ContentPart): WireContentPart {
+export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
   switch (p.type) {
     case 'text':
       return { type: 'text', text: p.text }
+    case 'audio':
+      return { type: 'audio', ref_id: p.refId, duration: p.duration }
     case 'image':
-      return { type: 'image', url: p.url, mime_type: p.mimeType, alt: p.alt }
+      return { type: 'image', ref_id: p.refId }
     case 'document':
-      return { type: 'document', url: p.url, filename: p.filename, mime_type: p.mimeType }
+      return { type: 'document', ref_id: p.refId }
   }
 }

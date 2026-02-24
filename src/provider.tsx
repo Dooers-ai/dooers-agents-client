@@ -23,6 +23,7 @@ export interface WorkerProviderProps {
   organizationRole?: string
   workspaceRole?: string
   authToken?: string
+  uploadUrl?: string
   onError?: OnErrorCallback
   children: ReactNode
 }
@@ -39,6 +40,7 @@ export function WorkerProvider({
   organizationRole,
   workspaceRole,
   authToken,
+  uploadUrl,
   onError,
   children,
 }: WorkerProviderProps) {
@@ -54,6 +56,11 @@ export function WorkerProvider({
   useEffect(() => {
     clientRef.current?.setOnError(onError ?? null)
   }, [onError])
+
+  // Update upload URL
+  useEffect(() => {
+    clientRef.current?.setUploadUrl(uploadUrl)
+  }, [uploadUrl])
 
   // Connect/disconnect lifecycle — skips connection when url or workerId are missing
   useEffect(() => {

@@ -1,6 +1,6 @@
 import type {
   WireAnalyticsEvent,
-  WireContentPart,
+  WireC2S_ContentPart,
   WireRun,
   WireSettingsItem,
   WireThread,
@@ -49,7 +49,7 @@ export type C2S_EventCreate = Frame<
     event: {
       type: 'message'
       actor: 'user'
-      content: WireContentPart[]
+      content: WireC2S_ContentPart[]
       data?: Record<string, unknown>
     }
   }

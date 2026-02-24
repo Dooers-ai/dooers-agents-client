@@ -32,7 +32,7 @@ export function useThreadDetails(threadId: string | null): ThreadState {
 
   // Merge with useMemo — stable ref when inputs are the same arrays
   const events = useMemo(
-    () => (optimistic.length ? [...optimistic, ...confirmed] : confirmed),
+    () => (optimistic.length ? [...confirmed, ...optimistic] : confirmed),
     [optimistic, confirmed]
   )
 
