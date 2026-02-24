@@ -71,7 +71,9 @@ function Chat({ threadId }: { threadId: string }) {
   userId="user-1"
   userName="Alice"
   userEmail="alice@example.com"
-  userRole="member"
+  systemRole="user"              // "admin" | "user" (default: "user")
+  organizationRole="member"      // "owner" | "manager" | "member" (default: "member")
+  workspaceRole="member"         // "manager" | "member" (default: "member")
   authToken="sk-..."             // Optional authentication
   onError={(err) => console.error(err.code, err.message)}
 >
@@ -212,11 +214,11 @@ All public types are camelCase. The SDK transforms the wire format (snake_case) 
 
 ```typescript
 import type {
-  Thread,            // { id, workerId, title, createdAt, updatedAt, lastEventAt, metadata }
-  ThreadEvent,       // { id, threadId, type, actor, author, content, data, createdAt, ... }
+  User,              // { userId, userName, userEmail, systemRole, organizationRole, workspaceRole }
+  Thread,            // { id, workerId, organizationId, workspaceId, owner, users, title, ... }
+  ThreadEvent,       // { id, threadId, type, actor, author, user, content, data, createdAt, ... }
   Run,               // { id, threadId, agentId, status, startedAt, endedAt, error }
   ContentPart,       // TextPart | ImagePart | DocumentPart
-  Metadata,          // { userId, userName, userEmail, userRole, organizationId, workspaceId }
   ConnectionStatus,  // "idle" | "connecting" | "connected" | "disconnected" | "error"
   Actor,             // "user" | "assistant" | "system" | "tool"
   EventType,         // "message" | "tool.call" | "tool.result" | "tool.transaction" | ...
