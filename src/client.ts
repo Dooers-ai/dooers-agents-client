@@ -469,9 +469,12 @@ export class WorkerClient {
             }
           }
         }
-        // Track last event
+        // Track last event for gap recovery on reconnect.
+        // Only for subscribed threads — new threads receive event.append
+        // before subscription exists, and lastEventIds feeds after_event_id
+        // in subscribe(), which controls what the server includes in snapshots.
         const lastEvent = events[events.length - 1]
-        if (lastEvent) {
+        if (lastEvent && this.subscriptionRefs.has(frame.payload.thread_id)) {
           this.lastEventIds.set(frame.payload.thread_id, lastEvent.id)
         }
         // Atomically append confirmed events and remove reconciled optimistic events

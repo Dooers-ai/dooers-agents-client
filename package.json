@@ -1,6 +1,6 @@
 {
   "name": "dooers-agents-client",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "agents-client — react sdk for agents-server",
   "type": "module",
   "main": "./dist/main.cjs",

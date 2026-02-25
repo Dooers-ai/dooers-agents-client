@@ -199,24 +199,35 @@ export function createWorkerStore() {
           const loadingThreads = new Set(s.loadingThreads)
           loadingThreads.delete(thread.id)
 
-          // Merge snapshot with any events that arrived via event.append
-          // before the snapshot (prevents race condition where snapshot
-          // overwrites events already received)
+          // Events may already exist from event.append arriving before the
+          // snapshot (race between the two data paths). Existing array is
+          // already in chronological order. Append only snapshot events we
+          // don't have yet — never reorder what's already in place.
           const existing = s.events[thread.id] ?? []
           let mergedEvents: ThreadEvent[]
           if (existing.length === 0) {
             mergedEvents = snapshotEvents
           } else {
-            const snapshotIds = new Set(snapshotEvents.map((e) => e.id))
-            const extra = existing.filter((e) => !snapshotIds.has(e.id))
-            mergedEvents = extra.length > 0 ? [...snapshotEvents, ...extra] : snapshotEvents
+            const existingIds = new Set(existing.map((e) => e.id))
+            const newFromSnapshot = snapshotEvents.filter((e) => !existingIds.has(e.id))
+            mergedEvents = newFromSnapshot.length > 0
+              ? [...existing, ...newFromSnapshot]
+              : existing
           }
+
+          // Snapshot is authoritative — clear optimistic state for this thread.
+          const optimistic = { ...s.optimistic }
+          const optimisticKeys = { ...s.optimisticKeys }
+          delete optimistic[thread.id]
+          delete optimisticKeys[thread.id]
 
           return {
             threads,
             threadOrder,
             events: { ...s.events, [thread.id]: mergedEvents },
             runs: { ...s.runs, [thread.id]: runs },
+            optimistic,
+            optimisticKeys,
             loadingThreads,
           }
         }),
