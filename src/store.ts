@@ -190,7 +190,7 @@ export function createWorkerStore() {
           }
         }),
 
-      onThreadSnapshot: (thread, events, runs) =>
+      onThreadSnapshot: (thread, snapshotEvents, runs) =>
         set((s) => {
           const threads = { ...s.threads, [thread.id]: thread }
           const threadOrder = s.threadOrder.includes(thread.id)
@@ -198,10 +198,24 @@ export function createWorkerStore() {
             : [thread.id, ...s.threadOrder]
           const loadingThreads = new Set(s.loadingThreads)
           loadingThreads.delete(thread.id)
+
+          // Merge snapshot with any events that arrived via event.append
+          // before the snapshot (prevents race condition where snapshot
+          // overwrites events already received)
+          const existing = s.events[thread.id] ?? []
+          let mergedEvents: ThreadEvent[]
+          if (existing.length === 0) {
+            mergedEvents = snapshotEvents
+          } else {
+            const snapshotIds = new Set(snapshotEvents.map((e) => e.id))
+            const extra = existing.filter((e) => !snapshotIds.has(e.id))
+            mergedEvents = extra.length > 0 ? [...snapshotEvents, ...extra] : snapshotEvents
+          }
+
           return {
             threads,
             threadOrder,
-            events: { ...s.events, [thread.id]: events },
+            events: { ...s.events, [thread.id]: mergedEvents },
             runs: { ...s.runs, [thread.id]: runs },
             loadingThreads,
           }
