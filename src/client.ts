@@ -228,13 +228,15 @@ export class WorkerClient {
     targetType: string,
     targetId: string,
     feedback: 'like' | 'dislike',
-    reason?: string
+    reason?: string,
+    classification?: string
   ) {
     this.send('feedback', {
       target_type: targetType,
       target_id: targetId,
       feedback,
       reason,
+      classification,
     })
   }
 

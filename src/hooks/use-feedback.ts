@@ -8,12 +8,14 @@ export function useFeedback(targetId: string, targetType: FeedbackTarget = 'even
   const feedback = useStore((s) => s.feedback[targetId] ?? null)
 
   const like = useCallback(
-    (reason?: string) => client.sendFeedback(targetType, targetId, 'like', reason),
+    (reason?: string, classification?: string) =>
+      client.sendFeedback(targetType, targetId, 'like', reason, classification),
     [client, targetType, targetId]
   )
 
   const dislike = useCallback(
-    (reason?: string) => client.sendFeedback(targetType, targetId, 'dislike', reason),
+    (reason?: string, classification?: string) =>
+      client.sendFeedback(targetType, targetId, 'dislike', reason, classification),
     [client, targetType, targetId]
   )
 

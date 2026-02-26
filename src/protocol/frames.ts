@@ -79,6 +79,7 @@ export type C2S_Feedback = Frame<
     target_id: string
     feedback: 'like' | 'dislike'
     reason?: string
+    classification?: string
   }
 >
 
