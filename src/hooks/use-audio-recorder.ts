@@ -18,13 +18,24 @@ export function useAudioRecorder() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
   const resolveStopRef = useRef<((blob: Blob) => void) | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+
+  const releaseAudioContext = useCallback(() => {
+    analyserRef.current = null
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close()
+    }
+    audioContextRef.current = null
+  }, [])
 
   const releaseStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => {
       t.stop()
     })
     streamRef.current = null
-  }, [])
+    releaseAudioContext()
+  }, [releaseAudioContext])
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -47,6 +58,15 @@ export function useAudioRecorder() {
   const start = useCallback(async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     streamRef.current = stream
+
+    const audioContext = new AudioContext()
+    audioContextRef.current = audioContext
+    const source = audioContext.createMediaStreamSource(stream)
+    const analyser = audioContext.createAnalyser()
+    analyser.fftSize = 256
+    source.connect(analyser)
+    analyserRef.current = analyser
+
     const mimeType = getPreferredMimeType()
     const recorder = new MediaRecorder(stream, { mimeType })
     mediaRecorderRef.current = recorder
@@ -98,5 +118,5 @@ export function useAudioRecorder() {
     setDuration(0)
   }, [releaseStream, clearTimer])
 
-  return { start, stop, cancel, isRecording, duration }
+  return { start, stop, cancel, isRecording, duration, analyserNode: analyserRef.current }
 }
