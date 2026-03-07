@@ -210,9 +210,7 @@ export function createWorkerStore() {
           } else {
             const existingIds = new Set(existing.map((e) => e.id))
             const newFromSnapshot = snapshotEvents.filter((e) => !existingIds.has(e.id))
-            mergedEvents = newFromSnapshot.length > 0
-              ? [...existing, ...newFromSnapshot]
-              : existing
+            mergedEvents = newFromSnapshot.length > 0 ? [...existing, ...newFromSnapshot] : existing
           }
 
           // Snapshot is authoritative — clear optimistic state for this thread.
@@ -236,9 +234,20 @@ export function createWorkerStore() {
         set((s) => {
           const existing = s.events[threadId] ?? []
           const existingIds = new Set(existing.map((e) => e.id))
-          const unique = newEvents.filter((e) => !existingIds.has(e.id))
+          // Separate new events from updates to existing events
+          const updates = new Map<string, ThreadEvent>()
+          const appends: ThreadEvent[] = []
+          for (const e of newEvents) {
+            if (existingIds.has(e.id)) {
+              updates.set(e.id, e)
+            } else {
+              appends.push(e)
+            }
+          }
+          // Apply in-place updates then append new events
+          const merged = updates.size > 0 ? existing.map((e) => updates.get(e.id) ?? e) : existing
           return {
-            events: { ...s.events, [threadId]: [...existing, ...unique] },
+            events: { ...s.events, [threadId]: [...merged, ...appends] },
           }
         }),
 

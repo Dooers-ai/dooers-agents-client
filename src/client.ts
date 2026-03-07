@@ -42,6 +42,7 @@ export class WorkerClient {
   private onError: OnErrorCallback | null = null
 
   private url = ''
+  private httpBaseUrl = ''
   private workerId = ''
   private uploadUrl: string | undefined
   private config: WorkerConnectionConfig = {
@@ -126,6 +127,19 @@ export class WorkerClient {
     this.workerId = workerId
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
+
+    // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
+    try {
+      const parsed = new URL(url)
+      parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:'
+      parsed.pathname = ''
+      parsed.search = ''
+      parsed.hash = ''
+      this.httpBaseUrl = parsed.toString().replace(/\/$/, '')
+    } catch {
+      this.httpBaseUrl = ''
+    }
+
     this.callbacks.setConnectionStatus('connecting')
     this.createConnection()
   }
@@ -437,7 +451,7 @@ export class WorkerClient {
 
       case 'thread.snapshot': {
         const thread = toThread(frame.payload.thread)
-        const events = frame.payload.events.map(toThreadEvent)
+        const events = this.resolveEventUrls(frame.payload.events.map(toThreadEvent))
         const runs = (frame.payload.runs ?? []).map(toRun)
         // Track last event for gap recovery
         const lastEvent = events[events.length - 1]
@@ -454,7 +468,7 @@ export class WorkerClient {
       }
 
       case 'event.append': {
-        const events = frame.payload.events.map(toThreadEvent)
+        const events = this.resolveEventUrls(frame.payload.events.map(toThreadEvent))
         // Collect reconciled client event IDs and resolve pending message promises
         const resolvedClientEventIds: string[] = []
         for (const event of events) {
@@ -489,7 +503,7 @@ export class WorkerClient {
       }
 
       case 'event.list.result': {
-        const events = frame.payload.events.map(toThreadEvent)
+        const events = this.resolveEventUrls(frame.payload.events.map(toThreadEvent))
         this.eventPaginationCursors.set(frame.payload.thread_id, frame.payload.cursor)
         this.callbacks.onEventListResult(
           frame.payload.thread_id,
@@ -564,5 +578,20 @@ export class WorkerClient {
   private sendRaw(frame: unknown) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return
     this.ws.send(JSON.stringify(frame))
+  }
+
+  /** Resolve relative URLs in event content parts against the agent's HTTP base. */
+  private resolveEventUrls(events: ThreadEvent[]): ThreadEvent[] {
+    if (!this.httpBaseUrl) return events
+    const base = this.httpBaseUrl
+    return events.map((event) => {
+      if (!event.content?.some((p) => 'url' in p && p.url?.startsWith('/'))) return event
+      return {
+        ...event,
+        content: event.content.map((part) =>
+          'url' in part && part.url?.startsWith('/') ? { ...part, url: `${base}${part.url}` } : part
+        ),
+      }
+    })
   }
 }
