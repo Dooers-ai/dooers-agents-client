@@ -19,6 +19,7 @@ export interface WorkerProviderProps {
   userId?: string
   userName?: string
   userEmail?: string
+  identityIds?: string[]
   systemRole?: string
   organizationRole?: string
   workspaceRole?: string
@@ -36,6 +37,7 @@ export function WorkerProvider({
   userId,
   userName,
   userEmail,
+  identityIds,
   systemRole,
   organizationRole,
   workspaceRole,
@@ -62,6 +64,9 @@ export function WorkerProvider({
     clientRef.current?.setUploadUrl(uploadUrl)
   }, [uploadUrl])
 
+  // Stable key for identityIds to avoid reference-equality churn
+  const identityIdsKey = identityIds?.join(',') ?? ''
+
   // Connect/disconnect lifecycle — skips connection when url or workerId are missing
   useEffect(() => {
     if (!url || !workerId) return
@@ -71,6 +76,7 @@ export function WorkerProvider({
       userId,
       userName,
       userEmail,
+      identityIds: identityIdsKey ? identityIdsKey.split(',') : undefined,
       systemRole,
       organizationRole,
       workspaceRole,
@@ -85,6 +91,7 @@ export function WorkerProvider({
     userId,
     userName,
     userEmail,
+    identityIdsKey,
     systemRole,
     organizationRole,
     workspaceRole,

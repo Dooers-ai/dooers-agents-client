@@ -21,6 +21,7 @@ export interface WorkerConnectionConfig {
   userId?: string
   userName?: string
   userEmail?: string
+  identityIds?: string[]
   systemRole?: string
   organizationRole?: string
   workspaceRole?: string
@@ -208,7 +209,7 @@ export class WorkerClient {
 
   loadMoreThreads(limit?: number) {
     const cursor = this.lastThreadListCursor
-    if (!cursor) return
+    if (!cursor || this.isLoadingMore) return
     this.isLoadingMore = true
     this.send('thread.list', { cursor, limit })
   }
@@ -306,6 +307,7 @@ export class WorkerClient {
         userId: this.config.userId ?? '',
         userName: this.config.userName,
         userEmail: this.config.userEmail,
+        identityIds: this.config.identityIds,
         systemRole: this.config.systemRole ?? 'user',
         organizationRole: this.config.organizationRole ?? 'member',
         workspaceRole: this.config.workspaceRole ?? 'member',
@@ -396,6 +398,7 @@ export class WorkerClient {
           user_id: this.config.userId ?? '',
           user_name: this.config.userName ?? null,
           user_email: this.config.userEmail ?? null,
+          identity_ids: this.config.identityIds ?? [],
           system_role: this.config.systemRole ?? 'user',
           organization_role: this.config.organizationRole ?? 'member',
           workspace_role: this.config.workspaceRole ?? 'member',

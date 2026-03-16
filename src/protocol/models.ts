@@ -5,6 +5,7 @@ export interface WireUser {
   user_id: string
   user_name?: string | null
   user_email?: string | null
+  identity_ids?: string[]
   system_role: string
   organization_role: string
   workspace_role: string

@@ -84,6 +84,7 @@ export interface User {
   userId: string
   userName?: string | null
   userEmail?: string | null
+  identityIds?: string[]
   systemRole: string
   organizationRole: string
   workspaceRole: string
@@ -223,6 +224,7 @@ export function toUser(w?: WireUser): User | undefined {
     userId: w.user_id,
     userName: w.user_name,
     userEmail: w.user_email,
+    identityIds: w.identity_ids,
     systemRole: w.system_role,
     organizationRole: w.organization_role,
     workspaceRole: w.workspace_role,
