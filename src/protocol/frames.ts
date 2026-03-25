@@ -64,7 +64,14 @@ export type C2S_EventList = Frame<
 
 // --- Settings C2S ---
 
-export type C2S_SettingsSubscribe = Frame<'settings.subscribe', { worker_id: string }>
+export type C2S_SettingsSubscribe = Frame<
+  'settings.subscribe',
+  {
+    worker_id: string
+    audience?: 'creator' | 'user'
+    agent_owner_user_id?: string | null
+  }
+>
 
 export type C2S_SettingsUnsubscribe = Frame<'settings.unsubscribe', { worker_id: string }>
 

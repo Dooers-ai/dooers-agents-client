@@ -233,6 +233,7 @@ export interface WireSettingsField {
   label: string
   required: boolean
   readonly: boolean
+  visibility?: 'internal' | 'creator' | 'user'
   value: unknown
   placeholder: string | null
   options: WireSettingsSelectOption[] | null
@@ -249,6 +250,7 @@ export interface WireSettingsFieldGroup {
   label: string
   fields: WireSettingsField[]
   collapsible: 'open' | 'closed' | null
+  visibility?: 'internal' | 'creator' | 'user'
 }
 
 export type WireSettingsItem = WireSettingsField | WireSettingsFieldGroup

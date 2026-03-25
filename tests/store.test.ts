@@ -151,6 +151,7 @@ describe("createWorkerStore", () => {
       label: "Name",
       required: false,
       readonly: false,
+      visibility: "user",
       value: "hello",
       placeholder: null,
       options: null,
@@ -175,6 +176,7 @@ describe("createWorkerStore", () => {
       label: "Name",
       required: false,
       readonly: false,
+      visibility: "user",
       value: "old",
       placeholder: null,
       options: null,
@@ -204,6 +206,7 @@ describe("createWorkerStore", () => {
           label: "Name",
           required: false,
           readonly: false,
+          visibility: "user",
           value: "old",
           placeholder: null,
           options: null,
@@ -216,6 +219,7 @@ describe("createWorkerStore", () => {
         },
       ],
       collapsible: null,
+      visibility: "user",
     };
     store.getState().actions.onSettingsSnapshot([group], "2026-01-01T00:00:00Z");
     store.getState().actions.onSettingsPatch("f1", "new", "2026-01-02T00:00:00Z");

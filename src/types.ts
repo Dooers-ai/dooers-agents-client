@@ -245,6 +245,8 @@ export type SettingsFieldType =
   | 'date'
   | 'image'
 
+export type SettingsFieldVisibility = 'internal' | 'creator' | 'user'
+
 export interface SettingsSelectOption {
   value: string
   label: string
@@ -256,6 +258,7 @@ export interface SettingsField {
   label: string
   required: boolean
   readonly: boolean
+  visibility: SettingsFieldVisibility
   value: unknown
   placeholder: string | null
   options: SettingsSelectOption[] | null
@@ -272,6 +275,7 @@ export interface SettingsFieldGroup {
   label: string
   fields: SettingsField[]
   collapsible: 'open' | 'closed' | null
+  visibility: SettingsFieldVisibility
 }
 
 export type SettingsItem = SettingsField | SettingsFieldGroup
@@ -504,6 +508,7 @@ export function toSettingsField(w: WireSettingsField): SettingsField {
     label: w.label,
     required: w.required,
     readonly: w.readonly,
+    visibility: w.visibility ?? 'user',
     value: w.value,
     placeholder: w.placeholder,
     options: w.options,
@@ -524,6 +529,7 @@ export function toSettingsItem(w: WireSettingsItem): SettingsItem {
       label: g.label,
       fields: g.fields.map(toSettingsField),
       collapsible: g.collapsible,
+      visibility: g.visibility ?? 'user',
     }
   }
   return toSettingsField(w as WireSettingsField)
