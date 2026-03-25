@@ -185,7 +185,11 @@ describe("WorkerClient", () => {
     const ws = MockWebSocket.instances[0] as MockWebSocket;
     const subFrames = ws.sent.filter((s) => JSON.parse(s).type === "settings.subscribe");
     expect(subFrames).toHaveLength(1);
-    expect(JSON.parse(subFrames[0] as string).payload.worker_id).toBe("w1");
+    expect(JSON.parse(subFrames[0] as string).payload).toEqual({
+      worker_id: "w1",
+      audience: "user",
+      agent_owner_user_id: null,
+    })
 
     ws.receive({
       id: "ss-1",

@@ -8,7 +8,11 @@ export function useSettings() {
   const updatedAt = useStore((s) => s.settings.updatedAt)
   const isLoading = useStore((s) => s.settings.isLoading)
 
-  const subscribe = useCallback(() => client.subscribeSettings(), [client])
+  const subscribe = useCallback(
+    (options?: { audience?: 'creator' | 'user'; agentOwnerUserId?: string | null }) =>
+      client.subscribeSettings(options),
+    [client]
+  )
   const unsubscribe = useCallback(() => client.unsubscribeSettings(), [client])
 
   const patchField = useCallback(

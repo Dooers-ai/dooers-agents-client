@@ -40,6 +40,7 @@ export type {
   SettingsField,
   SettingsFieldGroup,
   SettingsFieldType,
+  SettingsFieldVisibility,
   SettingsItem,
   SettingsSelectOption,
   TextDisplayPart,

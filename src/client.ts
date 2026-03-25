@@ -225,8 +225,15 @@ export class WorkerClient {
 
   // --- Settings ---
 
-  subscribeSettings() {
-    this.send('settings.subscribe', { worker_id: this.workerId })
+  subscribeSettings(options?: {
+    audience?: 'creator' | 'user'
+    agentOwnerUserId?: string | null
+  }) {
+    this.send('settings.subscribe', {
+      worker_id: this.workerId,
+      audience: options?.audience ?? 'user',
+      agent_owner_user_id: options?.agentOwnerUserId ?? null,
+    })
   }
 
   unsubscribeSettings() {
