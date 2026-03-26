@@ -43,7 +43,7 @@ export function useThreadEvents(threadId: string | null) {
   const { client } = useWorkerContext()
 
   const hasOlderEvents = useStore((s) =>
-    threadId ? (s.eventPagination[threadId]?.hasMore ?? true) : false
+    threadId ? (s.eventPagination[threadId]?.hasMore ?? false) : false
   )
 
   const loadOlderEvents = useCallback(
