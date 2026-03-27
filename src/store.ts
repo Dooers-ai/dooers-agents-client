@@ -2,6 +2,35 @@ import { createStore } from 'zustand/vanilla'
 import type { AnalyticsEvent, Run, SettingsItem, Thread, ThreadEvent } from './types'
 import { isSettingsFieldGroup } from './types'
 
+type FormState = {
+  values: Record<string, unknown>
+  submitting: boolean
+  submitted: boolean
+  cancelled: boolean
+}
+
+/** Extract form states from form.response events to restore submitted/cancelled state. */
+function extractFormStates(
+  events: ThreadEvent[],
+  existing: Record<string, FormState>
+): Record<string, FormState> {
+  let result = existing
+  for (const e of events) {
+    if (e.type === 'form.response' && e.data) {
+      const formEventId = e.data.form_event_id as string
+      if (formEventId && !result[formEventId]) {
+        const cancelled = (e.data.cancelled as boolean) ?? false
+        const values = (e.data.values as Record<string, unknown>) ?? {}
+        result = {
+          ...result,
+          [formEventId]: { values, submitting: false, submitted: !cancelled, cancelled },
+        }
+      }
+    }
+  }
+  return result
+}
+
 export interface WorkerActions {
   setConnectionStatus: (status: WorkerState['connection']['status'], error?: string) => void
   setReconnectFailed: () => void
@@ -33,6 +62,11 @@ export interface WorkerActions {
   onFeedbackAck: (targetId: string, feedback: 'like' | 'dislike') => void
   onAnalyticsEvent: (event: AnalyticsEvent) => void
   resetAnalytics: () => void
+  initFormState: (formEventId: string, defaults: Record<string, unknown>) => void
+  setFormValue: (formEventId: string, fieldName: string, value: unknown) => void
+  setFormSubmitting: (formEventId: string, submitting: boolean) => void
+  setFormSubmitted: (formEventId: string) => void
+  setFormCancelled: (formEventId: string) => void
 }
 
 export interface WorkerState {
@@ -66,6 +100,7 @@ export interface WorkerState {
       feedbackDislikes: number
     }
   }
+  formStates: Record<string, FormState>
   subscriptions: Set<string>
   loadingThreads: Set<string>
   actions: WorkerActions
@@ -97,6 +132,7 @@ export function createWorkerStore() {
       isLoading: true,
     },
     feedback: {},
+    formStates: {},
     analytics: {
       events: [],
       counters: { totalRequests: 0, feedbackLikes: 0, feedbackDislikes: 0 },
@@ -177,6 +213,15 @@ export function createWorkerStore() {
           subscriptions.delete(threadId)
           const loadingThreads = new Set(s.loadingThreads)
           loadingThreads.delete(threadId)
+          // Clean up form states for events belonging to this thread
+          const deletedEvents = s.events[threadId] ?? []
+          const deletedEventIds = new Set(deletedEvents.map((e) => e.id))
+          const formStates = { ...s.formStates }
+          for (const key of Object.keys(formStates)) {
+            if (deletedEventIds.has(key)) {
+              delete formStates[key]
+            }
+          }
           return {
             threads,
             threadOrder,
@@ -187,6 +232,7 @@ export function createWorkerStore() {
             eventPagination,
             subscriptions,
             loadingThreads,
+            formStates,
           }
         }),
 
@@ -227,6 +273,7 @@ export function createWorkerStore() {
             optimistic,
             optimisticKeys,
             loadingThreads,
+            formStates: extractFormStates(mergedEvents, s.formStates),
           }
         }),
 
@@ -248,6 +295,7 @@ export function createWorkerStore() {
           const merged = updates.size > 0 ? existing.map((e) => updates.get(e.id) ?? e) : existing
           return {
             events: { ...s.events, [threadId]: [...merged, ...appends] },
+            formStates: extractFormStates(appends, s.formStates),
           }
         }),
 
@@ -399,6 +447,68 @@ export function createWorkerStore() {
             counters: { totalRequests: 0, feedbackLikes: 0, feedbackDislikes: 0 },
           },
         })),
+      initFormState: (formEventId, defaults) =>
+        set((s) => {
+          if (s.formStates[formEventId]) return s
+          return {
+            formStates: {
+              ...s.formStates,
+              [formEventId]: {
+                values: defaults,
+                submitting: false,
+                submitted: false,
+                cancelled: false,
+              },
+            },
+          }
+        }),
+      setFormSubmitting: (formEventId, submitting) =>
+        set((s) => {
+          const existing = s.formStates[formEventId]
+          if (!existing) return s
+          return {
+            formStates: {
+              ...s.formStates,
+              [formEventId]: { ...existing, submitting },
+            },
+          }
+        }),
+      setFormValue: (formEventId, fieldName, value) =>
+        set((s) => {
+          const existing = s.formStates[formEventId]
+          if (!existing || existing.submitted || existing.cancelled) return s
+          return {
+            formStates: {
+              ...s.formStates,
+              [formEventId]: {
+                ...existing,
+                values: { ...existing.values, [fieldName]: value },
+              },
+            },
+          }
+        }),
+      setFormSubmitted: (formEventId) =>
+        set((s) => {
+          const existing = s.formStates[formEventId]
+          if (!existing) return s
+          return {
+            formStates: {
+              ...s.formStates,
+              [formEventId]: { ...existing, submitting: false, submitted: true },
+            },
+          }
+        }),
+      setFormCancelled: (formEventId) =>
+        set((s) => {
+          const existing = s.formStates[formEventId]
+          if (!existing) return s
+          return {
+            formStates: {
+              ...s.formStates,
+              [formEventId]: { ...existing, submitting: false, cancelled: true },
+            },
+          }
+        }),
     },
   }))
 }

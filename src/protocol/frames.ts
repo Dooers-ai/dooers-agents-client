@@ -47,7 +47,7 @@ export type C2S_EventCreate = Frame<
     thread_id?: string
     client_event_id?: string
     event: {
-      type: 'message'
+      type: 'message' | 'form.response'
       actor: 'user'
       content: WireC2S_ContentPart[]
       data?: Record<string, unknown>

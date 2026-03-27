@@ -69,6 +69,109 @@ export type ImagePart = ImageSendPart
 export type DocumentPart = DocumentSendPart
 export type AudioPart = AudioSendPart
 
+// --- Form element types (content parts for form events) ---
+
+export interface FormOption {
+  value: string
+  label: string
+}
+
+export interface FormTextElement {
+  type: 'text_input'
+  name: string
+  label: string
+  order: number
+  required: boolean
+  disabled: boolean
+  placeholder: string | null
+  default: string | null
+  inputType: 'text' | 'password' | 'email' | 'number'
+}
+
+export interface FormTextareaElement {
+  type: 'textarea_input'
+  name: string
+  label: string
+  order: number
+  required: boolean
+  disabled: boolean
+  placeholder: string | null
+  default: string | null
+  rows: number | null
+}
+
+export interface FormSelectElement {
+  type: 'select_input'
+  name: string
+  label: string
+  options: FormOption[]
+  order: number
+  required: boolean
+  disabled: boolean
+  default: string | null
+  placeholder: string | null
+}
+
+export interface FormRadioElement {
+  type: 'radio_input'
+  name: string
+  label: string
+  options: FormOption[]
+  order: number
+  required: boolean
+  disabled: boolean
+  default: string | null
+  variant: 'native' | 'button'
+}
+
+export interface FormCheckboxElement {
+  type: 'checkbox_input'
+  name: string
+  label: string
+  options: FormOption[]
+  order: number
+  required: boolean
+  disabled: boolean
+  default: string[] | null
+  variant: 'native' | 'button'
+}
+
+export interface FormFileElement {
+  type: 'file_input'
+  name: string
+  label: string
+  uploadUrl: string
+  order: number
+  required: boolean
+  disabled: boolean
+  accept: string | null
+  multiple: boolean
+}
+
+export type FormElement =
+  | FormTextElement
+  | FormTextareaElement
+  | FormSelectElement
+  | FormRadioElement
+  | FormCheckboxElement
+  | FormFileElement
+
+export type FormSize = 'small' | 'medium' | 'large'
+
+export interface FormEventData {
+  message: string
+  elements: FormElement[]
+  submitLabel: string
+  cancelLabel: string
+  size: FormSize
+}
+
+export interface FormResponseEventData {
+  formEventId: string
+  cancelled: boolean
+  values: Record<string, unknown>
+}
+
 export type Actor = 'user' | 'assistant' | 'system' | 'tool'
 export type EventType =
   | 'message'
@@ -77,6 +180,8 @@ export type EventType =
   | 'tool.call'
   | 'tool.result'
   | 'tool.transaction'
+  | 'form'
+  | 'form.response'
 export type RunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -208,6 +313,7 @@ import type {
   WireC2S_ContentPart,
   WireRun,
   WireS2C_ContentPart,
+  WireS2C_FormElement,
   WireSettingsField,
   WireSettingsFieldGroup,
   WireSettingsItem,
@@ -281,6 +387,85 @@ export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart
 
 // Backward-compatible alias
 export const toContentPart = toDisplayContentPart
+
+export function toFormElement(w: WireS2C_FormElement): FormElement {
+  const base = {
+    name: w.name,
+    label: w.label,
+    order: w.order ?? 0,
+    required: w.required ?? false,
+    disabled: w.disabled ?? false,
+  }
+  switch (w.type) {
+    case 'text_input':
+      return {
+        ...base,
+        type: 'text_input',
+        placeholder: w.placeholder ?? null,
+        default: w.default ?? null,
+        inputType: w.input_type ?? 'text',
+      }
+    case 'textarea_input':
+      return {
+        ...base,
+        type: 'textarea_input',
+        placeholder: w.placeholder ?? null,
+        default: w.default ?? null,
+        rows: w.rows ?? null,
+      }
+    case 'select_input':
+      return {
+        ...base,
+        type: 'select_input',
+        options: w.options,
+        default: w.default ?? null,
+        placeholder: w.placeholder ?? null,
+      }
+    case 'radio_input':
+      return {
+        ...base,
+        type: 'radio_input',
+        options: w.options,
+        default: w.default ?? null,
+        variant: w.variant ?? 'native',
+      }
+    case 'checkbox_input':
+      return {
+        ...base,
+        type: 'checkbox_input',
+        options: w.options,
+        default: w.default ?? null,
+        variant: w.variant ?? 'native',
+      }
+    case 'file_input':
+      return {
+        ...base,
+        type: 'file_input',
+        uploadUrl: w.upload_url,
+        accept: w.accept ?? null,
+        multiple: w.multiple ?? false,
+      }
+  }
+}
+
+export function toFormEventData(data: Record<string, unknown>): FormEventData {
+  const elements = (data.elements as WireS2C_FormElement[]) ?? []
+  return {
+    message: (data.message as string) ?? '',
+    elements: elements.map(toFormElement),
+    submitLabel: (data.submit_label as string) ?? 'Send',
+    cancelLabel: (data.cancel_label as string) ?? 'Cancel',
+    size: ((data.size as string) ?? 'medium') as FormSize,
+  }
+}
+
+export function toFormResponseEventData(data: Record<string, unknown>): FormResponseEventData {
+  return {
+    formEventId: (data.form_event_id as string) ?? '',
+    cancelled: (data.cancelled as boolean) ?? false,
+    values: (data.values as Record<string, unknown>) ?? {},
+  }
+}
 
 export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
   return {

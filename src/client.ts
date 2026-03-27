@@ -325,15 +325,7 @@ export class WorkerClient {
       clientEventId,
     })
 
-    // Create promise that resolves when server confirms with event.append
-    const promise = new Promise<{ threadId: string }>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pendingMessages.delete(clientEventId)
-        reject(new Error('sendMessage timed out waiting for server response'))
-      }, SEND_MESSAGE_TIMEOUT)
-
-      this.pendingMessages.set(clientEventId, { resolve, timer })
-    })
+    const promise = this.createPendingPromise(clientEventId)
 
     this.send('event.create', {
       thread_id: params.threadId,
@@ -348,7 +340,45 @@ export class WorkerClient {
     return promise
   }
 
+  sendFormResponse(params: {
+    threadId: string
+    formEventId: string
+    cancelled: boolean
+    values: Record<string, unknown>
+  }): Promise<{ threadId: string }> {
+    const clientEventId = crypto.randomUUID()
+    const promise = this.createPendingPromise(clientEventId)
+
+    this.send('event.create', {
+      thread_id: params.threadId,
+      client_event_id: clientEventId,
+      event: {
+        type: 'form.response' as const,
+        actor: 'user' as const,
+        content: [],
+        data: {
+          form_event_id: params.formEventId,
+          cancelled: params.cancelled,
+          values: params.values,
+        },
+      },
+    })
+
+    return promise
+  }
+
   // --- Private ---
+
+  private createPendingPromise(clientEventId: string): Promise<{ threadId: string }> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingMessages.delete(clientEventId)
+        reject(new Error('Request timed out waiting for server response'))
+      }, SEND_MESSAGE_TIMEOUT)
+
+      this.pendingMessages.set(clientEventId, { resolve, timer })
+    })
+  }
 
   private createConnection() {
     if (this.ws) {

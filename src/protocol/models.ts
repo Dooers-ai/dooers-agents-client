@@ -95,6 +95,93 @@ export type WireS2C_ContentPart =
 // Backward-compatible alias
 export type WireContentPart = WireS2C_ContentPart
 
+// --- Wire S2C form elements (content parts for form events) ---
+
+export interface WireFormOption {
+  value: string
+  label: string
+}
+
+export interface WireS2C_FormTextElement {
+  type: 'text_input'
+  name: string
+  label: string
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  placeholder?: string | null
+  default?: string | null
+  input_type?: 'text' | 'password' | 'email' | 'number'
+}
+
+export interface WireS2C_FormTextareaElement {
+  type: 'textarea_input'
+  name: string
+  label: string
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  placeholder?: string | null
+  default?: string | null
+  rows?: number | null
+}
+
+export interface WireS2C_FormSelectElement {
+  type: 'select_input'
+  name: string
+  label: string
+  options: WireFormOption[]
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  default?: string | null
+  placeholder?: string | null
+}
+
+export interface WireS2C_FormRadioElement {
+  type: 'radio_input'
+  name: string
+  label: string
+  options: WireFormOption[]
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  default?: string | null
+  variant?: 'native' | 'button'
+}
+
+export interface WireS2C_FormCheckboxElement {
+  type: 'checkbox_input'
+  name: string
+  label: string
+  options: WireFormOption[]
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  default?: string[] | null
+  variant?: 'native' | 'button'
+}
+
+export interface WireS2C_FormFileElement {
+  type: 'file_input'
+  name: string
+  label: string
+  upload_url: string
+  order?: number
+  required?: boolean
+  disabled?: boolean
+  accept?: string | null
+  multiple?: boolean
+}
+
+export type WireS2C_FormElement =
+  | WireS2C_FormTextElement
+  | WireS2C_FormTextareaElement
+  | WireS2C_FormSelectElement
+  | WireS2C_FormRadioElement
+  | WireS2C_FormCheckboxElement
+  | WireS2C_FormFileElement
+
 export type WireActor = 'user' | 'assistant' | 'system' | 'tool'
 export type WireEventType =
   | 'message'
@@ -103,6 +190,8 @@ export type WireEventType =
   | 'tool.call'
   | 'tool.result'
   | 'tool.transaction'
+  | 'form'
+  | 'form.response'
 export type WireRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 
 export interface WireThreadEvent {
