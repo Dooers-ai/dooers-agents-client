@@ -1,6 +1,6 @@
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart } from './protocol/models'
-import type { WorkerActions } from './store'
+import type { AgentActions } from './store'
 import type { DisplayContentPart, SendContentPart, ThreadEvent } from './types'
 import {
   toAnalyticsEvent,
@@ -15,7 +15,7 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
 
-export interface WorkerConnectionConfig {
+export interface AgentConnectionConfig {
   organizationId?: string
   workspaceId?: string
   userId?: string
@@ -37,16 +37,16 @@ export interface UploadResult {
   sizeBytes: number
 }
 
-export class WorkerClient {
+export class AgentClient {
   private ws: WebSocket | null = null
-  private callbacks: WorkerActions
+  private callbacks: AgentActions
   private onError: OnErrorCallback | null = null
 
   private url = ''
   private httpBaseUrl = ''
-  private workerId = ''
+  private agentId = ''
   private uploadUrl: string | undefined
-  private config: WorkerConnectionConfig = {
+  private config: AgentConnectionConfig = {
     organizationId: '',
     workspaceId: '',
     userId: '',
@@ -79,7 +79,7 @@ export class WorkerClient {
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
 
-  constructor(callbacks: WorkerActions) {
+  constructor(callbacks: AgentActions) {
     this.callbacks = callbacks
   }
 
@@ -123,9 +123,9 @@ export class WorkerClient {
     }
   }
 
-  connect(url: string, workerId: string, config?: WorkerConnectionConfig) {
+  connect(url: string, agentId: string, config?: AgentConnectionConfig) {
     this.url = url
-    this.workerId = workerId
+    this.agentId = agentId
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
 
@@ -226,11 +226,11 @@ export class WorkerClient {
   // --- Settings ---
 
   subscribeSettings() {
-    this.send('settings.subscribe', { worker_id: this.workerId })
+    this.send('settings.subscribe', { agent_id: this.agentId })
   }
 
   unsubscribeSettings() {
-    this.send('settings.unsubscribe', { worker_id: this.workerId })
+    this.send('settings.unsubscribe', { agent_id: this.agentId })
   }
 
   patchSetting(fieldId: string, value: unknown) {
@@ -258,11 +258,11 @@ export class WorkerClient {
   // --- Analytics ---
 
   subscribeAnalytics() {
-    this.send('analytics.subscribe', { worker_id: this.workerId })
+    this.send('analytics.subscribe', { agent_id: this.agentId })
   }
 
   unsubscribeAnalytics() {
-    this.send('analytics.unsubscribe', { worker_id: this.workerId })
+    this.send('analytics.unsubscribe', { agent_id: this.agentId })
   }
 
   // --- Messaging ---
@@ -421,7 +421,7 @@ export class WorkerClient {
       id: this.connectFrameId,
       type: 'connect',
       payload: {
-        worker_id: this.workerId,
+        agent_id: this.agentId,
         organization_id: this.config.organizationId ?? '',
         workspace_id: this.config.workspaceId ?? '',
         user: {

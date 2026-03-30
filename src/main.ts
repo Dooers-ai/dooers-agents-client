@@ -1,7 +1,7 @@
 // Components
 
 // Client types
-export type { OnErrorCallback, UploadResult, WorkerConnectionConfig } from './client'
+export type { AgentConnectionConfig, OnErrorCallback, UploadResult } from './client'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
 
@@ -13,11 +13,13 @@ export type { FormFileMetadata } from './hooks/use-form-file-upload'
 export { useFormFileUpload } from './hooks/use-form-file-upload'
 export { useMessage } from './hooks/use-message'
 export { useSettings } from './hooks/use-settings'
+export type { SettingsFileMetadata } from './hooks/use-settings-file-upload'
+export { useSettingsFileUpload } from './hooks/use-settings-file-upload'
 export { useThreadDetails, useThreadEvents } from './hooks/use-thread'
 export { useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
-export type { WorkerProviderProps } from './provider'
-export { WorkerProvider } from './provider'
+export type { AgentProviderProps } from './provider'
+export { AgentProvider } from './provider'
 // Types
 export type {
   Actor,

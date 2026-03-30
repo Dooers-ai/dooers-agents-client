@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useStore } from '../provider'
 import type { FormElement, FormEventData } from '../types'
 
 export function useForm(formEventId: string, formData: FormEventData, threadId?: string) {
-  const { client, store } = useWorkerContext()
+  const { client, store } = useAgentContext()
   const formState = useStore((s) => s.formStates[formEventId])
   const [errors, setErrors] = useState<Record<string, string>>({})
 

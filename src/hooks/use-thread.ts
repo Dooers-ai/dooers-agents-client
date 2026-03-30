@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo } from 'react'
-import { useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useStore } from '../provider'
 import type { Run, Thread, ThreadEvent, ThreadState } from '../types'
 
 const EMPTY_ARRAY: ThreadEvent[] = []
 const EMPTY_RUNS: Run[] = []
 
 export function useThreadDetails(threadId: string | null): ThreadState {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   // Auto-subscribe/unsubscribe
   useEffect(() => {
@@ -40,7 +40,7 @@ export function useThreadDetails(threadId: string | null): ThreadState {
 }
 
 export function useThreadEvents(threadId: string | null) {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const hasOlderEvents = useStore((s) =>
     threadId ? (s.eventPagination[threadId]?.hasMore ?? false) : false

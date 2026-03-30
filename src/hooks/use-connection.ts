@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useStore } from '../provider'
 
 export function useConnection() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const status = useStore((s) => s.connection.status)
   const error = useStore((s) => s.connection.error)

@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { useShallowStore, useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useShallowStore, useStore } from '../provider'
 
 export function useSettings() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const fields = useShallowStore((s) => s.settings.fields)
   const updatedAt = useStore((s) => s.settings.updatedAt)

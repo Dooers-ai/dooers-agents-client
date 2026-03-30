@@ -197,7 +197,7 @@ export interface User {
 
 export interface Thread {
   id: string
-  workerId: string
+  agentId: string
   organizationId: string
   workspaceId: string
   owner: User
@@ -244,6 +244,8 @@ export type SettingsFieldType =
   | 'email'
   | 'date'
   | 'image'
+  | 'file'
+  | 'file_multi'
 
 export interface SettingsSelectOption {
   value: string
@@ -265,6 +267,8 @@ export interface SettingsField {
   src: string | null
   width: number | null
   height: number | null
+  uploadUrl: string | null
+  accept: string | null
 }
 
 export interface SettingsFieldGroup {
@@ -290,7 +294,7 @@ export type FeedbackTarget = 'event' | 'run' | 'thread'
 export interface AnalyticsEvent {
   event: string
   timestamp: string
-  workerId: string
+  agentId: string
   threadId: string | null
   userId: string | null
   runId: string | null
@@ -340,7 +344,7 @@ export function toUser(w?: WireUser): User | undefined {
 export function toThread(w: WireThread): Thread {
   return {
     id: w.id,
-    workerId: w.worker_id,
+    agentId: w.agent_id,
     organizationId: w.organization_id,
     workspaceId: w.workspace_id,
     owner: toUser(w.owner),
@@ -513,6 +517,8 @@ export function toSettingsField(w: WireSettingsField): SettingsField {
     src: w.src,
     width: w.width,
     height: w.height,
+    uploadUrl: w.upload_url,
+    accept: w.accept,
   }
 }
 
@@ -535,7 +541,7 @@ export function toAnalyticsEvent(w: WireAnalyticsEvent): AnalyticsEvent {
   return {
     event: w.event,
     timestamp: w.timestamp,
-    workerId: w.worker_id,
+    agentId: w.agent_id,
     threadId: w.thread_id,
     userId: w.user_id,
     runId: w.run_id,

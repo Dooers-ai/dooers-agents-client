@@ -1,22 +1,22 @@
-# workers-server-client — Client SDK Design
+# agents-server-client — Client SDK Design
 
 **Status**: Approved
 **Date**: 2026-02-13
 
 ## Overview
 
-React SDK for connecting to workers-server backends. Provides a `<WorkerProvider>` and hooks for real-time threads, messaging, and runs over WebSocket.
+React SDK for connecting to agents-server backends. Provides a `<AgentProvider>` and hooks for real-time threads, messaging, and runs over WebSocket.
 
-The SDK is the frontend sibling of `workers-server` (the Python backend SDK). Together they form the complete stack: backend handlers produce events, this SDK consumes them.
+The SDK is the frontend sibling of `agents-server` (the Python backend SDK). Together they form the complete stack: backend handlers produce events, this SDK consumes them.
 
 ## Decisions
 
 | Decision | Choice |
 |----------|--------|
 | Scope | Core + messaging (threads, events, runs). Settings/analytics/feedback in Phase 2. |
-| API style | `<WorkerProvider>` + hooks |
+| API style | `<AgentProvider>` + hooks |
 | Internal state | Zustand (hidden from consumers) |
-| Package | Single: `workers-server-client` |
+| Package | Single: `agents-server-client` |
 | Hook granularity | Auto-subscribe with selectors |
 | Optimistic updates | Built-in |
 
@@ -24,14 +24,14 @@ The SDK is the frontend sibling of `workers-server` (the Python backend SDK). To
 
 The entire public surface is a provider and 4 hooks.
 
-### WorkerProvider
+### AgentProvider
 
 ```tsx
-import { WorkerProvider } from "workers-server-client"
+import { AgentProvider } from "agents-server-client"
 
-<WorkerProvider
+<AgentProvider
   url="wss://api.example.com/ws"
-  workerId="worker-1"
+  agentId="agent-1"
   metadata={{
     organizationId: "org-1",
     workspaceId: "ws-1",
@@ -40,15 +40,15 @@ import { WorkerProvider } from "workers-server-client"
   onError={(error) => console.error(error)}   // optional
 >
   <App />
-</WorkerProvider>
+</AgentProvider>
 ```
 
 Props:
 
 ```ts
-interface WorkerProviderProps {
+interface AgentProviderProps {
   url: string
-  workerId: string
+  agentId: string
   metadata?: {
     organizationId?: string
     workspaceId?: string
@@ -65,7 +65,7 @@ interface WorkerProviderProps {
 }
 ```
 
-`url` and `workerId` are the only required props. `metadata` carries organizational context and user identity — optional because it's not intrinsically related to the thread/event/run dynamics.
+`url` and `agentId` are the only required props. `metadata` carries organizational context and user identity — optional because it's not intrinsically related to the thread/event/run dynamics.
 
 ### useConnection
 
@@ -117,18 +117,18 @@ send({ content: [{ type: "text", text: "..." }], threadId })  // explicit conten
 
 ```tsx
 import {
-  WorkerProvider,
+  AgentProvider,
   useConnection,
   useThreads,
   useThread,
   useMessage,
-} from "workers-server-client"
+} from "agents-server-client"
 
 function App() {
   return (
-    <WorkerProvider
+    <AgentProvider
       url="wss://api.example.com/ws"
-      workerId="worker-1"
+      agentId="agent-1"
       metadata={{
         organizationId: "org-1",
         workspaceId: "ws-1",
@@ -136,7 +136,7 @@ function App() {
       }}
     >
       <ChatPage />
-    </WorkerProvider>
+    </AgentProvider>
   )
 }
 
@@ -193,14 +193,14 @@ Three layers, each with a single responsibility:
 └─────────────────────────────────────────────┘
 ```
 
-**Client layer** (`WorkerClient`) — a plain class, no React:
+**Client layer** (`AgentClient`) — a plain class, no React:
 - Opens/closes WebSocket, sends C2S frames, parses S2C frames
 - Exponential backoff reconnection (5 attempts: 1s, 2s, 4s, 8s, 16s)
 - Accepts a callbacks object — the store wires itself as the listener
 - Testable in isolation (Node, Vitest, no jsdom needed)
 
-**Store layer** (`createWorkerStore`) — a Zustand store factory:
-- Created per `<WorkerProvider>` mount, not a global singleton
+**Store layer** (`createAgentStore`) — a Zustand store factory:
+- Created per `<AgentProvider>` mount, not a global singleton
 - Receives S2C frame data via callbacks, updates state immutably
 - Normalized shape: threads and events keyed by ID, not arrays
 - Optimistic events tracked separately, merged in selectors
@@ -213,37 +213,37 @@ Three layers, each with a single responsibility:
 ### Provider Wiring
 
 ```tsx
-function WorkerProvider({ url, workerId, metadata, onError, children }: WorkerProviderProps) {
-  const store = useRef<WorkerStore>()
-  const client = useRef<WorkerClient>()
+function AgentProvider({ url, agentId, metadata, onError, children }: AgentProviderProps) {
+  const store = useRef<AgentStore>()
+  const client = useRef<AgentClient>()
 
   if (!store.current) {
-    store.current = createWorkerStore()
-    client.current = new WorkerClient(store.current.getState().actions)
+    store.current = createAgentStore()
+    client.current = new AgentClient(store.current.getState().actions)
   }
 
   useEffect(() => {
-    client.current.connect(url, workerId, metadata)
+    client.current.connect(url, agentId, metadata)
     return () => client.current.disconnect()
-  }, [url, workerId, metadata])
+  }, [url, agentId, metadata])
 
   return (
-    <WorkerContext.Provider value={{ store: store.current, client: client.current }}>
+    <AgentContext.Provider value={{ store: store.current, client: client.current }}>
       {children}
-    </WorkerContext.Provider>
+    </AgentContext.Provider>
   )
 }
 ```
 
 Key decisions:
-- **Store per provider, not global** — multiple `<WorkerProvider>` on the same page work independently
+- **Store per provider, not global** — multiple `<AgentProvider>` on the same page work independently
 - **Client is vanilla JS** — separating WebSocket from React means it's testable and potentially reusable outside React later
 - **Normalized state** — `Record<string, Thread>`, `Record<string, ThreadEvent[]>` — O(1) lookups
 
 ## Store Shape
 
 ```ts
-interface WorkerState {
+interface AgentState {
   // Connection
   connection: {
     status: "idle" | "connecting" | "connected" | "disconnected" | "error"
@@ -300,7 +300,7 @@ When the server confirms (`event.append` with real event):
 ### Store Actions
 
 ```ts
-interface WorkerActions {
+interface AgentActions {
   // Connection
   setConnectionStatus(status, error?)
   resetReconnect()
@@ -331,7 +331,7 @@ Actions are pure state transitions — no async, no WebSocket calls.
 
 ```ts
 function useConnection() {
-  const { store, client } = useWorkerContext()
+  const { store, client } = useAgentContext()
 
   const status = useStore(store, s => s.connection.status)
   const error = useStore(store, s => s.connection.error)
@@ -347,7 +347,7 @@ function useConnection() {
 
 ```ts
 function useThreads() {
-  const { store, client } = useWorkerContext()
+  const { store, client } = useAgentContext()
 
   const threads = useStore(store, s =>
     s.threadOrder.map(id => s.threads[id]).filter(Boolean)
@@ -370,7 +370,7 @@ function useThread<T = ThreadState>(
   threadId: string | null,
   options?: { select?: (state: ThreadState) => T },
 ) {
-  const { store, client } = useWorkerContext()
+  const { store, client } = useAgentContext()
 
   // Auto-subscribe/unsubscribe
   useEffect(() => {
@@ -401,7 +401,7 @@ function useThread<T = ThreadState>(
 
 ```ts
 function useMessage() {
-  const { store, client } = useWorkerContext()
+  const { store, client } = useAgentContext()
 
   const isWaiting = useStore(store, s => {
     for (const threadId of s.subscriptions) {
@@ -428,26 +428,26 @@ function useMessage() {
 3. Sends `event.create` C2S frame with `client_event_id`
 4. When `event.append` arrives, `removeOptimistic()` + `onEventAppend()`
 
-## WorkerClient
+## AgentClient
 
 Vanilla JS class (~200-250 lines). No React, no Zustand import. Communicates via a callbacks interface that maps 1:1 to store actions.
 
 ### Callback Interface
 
 ```ts
-interface WorkerClientCallbacks {
-  setConnectionStatus: WorkerActions["setConnectionStatus"]
-  resetReconnect: WorkerActions["resetReconnect"]
-  onThreadList: WorkerActions["onThreadList"]
-  onThreadUpsert: WorkerActions["onThreadUpsert"]
-  onThreadDeleted: WorkerActions["onThreadDeleted"]
-  onThreadSnapshot: WorkerActions["onThreadSnapshot"]
-  onEventAppend: WorkerActions["onEventAppend"]
-  onRunUpsert: WorkerActions["onRunUpsert"]
-  addOptimistic: WorkerActions["addOptimistic"]
-  removeOptimistic: WorkerActions["removeOptimistic"]
-  addSubscription: WorkerActions["addSubscription"]
-  removeSubscription: WorkerActions["removeSubscription"]
+interface AgentClientCallbacks {
+  setConnectionStatus: AgentActions["setConnectionStatus"]
+  resetReconnect: AgentActions["resetReconnect"]
+  onThreadList: AgentActions["onThreadList"]
+  onThreadUpsert: AgentActions["onThreadUpsert"]
+  onThreadDeleted: AgentActions["onThreadDeleted"]
+  onThreadSnapshot: AgentActions["onThreadSnapshot"]
+  onEventAppend: AgentActions["onEventAppend"]
+  onRunUpsert: AgentActions["onRunUpsert"]
+  addOptimistic: AgentActions["addOptimistic"]
+  removeOptimistic: AgentActions["removeOptimistic"]
+  addSubscription: AgentActions["addSubscription"]
+  removeSubscription: AgentActions["removeSubscription"]
 }
 ```
 
@@ -510,7 +510,7 @@ private route(frame: ServerToClient) {
 
 ```ts
 // Connection
-connect(url, workerId, metadata?)
+connect(url, agentId, metadata?)
 disconnect()
 retry()
 
@@ -613,9 +613,9 @@ const failedRun = runs.find(r => r.status === "failed")
 src/
 ├── main.ts                   # Public exports
 ├── types.ts                  # All exported types
-├── client.ts                 # WorkerClient class
-├── store.ts                  # createWorkerStore + actions
-├── provider.tsx              # WorkerProvider + WorkerContext
+├── client.ts                 # AgentClient class
+├── store.ts                  # createAgentStore + actions
+├── provider.tsx              # AgentProvider + AgentContext
 ├── hooks/
 │   ├── use-connection.ts
 │   ├── use-threads.ts
@@ -630,8 +630,8 @@ src/
 
 ```ts
 // Components
-export { WorkerProvider } from "./provider"
-export type { WorkerProviderProps, WorkerMetadata } from "./provider"
+export { AgentProvider } from "./provider"
+export type { AgentProviderProps, AgentMetadata } from "./provider"
 
 // Hooks
 export { useConnection } from "./hooks/use-connection"
@@ -680,7 +680,7 @@ interface DocumentPart {
 
 interface Thread {
   id: string
-  workerId: string
+  agentId: string
   title: string | null
   createdAt: string
   updatedAt: string
@@ -790,7 +790,7 @@ Nothing in `useConnection`, `useThreads`, `useThread`, or `useMessage` changes. 
 ### Additional Store Slices
 
 ```ts
-interface WorkerStatePhase2 extends WorkerState {
+interface AgentStatePhase2 extends AgentState {
   settings: {
     fields: SettingsItem[]
     updatedAt: string | null

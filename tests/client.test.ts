@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { WorkerClient } from "../src/client";
-import type { WorkerActions } from "../src/store";
+import { AgentClient } from "../src/client";
+import type { AgentActions } from "../src/store";
 
-function createMockCallbacks(): WorkerActions {
+function createMockCallbacks(): AgentActions {
   return {
     setConnectionStatus: vi.fn(),
     setReconnectFailed: vi.fn(),
@@ -59,8 +59,8 @@ class MockWebSocket {
   }
 }
 
-describe("WorkerClient", () => {
-  let callbacks: WorkerActions;
+describe("AgentClient", () => {
+  let callbacks: AgentActions;
 
   beforeEach(() => {
     callbacks = createMockCallbacks();
@@ -69,7 +69,7 @@ describe("WorkerClient", () => {
   });
 
   it("sends connect frame on open", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1", {
       organizationId: "org1",
       workspaceId: "ws1",
@@ -88,12 +88,12 @@ describe("WorkerClient", () => {
     expect(ws.sent).toHaveLength(1);
     const frame = JSON.parse(ws.sent[0] as string);
     expect(frame.type).toBe("connect");
-    expect(frame.payload.worker_id).toBe("w1");
+    expect(frame.payload.agent_id).toBe("w1");
     expect(frame.payload.metadata.organization_id).toBe("org1");
   });
 
   it("routes ack frame and requests thread list", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
 
     await new Promise((r) => setTimeout(r, 10));
@@ -111,7 +111,7 @@ describe("WorkerClient", () => {
   });
 
   it("routes thread.list.result", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -123,7 +123,7 @@ describe("WorkerClient", () => {
         threads: [
           {
             id: "t1",
-            worker_id: "w1",
+            agent_id: "w1",
             metadata: {
               organization_id: "org1",
               workspace_id: "ws1",
@@ -142,7 +142,7 @@ describe("WorkerClient", () => {
   });
 
   it("refcounts subscriptions", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -166,7 +166,7 @@ describe("WorkerClient", () => {
   });
 
   it("disconnect cleans up", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -177,7 +177,7 @@ describe("WorkerClient", () => {
   });
 
   it("sends settings.subscribe and routes settings.snapshot", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -185,13 +185,13 @@ describe("WorkerClient", () => {
     const ws = MockWebSocket.instances[0] as MockWebSocket;
     const subFrames = ws.sent.filter((s) => JSON.parse(s).type === "settings.subscribe");
     expect(subFrames).toHaveLength(1);
-    expect(JSON.parse(subFrames[0] as string).payload.worker_id).toBe("w1");
+    expect(JSON.parse(subFrames[0] as string).payload.agent_id).toBe("w1");
 
     ws.receive({
       id: "ss-1",
       type: "settings.snapshot",
       payload: {
-        worker_id: "w1",
+        agent_id: "w1",
         fields: [
           {
             id: "f1",
@@ -221,7 +221,7 @@ describe("WorkerClient", () => {
   });
 
   it("sends settings.patch and routes settings.patch response", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -238,7 +238,7 @@ describe("WorkerClient", () => {
       id: "sp-1",
       type: "settings.patch",
       payload: {
-        worker_id: "w1",
+        agent_id: "w1",
         field_id: "f1",
         value: "new-value",
         updated_at: "2026-01-02T00:00:00Z",
@@ -253,7 +253,7 @@ describe("WorkerClient", () => {
   });
 
   it("sends feedback and routes feedback.ack", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -278,7 +278,7 @@ describe("WorkerClient", () => {
   });
 
   it("routes thread.list.result with total_count", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -290,7 +290,7 @@ describe("WorkerClient", () => {
         threads: [
           {
             id: "t1",
-            worker_id: "w1",
+            agent_id: "w1",
             metadata: { organization_id: "org1", workspace_id: "ws1", user_id: "u1" },
             title: null,
             created_at: "2026-01-01T00:00:00Z",
@@ -311,7 +311,7 @@ describe("WorkerClient", () => {
   });
 
   it("routes event.list.result", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -348,7 +348,7 @@ describe("WorkerClient", () => {
   });
 
   it("loadOlderEvents sends event.list frame", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -377,7 +377,7 @@ describe("WorkerClient", () => {
   });
 
   it("sendMessage returns promise that resolves with threadId on event.append", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1", { userId: "u1", userName: "Alice" });
     await new Promise((r) => setTimeout(r, 10));
 
@@ -419,7 +419,7 @@ describe("WorkerClient", () => {
   });
 
   it("sendMessage resolves with existing threadId when sent to existing thread", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1", { userId: "u1" });
     await new Promise((r) => setTimeout(r, 10));
 
@@ -459,7 +459,7 @@ describe("WorkerClient", () => {
   });
 
   it("sends analytics.subscribe and routes analytics.event", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -474,7 +474,7 @@ describe("WorkerClient", () => {
       payload: {
         event: "message.c2s",
         timestamp: "2026-01-01T00:00:00Z",
-        worker_id: "w1",
+        agent_id: "w1",
         thread_id: "t1",
         user_id: "u1",
         run_id: null,
@@ -484,7 +484,7 @@ describe("WorkerClient", () => {
     });
 
     expect(callbacks.onAnalyticsEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "message.c2s", workerId: "w1", threadId: "t1" }),
+      expect.objectContaining({ event: "message.c2s", agentId: "w1", threadId: "t1" }),
     );
   });
 });

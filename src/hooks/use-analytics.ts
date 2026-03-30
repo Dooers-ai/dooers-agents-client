@@ -1,8 +1,8 @@
 import { useCallback } from 'react'
-import { useShallowStore, useWorkerContext } from '../provider'
+import { useAgentContext, useShallowStore } from '../provider'
 
 export function useAnalytics() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const events = useShallowStore((s) => s.analytics.events)
   const counters = useShallowStore((s) => s.analytics.counters)

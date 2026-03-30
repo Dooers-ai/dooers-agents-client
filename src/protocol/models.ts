@@ -13,7 +13,7 @@ export interface WireUser {
 
 export interface WireThread {
   id: string
-  worker_id: string
+  agent_id: string
   organization_id: string
   workspace_id: string
   owner: WireUser
@@ -242,6 +242,8 @@ export interface WireSettingsField {
   src: string | null
   width: number | null
   height: number | null
+  upload_url: string | null
+  accept: string | null
 }
 
 export interface WireSettingsFieldGroup {
@@ -258,7 +260,7 @@ export type WireSettingsItem = WireSettingsField | WireSettingsFieldGroup
 export interface WireAnalyticsEvent {
   event: string
   timestamp: string
-  worker_id: string
+  agent_id: string
   thread_id: string | null
   user_id: string | null
   run_id: string | null

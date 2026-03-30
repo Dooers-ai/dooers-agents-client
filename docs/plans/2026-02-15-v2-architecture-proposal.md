@@ -1,8 +1,8 @@
-# workers-server-client v2.0.0 — Architecture Improvement Proposal
+# agents-server-client v2.0.0 — Architecture Improvement Proposal
 
 **Status**: Proposal
 **Date**: 2026-02-15
-**Scope**: Both `workers-server-client` (client SDK) and `workers-server` (server SDK)
+**Scope**: Both `agents-server-client` (client SDK) and `agents-server` (server SDK)
 
 ## Summary
 
@@ -18,7 +18,7 @@ This document catalogs every improvement identified during the v1.x implementati
 2. [Composable Router](#2-composable-router)
 3. [Request/Response Correlation](#3-requestresponse-correlation)
 4. [Idempotency Keys](#4-idempotency-keys)
-5. [WorkerClient Responsibility Separation](#5-workerclient-responsibility-separation)
+5. [AgentClient Responsibility Separation](#5-agentclient-responsibility-separation)
 6. [Middleware / Interceptor Pattern](#6-middleware--interceptor-pattern)
 7. [Typed Paginated Results](#7-typed-paginated-results)
 8. [Streaming & Backpressure](#8-streaming--backpressure)
@@ -31,7 +31,7 @@ This document catalogs every improvement identified during the v1.x implementati
 
 ### Problem
 
-Connection status is a string enum (`"idle" | "connecting" | "connected" | "disconnected" | "error"`) mutated via imperative `setConnectionStatus()` calls scattered across `WorkerClient`. There are no guards preventing invalid transitions (e.g., `"idle"` → `"disconnected"`) and reconnection logic is interleaved with connection setup.
+Connection status is a string enum (`"idle" | "connecting" | "connected" | "disconnected" | "error"`) mutated via imperative `setConnectionStatus()` calls scattered across `AgentClient`. There are no guards preventing invalid transitions (e.g., `"idle"` → `"disconnected"`) and reconnection logic is interleaved with connection setup.
 
 **Current code (client.ts):**
 ```typescript
@@ -92,7 +92,7 @@ Replace the string enum with an explicit finite state machine that enforces vali
 
 ### Implementation Approach
 
-**Client side (`workers-server-client`):**
+**Client side (`agents-server-client`):**
 
 Create a `ConnectionStateMachine` class that:
 - Holds current state as a discriminated union (not a string)
@@ -119,7 +119,7 @@ type ConnectionEvent =
   | { type: "retry" };
 ```
 
-**Server side (`workers-server`):**
+**Server side (`agents-server`):**
 No changes needed — the server doesn't track client connection state.
 
 ### Files to Change
@@ -142,7 +142,7 @@ None — this is a standalone refactor.
 
 ### Problem
 
-The `route()` method in `WorkerClient` is a monolithic switch statement that grows with every new frame type. Adding a new S2C frame requires modifying the same method, increasing merge conflicts and making it impossible for consumers to extend routing.
+The `route()` method in `AgentClient` is a monolithic switch statement that grows with every new frame type. Adding a new S2C frame requires modifying the same method, increasing merge conflicts and making it impossible for consumers to extend routing.
 
 **Current code (client.ts:294-428):**
 ```typescript
@@ -180,8 +180,8 @@ type FrameHandler<T extends ServerToClient["type"]> = (
 ) => void;
 
 interface RouteContext {
-  store: WorkerActions;
-  client: WorkerClient;
+  store: AgentActions;
+  client: AgentClient;
   send: (type: string, payload: unknown) => void;
 }
 
@@ -207,7 +207,7 @@ const router = createDefaultRouter();
 router.on("custom.frame", (frame, ctx) => { /* custom logic */ });
 ```
 
-**Server side (`workers-server`):**
+**Server side (`agents-server`):**
 
 Same pattern — replace the `match` statement in `router.py` with a handler registry:
 
@@ -231,8 +231,8 @@ class FrameRouter:
 |------|--------|
 | Create: `src/router.ts` (client) | `FrameRouter` class + `createDefaultRouter()` factory |
 | Modify: `src/client.ts` | Replace `route()` switch with router dispatch |
-| Create: `workers-server/src/dooers/handlers/frame_router.py` | `FrameRouter` class |
-| Modify: `workers-server/src/dooers/handlers/router.py` | Replace match with registry |
+| Create: `agents-server/src/dooers/handlers/frame_router.py` | `FrameRouter` class |
+| Modify: `agents-server/src/dooers/handlers/router.py` | Replace match with registry |
 
 ### Dependencies
 
@@ -351,8 +351,8 @@ await client.sendMessage({ text: "hello", threadId: "t1" });
 |------|--------|
 | Create: `src/request-tracker.ts` (client) | `RequestTracker` class |
 | Modify: `src/client.ts` | Use tracker for all sends |
-| Modify: `workers-server/src/dooers/protocol/frames.py` | Add `request_id` to result payloads |
-| Modify: `workers-server/src/dooers/handlers/router.py` | Forward request ID in responses |
+| Modify: `agents-server/src/dooers/protocol/frames.py` | Add `request_id` to result payloads |
+| Modify: `agents-server/src/dooers/handlers/router.py` | Forward request ID in responses |
 
 ### Dependencies
 
@@ -379,7 +379,7 @@ class BaseC2SFrame(BaseModel):
     idempotency_key: str | None = None
 ```
 
-The server stores processed `idempotency_key` values in a short-lived cache (5-minute TTL) keyed by `(worker_id, idempotency_key)`. If a duplicate arrives, the server returns the cached response without re-executing.
+The server stores processed `idempotency_key` values in a short-lived cache (5-minute TTL) keyed by `(agent_id, idempotency_key)`. If a duplicate arrives, the server returns the cached response without re-executing.
 
 **Client side:**
 ```typescript
@@ -423,9 +423,9 @@ class IdempotencyCache:
 
 | File | Change |
 |------|--------|
-| Modify: `workers-server/src/dooers/protocol/frames.py` | Add `idempotency_key` to C2S base |
-| Create: `workers-server/src/dooers/handlers/idempotency.py` | `IdempotencyCache` class |
-| Modify: `workers-server/src/dooers/handlers/router.py` | Check cache before handling mutating frames |
+| Modify: `agents-server/src/dooers/protocol/frames.py` | Add `idempotency_key` to C2S base |
+| Create: `agents-server/src/dooers/handlers/idempotency.py` | `IdempotencyCache` class |
+| Modify: `agents-server/src/dooers/handlers/router.py` | Check cache before handling mutating frames |
 | Modify: `src/client.ts` | Generate idempotency keys for mutating operations |
 | Modify: `src/protocol/frames.ts` | Add `idempotency_key?` to C2S frame base |
 
@@ -435,11 +435,11 @@ class IdempotencyCache:
 
 ---
 
-## 5. WorkerClient Responsibility Separation
+## 5. AgentClient Responsibility Separation
 
 ### Problem
 
-`WorkerClient` currently handles 5 distinct concerns in a single 450-line class:
+`AgentClient` currently handles 5 distinct concerns in a single 450-line class:
 1. WebSocket lifecycle (create, open, close, reconnect)
 2. Authentication (connect frame, ack handling)
 3. Frame routing (S2C → store actions)
@@ -450,11 +450,11 @@ This makes the class hard to test in isolation and difficult to extend.
 
 ### Solution
 
-Split `WorkerClient` into focused modules:
+Split `AgentClient` into focused modules:
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  WorkerClient (thin orchestrator)                │
+│  AgentClient (thin orchestrator)                │
 │  - Public API surface                            │
 │  - Delegates to sub-modules                      │
 ├──────────────────────────────────────────────────┤
@@ -485,8 +485,8 @@ Each module:
 ### Implementation Approach
 
 ```typescript
-// WorkerClient becomes a thin coordinator:
-class WorkerClient {
+// AgentClient becomes a thin coordinator:
+class AgentClient {
   readonly connection: ConnectionManager;
   readonly router: FrameRouter;
   readonly subscriptions: SubscriptionManager;
@@ -494,7 +494,7 @@ class WorkerClient {
   readonly pagination: PaginationTracker;
   readonly optimistic: OptimisticManager;
 
-  constructor(callbacks: WorkerActions, options?: WorkerClientOptions) {
+  constructor(callbacks: AgentActions, options?: AgentClientOptions) {
     this.connection = new ConnectionManager(/* ... */);
     this.router = createDefaultRouter();
     this.subscriptions = new SubscriptionManager();
@@ -604,7 +604,7 @@ client.useOutgoing((frame, next) => {
 
 ### Dependencies
 
-- Benefits from [Composable Router](#2-composable-router) and [WorkerClient Separation](#5-workerclient-responsibility-separation).
+- Benefits from [Composable Router](#2-composable-router) and [AgentClient Separation](#5-agentclient-responsibility-separation).
 
 ---
 
@@ -635,7 +635,7 @@ interface PaginatedList<T> {
 
 **Store changes:**
 ```typescript
-interface WorkerState {
+interface AgentState {
   // Replace scattered fields:
   // threadListCursor, threadListHasMore, threadListTotalCount
   // With:
@@ -783,10 +783,10 @@ Add protocol version to the `connect` frame handshake.
 {
   type: "connect",
   payload: {
-    worker_id: "...",
+    agent_id: "...",
     protocol_version: "2.0",
     min_protocol_version: "1.0",
-    client: { name: "workers-server-client", version: "2.0.0" },
+    client: { name: "agents-server-client", version: "2.0.0" },
     // ...
   }
 }
@@ -827,8 +827,8 @@ if (negotiatedVersion >= "2.0") {
 |------|--------|
 | Modify: `src/client.ts` | Send protocol version in connect, store negotiated version |
 | Modify: `src/protocol/frames.ts` | Add version fields to connect/ack |
-| Modify: `workers-server/src/dooers/protocol/frames.py` | Add version fields |
-| Modify: `workers-server/src/dooers/handlers/router.py` | Version negotiation in ack handler |
+| Modify: `agents-server/src/dooers/protocol/frames.py` | Add version fields |
+| Modify: `agents-server/src/dooers/handlers/router.py` | Version negotiation in ack handler |
 
 ### Dependencies
 
@@ -854,12 +854,12 @@ The `onError` callback only covers protocol errors, not operational metrics.
 Add an `onMetrics` callback to the provider that receives structured telemetry events.
 
 ```typescript
-interface WorkerProviderProps {
+interface AgentProviderProps {
   // ... existing props
-  onMetrics?: (metric: WorkerMetric) => void;
+  onMetrics?: (metric: AgentMetric) => void;
 }
 
-type WorkerMetric =
+type AgentMetric =
   | { type: "frame.sent"; frameType: string; timestamp: number }
   | { type: "frame.received"; frameType: string; timestamp: number }
   | { type: "frame.latency"; frameType: string; requestId: string; latencyMs: number }
@@ -871,9 +871,9 @@ type WorkerMetric =
 
 **Consumer usage:**
 ```typescript
-<WorkerProvider
+<AgentProvider
   url="wss://..."
-  workerId="w1"
+  agentId="w1"
   onMetrics={(metric) => {
     // Send to your telemetry provider
     analytics.track(metric.type, metric);
@@ -886,10 +886,10 @@ type WorkerMetric =
 The metrics emitter is a simple function passed through the system:
 
 ```typescript
-class WorkerClient {
-  private emit: (metric: WorkerMetric) => void;
+class AgentClient {
+  private emit: (metric: AgentMetric) => void;
 
-  constructor(callbacks: WorkerActions, emit?: (m: WorkerMetric) => void) {
+  constructor(callbacks: AgentActions, emit?: (m: AgentMetric) => void) {
     this.emit = emit ?? (() => {});
   }
 
@@ -909,7 +909,7 @@ class WorkerClient {
 
 | File | Change |
 |------|--------|
-| Create: `src/metrics.ts` | `WorkerMetric` types, `MetricsEmitter` utility |
+| Create: `src/metrics.ts` | `AgentMetric` types, `MetricsEmitter` utility |
 | Modify: `src/client.ts` | Emit metrics on send/receive/connect/disconnect |
 | Modify: `src/provider.tsx` | Accept and pass `onMetrics` prop |
 | Modify: `src/store.ts` | Optionally emit metrics on store updates |
@@ -938,7 +938,7 @@ Phase 2: Core Infrastructure
 └── 4. Idempotency Keys             (benefits from: 3)
 
 Phase 3: Architecture
-├── 5. WorkerClient Separation       (needs: 1, 2, 3)
+├── 5. AgentClient Separation       (needs: 1, 2, 3)
 ├── 6. Middleware Pattern            (needs: 2, 5)
 └── 8. Streaming & Backpressure     (benefits from: 2, 5)
 ```
@@ -959,7 +959,7 @@ Phase 3: Architecture
 | 2. Composable Router | No | Internal refactor + new extension point |
 | 3. Request/Response Correlation | Minor | `sendMessage` returns `Promise` (was `void`) |
 | 4. Idempotency Keys | No | Additive protocol change |
-| 5. WorkerClient Separation | No | Internal refactor |
+| 5. AgentClient Separation | No | Internal refactor |
 | 6. Middleware Pattern | No | New API surface, opt-in |
 | 7. Typed Paginated Results | Yes | `useThreads()` return shape changes |
 | 8. Streaming & Backpressure | No | Internal optimization |

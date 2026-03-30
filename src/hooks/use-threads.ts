@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useStore } from '../provider'
 
 /** Lightweight read-only hook — thread list, count, and loading state. */
 export function useThreadsList() {
@@ -24,7 +24,7 @@ export function useThreadsList() {
 
 /** Actions-only hook (delete, load more). */
 export function useThreadsActions() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const deleteThread = useCallback((threadId: string) => client.deleteThread(threadId), [client])
   const loadMore = useCallback((limit?: number) => client.loadMoreThreads(limit), [client])

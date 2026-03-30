@@ -1,9 +1,9 @@
 import { useCallback } from 'react'
-import { useStore, useWorkerContext } from '../provider'
+import { useAgentContext, useStore } from '../provider'
 import type { FeedbackTarget } from '../types'
 
 export function useFeedback(targetId: string, targetType: FeedbackTarget = 'event') {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const feedback = useStore((s) => s.feedback[targetId] ?? null)
 
