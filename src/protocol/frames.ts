@@ -77,6 +77,13 @@ export type C2S_SettingsUnsubscribe = Frame<'settings.unsubscribe', { worker_id:
 
 export type C2S_SettingsPatch = Frame<'settings.patch', { field_id: string; value: unknown }>
 
+export type C2S_SettingsPublicSchema = Frame<'settings.public_schema', Record<string, never>>
+
+export type C2S_SettingsSeed = Frame<
+  'settings.seed',
+  { worker_id: string; values: Record<string, unknown>; seed_secret: string }
+>
+
 // --- Feedback C2S ---
 
 export type C2S_Feedback = Frame<
@@ -107,6 +114,8 @@ export type ClientToServer =
   | C2S_SettingsSubscribe
   | C2S_SettingsUnsubscribe
   | C2S_SettingsPatch
+  | C2S_SettingsPublicSchema
+  | C2S_SettingsSeed
   | C2S_Feedback
   | C2S_AnalyticsSubscribe
   | C2S_AnalyticsUnsubscribe
@@ -161,6 +170,11 @@ export type S2C_SettingsPatch = Frame<
   { worker_id: string; field_id: string; value: unknown; updated_at: string }
 >
 
+export type S2C_SettingsPublicSchemaResult = Frame<
+  'settings.public_schema.result',
+  { schema: Record<string, unknown> }
+>
+
 // --- Feedback S2C ---
 
 export type S2C_FeedbackAck = Frame<
@@ -188,5 +202,6 @@ export type ServerToClient =
   | S2C_RunUpsert
   | S2C_SettingsSnapshot
   | S2C_SettingsPatch
+  | S2C_SettingsPublicSchemaResult
   | S2C_FeedbackAck
   | S2C_AnalyticsEvent

@@ -233,6 +233,8 @@ export interface WireSettingsField {
   label: string
   required: boolean
   readonly: boolean
+  /** When false, user audience cannot patch (template-fixed at worker). */
+  user_editable?: boolean
   visibility?: 'internal' | 'creator' | 'user'
   value: unknown
   placeholder: string | null

@@ -258,6 +258,7 @@ export interface SettingsField {
   label: string
   required: boolean
   readonly: boolean
+  user_editable?: boolean
   visibility: SettingsFieldVisibility
   value: unknown
   placeholder: string | null
@@ -508,6 +509,7 @@ export function toSettingsField(w: WireSettingsField): SettingsField {
     label: w.label,
     required: w.required,
     readonly: w.readonly,
+    user_editable: w.user_editable ?? true,
     visibility: w.visibility ?? 'user',
     value: w.value,
     placeholder: w.placeholder,

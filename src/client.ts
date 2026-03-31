@@ -1,7 +1,8 @@
+import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import type { ServerToClient } from './protocol/frames'
-import type { WireC2S_ContentPart } from './protocol/models'
+import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { WorkerActions } from './store'
-import type { DisplayContentPart, SendContentPart, ThreadEvent } from './types'
+import type { DisplayContentPart, SendContentPart, SettingsItem, ThreadEvent } from './types'
 import {
   toAnalyticsEvent,
   toRun,
@@ -35,6 +36,126 @@ export interface UploadResult {
   mimeType: string
   filename: string
   sizeBytes: number
+}
+
+export interface PublicSettingsSchemaResult {
+  version: string
+  fields: SettingsItem[]
+}
+
+/**
+ * Talks to the agent messages server without a worker session (no `connect` frame).
+ * Use for public/bootstrap operations allowed before a {@link WorkerClient} is connected.
+ */
+export class AgentServerClient {
+  private readonly wsUrl: string
+
+  constructor(apiMessagesUrl: string) {
+    this.wsUrl = apiMessagesUrlToWebSocketUrl(apiMessagesUrl)
+  }
+
+  /**
+   * Opens a short-lived WebSocket, requests `settings.public_schema`, and returns the public field
+   * list. Closes the socket when done.
+   */
+  fetchPublicSettingsSchema(options?: { timeoutMs?: number }): Promise<PublicSettingsSchemaResult> {
+    const timeoutMs = options?.timeoutMs ?? 15_000
+
+    return new Promise((resolve, reject) => {
+      const ws = new WebSocket(this.wsUrl)
+      const frameId = crypto.randomUUID()
+      let settled = false
+
+      const finish = (fn: () => void) => {
+        if (settled) return
+        settled = true
+        clearTimeout(timer)
+        try {
+          ws.close()
+        } catch {
+          /* ignore */
+        }
+        fn()
+      }
+
+      const timer = setTimeout(() => {
+        finish(() => reject(new Error('AgentServerClient.fetchPublicSettingsSchema: timeout')))
+      }, timeoutMs)
+
+      ws.onopen = () => {
+        ws.send(
+          JSON.stringify({
+            id: frameId,
+            type: 'settings.public_schema',
+            payload: {},
+          })
+        )
+      }
+
+      ws.onmessage = (ev: MessageEvent) => {
+        let msg: {
+          id?: string
+          type?: string
+          payload?: {
+            ack_id?: string
+            ok?: boolean
+            error?: { code?: string; message?: string }
+            schema?: { version?: string; fields?: WireSettingsItem[] }
+          }
+        }
+        try {
+          msg = JSON.parse(ev.data as string)
+        } catch {
+          return
+        }
+
+        if (msg.type === 'ack' && msg.payload?.ack_id === frameId) {
+          if (msg.payload?.ok === false) {
+            finish(() =>
+              reject(
+                new Error(
+                  msg.payload?.error?.message ??
+                    'AgentServerClient.fetchPublicSettingsSchema: request rejected'
+                )
+              )
+            )
+          }
+          return
+        }
+
+        if (msg.type === 'settings.public_schema.result' && msg.id === frameId) {
+          const raw = msg.payload?.schema as
+            | { version?: string; fields?: WireSettingsItem[] }
+            | undefined
+          const fieldsWire = raw?.fields ?? []
+          const fields = fieldsWire.map((w) => toSettingsItem(w))
+          finish(() =>
+            resolve({
+              version: typeof raw?.version === 'string' ? raw.version : '1.0',
+              fields,
+            })
+          )
+        }
+      }
+
+      ws.onerror = () => {
+        finish(() =>
+          reject(new Error('AgentServerClient.fetchPublicSettingsSchema: WebSocket error'))
+        )
+      }
+
+      ws.onclose = (ev) => {
+        if (settled) return
+        finish(() =>
+          reject(
+            new Error(
+              `AgentServerClient.fetchPublicSettingsSchema: connection closed (${ev.code})${ev.reason ? ` ${ev.reason}` : ''}`
+            )
+          )
+        )
+      }
+    })
+  }
 }
 
 export class WorkerClient {
@@ -124,14 +245,14 @@ export class WorkerClient {
   }
 
   connect(url: string, workerId: string, config?: WorkerConnectionConfig) {
-    this.url = url
+    this.url = apiMessagesUrlToWebSocketUrl(url)
     this.workerId = workerId
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
     try {
-      const parsed = new URL(url)
+      const parsed = new URL(this.url)
       parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:'
       parsed.pathname = ''
       parsed.search = ''
@@ -225,10 +346,7 @@ export class WorkerClient {
 
   // --- Settings ---
 
-  subscribeSettings(options?: {
-    audience?: 'creator' | 'user'
-    agentOwnerUserId?: string | null
-  }) {
+  subscribeSettings(options?: { audience?: 'creator' | 'user'; agentOwnerUserId?: string | null }) {
     this.send('settings.subscribe', {
       worker_id: this.workerId,
       audience: options?.audience ?? 'user',
@@ -579,6 +697,9 @@ export class WorkerClient {
           frame.payload.value,
           frame.payload.updated_at
         )
+        break
+
+      case 'settings.public_schema.result':
         break
 
       case 'feedback.ack':
