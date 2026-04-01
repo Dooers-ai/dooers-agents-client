@@ -28,6 +28,7 @@ export function useFormFileUpload() {
         const formData = new FormData()
         formData.append('file', params.file)
         formData.append('field_id', params.fieldId)
+        formData.append('source', 'chat')
         formData.append('agent_id', params.agentId)
         formData.append('run_id', params.runId)
         formData.append('thread_id', params.threadId)
