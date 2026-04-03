@@ -1,9 +1,9 @@
 import { useCallback, useRef, useState } from 'react'
 import type { UploadResult } from '../client'
-import { useWorkerContext } from '../provider'
+import { useAgentContext } from '../provider'
 
 export function useUpload() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
   const [isUploading, setIsUploading] = useState(false)
   const activeCountRef = useRef(0)
 

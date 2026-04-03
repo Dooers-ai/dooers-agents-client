@@ -1,19 +1,19 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from 'react'
 import { useStore as useZustandStore } from 'zustand'
 import { useShallow } from 'zustand/shallow'
-import { type OnErrorCallback, WorkerClient } from './client'
-import { createWorkerStore, type WorkerState, type WorkerStore } from './store'
+import { AgentClient, type OnErrorCallback } from './client'
+import { type AgentState, type AgentStore, createAgentStore } from './store'
 
-interface WorkerContextValue {
-  store: WorkerStore
-  client: WorkerClient
+interface AgentContextValue {
+  store: AgentStore
+  client: AgentClient
 }
 
-const WorkerContext = createContext<WorkerContextValue | null>(null)
+const AgentContext = createContext<AgentContextValue | null>(null)
 
-export interface WorkerProviderProps {
+export interface AgentProviderProps {
   url?: string
-  workerId?: string
+  agentId?: string
   organizationId?: string
   workspaceId?: string
   userId?: string
@@ -29,9 +29,9 @@ export interface WorkerProviderProps {
   children: ReactNode
 }
 
-export function WorkerProvider({
+export function AgentProvider({
   url,
-  workerId,
+  agentId,
   organizationId,
   workspaceId,
   userId,
@@ -45,13 +45,13 @@ export function WorkerProvider({
   uploadUrl,
   onError,
   children,
-}: WorkerProviderProps) {
-  const storeRef = useRef<WorkerStore | undefined>(undefined)
-  const clientRef = useRef<WorkerClient | undefined>(undefined)
+}: AgentProviderProps) {
+  const storeRef = useRef<AgentStore | undefined>(undefined)
+  const clientRef = useRef<AgentClient | undefined>(undefined)
 
   if (!storeRef.current) {
-    storeRef.current = createWorkerStore()
-    clientRef.current = new WorkerClient(storeRef.current.getState().actions)
+    storeRef.current = createAgentStore()
+    clientRef.current = new AgentClient(storeRef.current.getState().actions)
   }
 
   // Update onError callback
@@ -67,10 +67,10 @@ export function WorkerProvider({
   // Stable key for identityIds to avoid reference-equality churn
   const identityIdsKey = identityIds?.join(',') ?? ''
 
-  // Connect/disconnect lifecycle — skips connection when url or workerId are missing
+  // Connect/disconnect lifecycle — skips connection when url or agentId are missing
   useEffect(() => {
-    if (!url || !workerId) return
-    clientRef.current?.connect(url, workerId, {
+    if (!url || !agentId) return
+    clientRef.current?.connect(url, agentId, {
       organizationId,
       workspaceId,
       userId,
@@ -85,7 +85,7 @@ export function WorkerProvider({
     return () => clientRef.current?.disconnect()
   }, [
     url,
-    workerId,
+    agentId,
     organizationId,
     workspaceId,
     userId,
@@ -99,31 +99,31 @@ export function WorkerProvider({
   ])
 
   // Stable context value — refs never change after initial creation
-  const contextValue = useMemo<WorkerContextValue>(
+  const contextValue = useMemo<AgentContextValue>(
     () => ({ store: storeRef.current!, client: clientRef.current! }),
     []
   )
 
-  return <WorkerContext.Provider value={contextValue}>{children}</WorkerContext.Provider>
+  return <AgentContext.Provider value={contextValue}>{children}</AgentContext.Provider>
 }
 
 // Internal hook for other hooks to access context
-export function useWorkerContext(): WorkerContextValue {
-  const ctx = useContext(WorkerContext)
+export function useAgentContext(): AgentContextValue {
+  const ctx = useContext(AgentContext)
   if (!ctx) {
-    throw new Error('useWorkerContext must be used within a <WorkerProvider>')
+    throw new Error('useAgentContext must be used within a <AgentProvider>')
   }
   return ctx
 }
 
 // Selector hook with Object.is equality (for primitives)
-export function useStore<T>(selector: (state: WorkerState) => T): T {
-  const { store } = useWorkerContext()
+export function useStore<T>(selector: (state: AgentState) => T): T {
+  const { store } = useAgentContext()
   return useZustandStore(store, selector)
 }
 
 // Selector hook with shallow equality (for objects/arrays)
-export function useShallowStore<T>(selector: (state: WorkerState) => T): T {
-  const { store } = useWorkerContext()
+export function useShallowStore<T>(selector: (state: AgentState) => T): T {
+  const { store } = useAgentContext()
   return useZustandStore(store, useShallow(selector))
 }

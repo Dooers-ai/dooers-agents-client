@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-export interface FormFileMetadata {
+export interface SettingsFileMetadata {
   id?: string
   filename: string
   public_url?: string
@@ -9,7 +9,7 @@ export interface FormFileMetadata {
   [key: string]: unknown
 }
 
-export function useFormFileUpload() {
+export function useSettingsFileUpload() {
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -19,19 +19,15 @@ export function useFormFileUpload() {
       uploadUrl: string
       fieldId: string
       agentId: string
-      runId: string
-      threadId: string
-    }): Promise<FormFileMetadata> => {
+    }): Promise<SettingsFileMetadata> => {
       setIsUploading(true)
       setError(null)
       try {
         const formData = new FormData()
         formData.append('file', params.file)
+        formData.append('source', 'settings')
         formData.append('field_id', params.fieldId)
-        formData.append('source', 'chat')
         formData.append('agent_id', params.agentId)
-        formData.append('run_id', params.runId)
-        formData.append('thread_id', params.threadId)
 
         const response = await fetch(params.uploadUrl, {
           method: 'POST',

@@ -31,8 +31,8 @@ function extractFormStates(
   return result
 }
 
-export interface WorkerActions {
-  setConnectionStatus: (status: WorkerState['connection']['status'], error?: string) => void
+export interface AgentActions {
+  setConnectionStatus: (status: AgentState['connection']['status'], error?: string) => void
   setReconnectFailed: () => void
   resetReconnect: () => void
   onThreadList: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
@@ -69,7 +69,7 @@ export interface WorkerActions {
   setFormCancelled: (formEventId: string) => void
 }
 
-export interface WorkerState {
+export interface AgentState {
   connection: {
     status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
     error: string | null
@@ -103,13 +103,13 @@ export interface WorkerState {
   formStates: Record<string, FormState>
   subscriptions: Set<string>
   loadingThreads: Set<string>
-  actions: WorkerActions
+  actions: AgentActions
 }
 
-export type WorkerStore = ReturnType<typeof createWorkerStore>
+export type AgentStore = ReturnType<typeof createAgentStore>
 
-export function createWorkerStore() {
-  return createStore<WorkerState>()((set) => ({
+export function createAgentStore() {
+  return createStore<AgentState>()((set) => ({
     connection: {
       status: 'idle',
       error: null,

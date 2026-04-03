@@ -2,16 +2,16 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Make `workers-server-client` handle the full server protocol (settings, feedback, analytics) and improve on what the raw `dooers-app-web` client does — adding pagination, per-thread waiting state, and fixing the stale connect frame type.
+**Goal:** Make `agents-server-client` handle the full server protocol (settings, feedback, analytics) and improve on what the raw `dooers-app-web` client does — adding pagination, per-thread waiting state, and fixing the stale connect frame type.
 
 **Architecture:** Each new module follows the established pattern: wire types in `protocol/models.ts` → frame types in `protocol/frames.ts` → public types + transforms in `types.ts` → client methods + route cases in `client.ts` → store state + actions in `store.ts` → React hook in `hooks/` → exports in `main.ts`. Tests validate store actions and client routing.
 
 **Tech Stack:** TypeScript, React 18/19, Zustand 5, Vitest, Biome
 
 **Reference files:**
-- Server protocol: `../workers-server/src/dooers/protocol/frames.py` (all C2S/S2C frame types)
-- Server settings models: `../workers-server/src/dooers/features/settings/models.py`
-- Server analytics models: `../workers-server/src/dooers/features/analytics/models.py`
+- Server protocol: `../agents-server/src/dooers/protocol/frames.py` (all C2S/S2C frame types)
+- Server settings models: `../agents-server/src/dooers/features/settings/models.py`
+- Server analytics models: `../agents-server/src/dooers/features/analytics/models.py`
 - Raw client reference: `../dooers-app-web/src/services/agent/websocket.service.ts`
 - Raw store reference: `../dooers-app-web/src/stores/chat.store.ts`
 - Raw types reference: `../dooers-app-web/src/types/websocket.types.ts`
@@ -33,7 +33,7 @@ Replace in `src/protocol/frames.ts`:
 export type C2S_Connect = Frame<
   "connect",
   {
-    worker_id: string;
+    agent_id: string;
     metadata: {
       organization_id: string;
       workspace_id: string;
@@ -254,9 +254,9 @@ Add C2S frames after `C2S_EventCreate`:
 ```typescript
 // --- Settings C2S ---
 
-export type C2S_SettingsSubscribe = Frame<"settings.subscribe", { worker_id: string }>;
+export type C2S_SettingsSubscribe = Frame<"settings.subscribe", { agent_id: string }>;
 
-export type C2S_SettingsUnsubscribe = Frame<"settings.unsubscribe", { worker_id: string }>;
+export type C2S_SettingsUnsubscribe = Frame<"settings.unsubscribe", { agent_id: string }>;
 
 export type C2S_SettingsPatch = Frame<"settings.patch", { field_id: string; value: unknown }>;
 ```
@@ -268,12 +268,12 @@ Add S2C frames after `S2C_RunUpsert`:
 
 export type S2C_SettingsSnapshot = Frame<
   "settings.snapshot",
-  { worker_id: string; fields: WireSettingsItem[]; updated_at: string }
+  { agent_id: string; fields: WireSettingsItem[]; updated_at: string }
 >;
 
 export type S2C_SettingsPatch = Frame<
   "settings.patch",
-  { worker_id: string; field_id: string; value: unknown; updated_at: string }
+  { agent_id: string; field_id: string; value: unknown; updated_at: string }
 >;
 ```
 
@@ -342,7 +342,7 @@ Add at end of describe block:
 
 ```typescript
   it("onSettingsSnapshot sets fields and updatedAt", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const field: SettingsField = {
       id: "f1",
       type: "text",
@@ -366,7 +366,7 @@ Add at end of describe block:
   });
 
   it("onSettingsPatch updates field value", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const field: SettingsField = {
       id: "f1",
       type: "text",
@@ -391,7 +391,7 @@ Add at end of describe block:
   });
 
   it("onSettingsPatch updates field inside group", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const group = {
       id: "g1",
       label: "Group",
@@ -436,14 +436,14 @@ import type { Run, SettingsItem, Thread, ThreadEvent } from "./types";
 import { isSettingsFieldGroup } from "./types";
 ```
 
-Add to `WorkerActions` interface:
+Add to `AgentActions` interface:
 
 ```typescript
   onSettingsSnapshot: (fields: SettingsItem[], updatedAt: string) => void;
   onSettingsPatch: (fieldId: string, value: unknown, updatedAt: string) => void;
 ```
 
-Add to `WorkerState` interface:
+Add to `AgentState` interface:
 
 ```typescript
   settings: {
@@ -453,7 +453,7 @@ Add to `WorkerState` interface:
   };
 ```
 
-Add initial state inside `createWorkerStore`:
+Add initial state inside `createAgentStore`:
 
 ```typescript
     settings: {
@@ -531,7 +531,7 @@ Add test cases:
 
 ```typescript
   it("sends settings.subscribe and routes settings.snapshot", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -539,13 +539,13 @@ Add test cases:
     const ws = MockWebSocket.instances[0] as MockWebSocket;
     const subFrames = ws.sent.filter((s) => JSON.parse(s).type === "settings.subscribe");
     expect(subFrames).toHaveLength(1);
-    expect(JSON.parse(subFrames[0] as string).payload.worker_id).toBe("w1");
+    expect(JSON.parse(subFrames[0] as string).payload.agent_id).toBe("w1");
 
     ws.receive({
       id: "ss-1",
       type: "settings.snapshot",
       payload: {
-        worker_id: "w1",
+        agent_id: "w1",
         fields: [{ id: "f1", type: "text", label: "Name", required: false, readonly: false, value: "hi", placeholder: null, options: null, min: null, max: null, rows: null, src: null, width: null, height: null }],
         updated_at: "2026-01-01T00:00:00Z",
       },
@@ -558,7 +558,7 @@ Add test cases:
   });
 
   it("sends settings.patch and routes settings.patch response", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -575,7 +575,7 @@ Add test cases:
       id: "sp-1",
       type: "settings.patch",
       payload: {
-        worker_id: "w1",
+        agent_id: "w1",
         field_id: "f1",
         value: "new-value",
         updated_at: "2026-01-02T00:00:00Z",
@@ -605,11 +605,11 @@ Add public methods after `deleteThread`:
   // --- Settings ---
 
   subscribeSettings() {
-    this.send("settings.subscribe", { worker_id: this.workerId });
+    this.send("settings.subscribe", { agent_id: this.agentId });
   }
 
   unsubscribeSettings() {
-    this.send("settings.unsubscribe", { worker_id: this.workerId });
+    this.send("settings.unsubscribe", { agent_id: this.agentId });
   }
 
   patchSetting(fieldId: string, value: unknown) {
@@ -662,10 +662,10 @@ Create the settings hook and wire up exports.
 
 ```typescript
 import { useCallback } from "react";
-import { useShallowStore, useStore, useWorkerContext } from "../provider";
+import { useShallowStore, useStore, useAgentContext } from "../provider";
 
 export function useSettings() {
-  const { client } = useWorkerContext();
+  const { client } = useAgentContext();
 
   const fields = useShallowStore((s) => s.settings.fields);
   const updatedAt = useStore((s) => s.settings.updatedAt);
@@ -780,13 +780,13 @@ export type FeedbackTarget = "event" | "run" | "thread";
 
 **Step 3: Add store slice to `src/store.ts`**
 
-Add to `WorkerState`:
+Add to `AgentState`:
 
 ```typescript
   feedback: Record<string, "like" | "dislike">;
 ```
 
-Add to `WorkerActions`:
+Add to `AgentActions`:
 
 ```typescript
   onFeedbackAck: (targetId: string, feedback: "like" | "dislike") => void;
@@ -846,11 +846,11 @@ Add route case:
 
 ```typescript
 import { useCallback } from "react";
-import { useStore, useWorkerContext } from "../provider";
+import { useStore, useAgentContext } from "../provider";
 import type { FeedbackTarget } from "../types";
 
 export function useFeedback(targetId: string, targetType: FeedbackTarget = "event") {
-  const { client } = useWorkerContext();
+  const { client } = useAgentContext();
 
   const feedback = useStore((s) => s.feedback[targetId] ?? null);
 
@@ -909,7 +909,7 @@ Add to `tests/store.test.ts`:
 
 ```typescript
   it("onFeedbackAck stores feedback by target ID", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onFeedbackAck("e1", "like");
     expect(store.getState().feedback.e1).toBe("like");
     store.getState().actions.onFeedbackAck("e1", "dislike");
@@ -925,7 +925,7 @@ Add to `tests/client.test.ts`:
 
 ```typescript
   it("sends feedback and routes feedback.ack", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -982,7 +982,7 @@ Append:
 export interface WireAnalyticsEvent {
   event: string;
   timestamp: string;
-  worker_id: string;
+  agent_id: string;
   thread_id: string | null;
   user_id: string | null;
   run_id: string | null;
@@ -1000,9 +1000,9 @@ Add C2S:
 ```typescript
 // --- Analytics C2S ---
 
-export type C2S_AnalyticsSubscribe = Frame<"analytics.subscribe", { worker_id: string }>;
+export type C2S_AnalyticsSubscribe = Frame<"analytics.subscribe", { agent_id: string }>;
 
-export type C2S_AnalyticsUnsubscribe = Frame<"analytics.unsubscribe", { worker_id: string }>;
+export type C2S_AnalyticsUnsubscribe = Frame<"analytics.unsubscribe", { agent_id: string }>;
 ```
 
 Add S2C:
@@ -1029,7 +1029,7 @@ Add public type:
 export interface AnalyticsEvent {
   event: string;
   timestamp: string;
-  workerId: string;
+  agentId: string;
   threadId: string | null;
   userId: string | null;
   runId: string | null;
@@ -1045,7 +1045,7 @@ export function toAnalyticsEvent(w: WireAnalyticsEvent): AnalyticsEvent {
   return {
     event: w.event,
     timestamp: w.timestamp,
-    workerId: w.worker_id,
+    agentId: w.agent_id,
     threadId: w.thread_id,
     userId: w.user_id,
     runId: w.run_id,
@@ -1086,7 +1086,7 @@ Add import for `AnalyticsEvent`:
 import type { AnalyticsEvent, Run, SettingsItem, Thread, ThreadEvent } from "./types";
 ```
 
-Add to `WorkerState`:
+Add to `AgentState`:
 
 ```typescript
   analytics: {
@@ -1099,7 +1099,7 @@ Add to `WorkerState`:
   };
 ```
 
-Add to `WorkerActions`:
+Add to `AgentActions`:
 
 ```typescript
   onAnalyticsEvent: (event: AnalyticsEvent) => void;
@@ -1163,11 +1163,11 @@ Add public methods:
   // --- Analytics ---
 
   subscribeAnalytics() {
-    this.send("analytics.subscribe", { worker_id: this.workerId });
+    this.send("analytics.subscribe", { agent_id: this.agentId });
   }
 
   unsubscribeAnalytics() {
-    this.send("analytics.unsubscribe", { worker_id: this.workerId });
+    this.send("analytics.unsubscribe", { agent_id: this.agentId });
   }
 ```
 
@@ -1183,10 +1183,10 @@ Add route case:
 
 ```typescript
 import { useCallback } from "react";
-import { useShallowStore, useWorkerContext } from "../provider";
+import { useShallowStore, useAgentContext } from "../provider";
 
 export function useAnalytics() {
-  const { client } = useWorkerContext();
+  const { client } = useAgentContext();
 
   const events = useShallowStore((s) => s.analytics.events);
   const counters = useShallowStore((s) => s.analytics.counters);
@@ -1205,10 +1205,10 @@ Wait — `client` doesn't expose store. Let me rethink. The hook should access t
 
 ```typescript
 import { useCallback } from "react";
-import { useShallowStore, useStore, useWorkerContext } from "../provider";
+import { useShallowStore, useStore, useAgentContext } from "../provider";
 
 export function useAnalytics() {
-  const { client, store } = useWorkerContext();
+  const { client, store } = useAgentContext();
 
   const events = useShallowStore((s) => s.analytics.events);
   const counters = useShallowStore((s) => s.analytics.counters);
@@ -1261,11 +1261,11 @@ Add to `tests/store.test.ts`:
 
 ```typescript
   it("onAnalyticsEvent appends and increments counters", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onAnalyticsEvent({
       event: "message.c2s",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: "t1",
       userId: "u1",
       runId: null,
@@ -1277,12 +1277,12 @@ Add to `tests/store.test.ts`:
   });
 
   it("onAnalyticsEvent trims to 50 events", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     for (let i = 0; i < 55; i++) {
       store.getState().actions.onAnalyticsEvent({
         event: "message.c2s",
         timestamp: "2026-01-01T00:00:00Z",
-        workerId: "w1",
+        agentId: "w1",
         threadId: null,
         userId: null,
         runId: null,
@@ -1295,11 +1295,11 @@ Add to `tests/store.test.ts`:
   });
 
   it("onAnalyticsEvent counts feedback separately", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onAnalyticsEvent({
       event: "feedback.like",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: null,
       userId: null,
       runId: null,
@@ -1309,7 +1309,7 @@ Add to `tests/store.test.ts`:
     store.getState().actions.onAnalyticsEvent({
       event: "feedback.dislike",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: null,
       userId: null,
       runId: null,
@@ -1330,7 +1330,7 @@ Add to `tests/client.test.ts`:
 
 ```typescript
   it("sends analytics.subscribe and routes analytics.event", async () => {
-    const client = new WorkerClient(callbacks);
+    const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
     await new Promise((r) => setTimeout(r, 10));
 
@@ -1345,7 +1345,7 @@ Add to `tests/client.test.ts`:
       payload: {
         event: "message.c2s",
         timestamp: "2026-01-01T00:00:00Z",
-        worker_id: "w1",
+        agent_id: "w1",
         thread_id: "t1",
         user_id: "u1",
         run_id: null,
@@ -1355,7 +1355,7 @@ Add to `tests/client.test.ts`:
     });
 
     expect(callbacks.onAnalyticsEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ event: "message.c2s", workerId: "w1", threadId: "t1" }),
+      expect.objectContaining({ event: "message.c2s", agentId: "w1", threadId: "t1" }),
     );
   });
 ```
@@ -1387,14 +1387,14 @@ Add cursor support to thread listing. This is something the raw client ignores e
 
 **Step 1: Add store state for pagination**
 
-Add to `WorkerState`:
+Add to `AgentState`:
 
 ```typescript
   threadListCursor: string | null;
   threadListHasMore: boolean;
 ```
 
-Update `WorkerActions.onThreadList` signature:
+Update `AgentActions.onThreadList` signature:
 
 ```typescript
   onThreadList: (threads: Thread[], cursor?: string | null) => void;
@@ -1501,10 +1501,10 @@ Update the `thread.list.result` route case:
 
 ```typescript
 import { useCallback } from "react";
-import { useShallowStore, useStore, useWorkerContext } from "../provider";
+import { useShallowStore, useStore, useAgentContext } from "../provider";
 
 export function useThreads() {
-  const { client } = useWorkerContext();
+  const { client } = useAgentContext();
 
   const threads = useShallowStore((s) =>
     s.threadOrder.flatMap((id) => {
@@ -1528,7 +1528,7 @@ Add to `tests/store.test.ts`:
 
 ```typescript
   it("onThreadList stores cursor and hasMore", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList(
       [thread("t1"), thread("t2")],
       "cursor-123",
@@ -1538,7 +1538,7 @@ Add to `tests/store.test.ts`:
   });
 
   it("onThreadListAppend adds threads without replacing", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1")]);
     store.getState().actions.onThreadListAppend([thread("t2")], null);
     expect(store.getState().threadOrder).toEqual(["t1", "t2"]);
@@ -1650,7 +1650,7 @@ Expected: Build succeeds, output in `dist/`
 
 **Step 5: Server SDK check (no regressions)**
 
-Run: `cd /home/frndvrgs/software/dooers/workers-server && uv run ruff check src/`
+Run: `cd /home/frndvrgs/software/dooers/agents-server && uv run ruff check src/`
 Expected: All checks passed
 
 ---

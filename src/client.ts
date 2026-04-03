@@ -1,7 +1,7 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
-import type { WorkerActions } from './store'
+import type { AgentActions } from './store'
 import type { DisplayContentPart, SendContentPart, SettingsItem, ThreadEvent } from './types'
 import {
   toAnalyticsEvent,
@@ -16,7 +16,7 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
 
-export interface WorkerConnectionConfig {
+export interface AgentConnectionConfig {
   organizationId?: string
   workspaceId?: string
   userId?: string
@@ -44,8 +44,8 @@ export interface PublicSettingsSchemaResult {
 }
 
 /**
- * Talks to the agent messages server without a worker session (no `connect` frame).
- * Use for public/bootstrap operations allowed before a {@link WorkerClient} is connected.
+ * Talks to the agent messages server without an agent session (no `connect` frame).
+ * Use for public/bootstrap operations allowed before an {@link AgentClient} is connected.
  */
 export class AgentServerClient {
   private readonly wsUrl: string
@@ -158,16 +158,16 @@ export class AgentServerClient {
   }
 }
 
-export class WorkerClient {
+export class AgentClient {
   private ws: WebSocket | null = null
-  private callbacks: WorkerActions
+  private callbacks: AgentActions
   private onError: OnErrorCallback | null = null
 
   private url = ''
   private httpBaseUrl = ''
-  private workerId = ''
+  private agentId = ''
   private uploadUrl: string | undefined
-  private config: WorkerConnectionConfig = {
+  private config: AgentConnectionConfig = {
     organizationId: '',
     workspaceId: '',
     userId: '',
@@ -200,7 +200,7 @@ export class WorkerClient {
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
 
-  constructor(callbacks: WorkerActions) {
+  constructor(callbacks: AgentActions) {
     this.callbacks = callbacks
   }
 
@@ -244,9 +244,9 @@ export class WorkerClient {
     }
   }
 
-  connect(url: string, workerId: string, config?: WorkerConnectionConfig) {
+  connect(url: string, agentId: string, config?: AgentConnectionConfig) {
     this.url = apiMessagesUrlToWebSocketUrl(url)
-    this.workerId = workerId
+    this.agentId = agentId
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
 
@@ -348,14 +348,14 @@ export class WorkerClient {
 
   subscribeSettings(options?: { audience?: 'creator' | 'user'; agentOwnerUserId?: string | null }) {
     this.send('settings.subscribe', {
-      worker_id: this.workerId,
+      agent_id: this.agentId,
       audience: options?.audience ?? 'user',
       agent_owner_user_id: options?.agentOwnerUserId ?? null,
     })
   }
 
   unsubscribeSettings() {
-    this.send('settings.unsubscribe', { worker_id: this.workerId })
+    this.send('settings.unsubscribe', { agent_id: this.agentId })
   }
 
   patchSetting(fieldId: string, value: unknown) {
@@ -383,11 +383,11 @@ export class WorkerClient {
   // --- Analytics ---
 
   subscribeAnalytics() {
-    this.send('analytics.subscribe', { worker_id: this.workerId })
+    this.send('analytics.subscribe', { agent_id: this.agentId })
   }
 
   unsubscribeAnalytics() {
-    this.send('analytics.unsubscribe', { worker_id: this.workerId })
+    this.send('analytics.unsubscribe', { agent_id: this.agentId })
   }
 
   // --- Messaging ---
@@ -546,7 +546,7 @@ export class WorkerClient {
       id: this.connectFrameId,
       type: 'connect',
       payload: {
-        worker_id: this.workerId,
+        agent_id: this.agentId,
         organization_id: this.config.organizationId ?? '',
         workspace_id: this.config.workspaceId ?? '',
         user: {

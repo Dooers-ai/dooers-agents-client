@@ -21,7 +21,7 @@ export interface Frame<T extends string, P = unknown> {
 export type C2S_Connect = Frame<
   'connect',
   {
-    worker_id: string
+    agent_id: string
     organization_id: string
     workspace_id: string
     user: WireUser
@@ -67,13 +67,13 @@ export type C2S_EventList = Frame<
 export type C2S_SettingsSubscribe = Frame<
   'settings.subscribe',
   {
-    worker_id: string
+    agent_id: string
     audience?: 'creator' | 'user'
     agent_owner_user_id?: string | null
   }
 >
 
-export type C2S_SettingsUnsubscribe = Frame<'settings.unsubscribe', { worker_id: string }>
+export type C2S_SettingsUnsubscribe = Frame<'settings.unsubscribe', { agent_id: string }>
 
 export type C2S_SettingsPatch = Frame<'settings.patch', { field_id: string; value: unknown }>
 
@@ -99,9 +99,9 @@ export type C2S_Feedback = Frame<
 
 // --- Analytics C2S ---
 
-export type C2S_AnalyticsSubscribe = Frame<'analytics.subscribe', { worker_id: string }>
+export type C2S_AnalyticsSubscribe = Frame<'analytics.subscribe', { agent_id: string }>
 
-export type C2S_AnalyticsUnsubscribe = Frame<'analytics.unsubscribe', { worker_id: string }>
+export type C2S_AnalyticsUnsubscribe = Frame<'analytics.unsubscribe', { agent_id: string }>
 
 export type ClientToServer =
   | C2S_Connect
@@ -162,12 +162,12 @@ export type S2C_RunUpsert = Frame<'run.upsert', { run: WireRun }>
 
 export type S2C_SettingsSnapshot = Frame<
   'settings.snapshot',
-  { worker_id: string; fields: WireSettingsItem[]; updated_at: string }
+  { agent_id: string; fields: WireSettingsItem[]; updated_at: string }
 >
 
 export type S2C_SettingsPatch = Frame<
   'settings.patch',
-  { worker_id: string; field_id: string; value: unknown; updated_at: string }
+  { agent_id: string; field_id: string; value: unknown; updated_at: string }
 >
 
 export type S2C_SettingsPublicSchemaResult = Frame<

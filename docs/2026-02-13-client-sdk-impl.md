@@ -1,8 +1,8 @@
-# workers-server-client Implementation Plan
+# agents-server-client Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a React SDK (`workers-server-client`) that provides `<WorkerProvider>` + hooks for real-time communication with workers-server backends over WebSocket.
+**Goal:** Build a React SDK (`agents-server-client`) that provides `<AgentProvider>` + hooks for real-time communication with agents-server backends over WebSocket.
 
 **Architecture:** Three layers — vanilla JS WebSocket client, Zustand store (normalized state), React hooks. The client handles frames and reconnection, the store holds normalized threads/events/runs, hooks are thin selectors with auto-subscribe.
 
@@ -32,9 +32,9 @@ Create `package.json`:
 
 ```json
 {
-  "name": "workers-server-client",
+  "name": "agents-server-client",
   "version": "0.1.0",
-  "description": "React SDK for workers-server",
+  "description": "React SDK for agents-server",
   "type": "module",
   "main": "./dist/main.cjs",
   "module": "./dist/main.js",
@@ -188,7 +188,7 @@ dist/
 
 ```bash
 git add .
-git commit -m "chore: scaffold workers-server-client package"
+git commit -m "chore: scaffold agents-server-client package"
 ```
 
 ---
@@ -212,7 +212,7 @@ Create `src/protocol/models.ts` — the wire format types (snake_case, matching 
 
 export interface WireThread {
   id: string
-  worker_id: string
+  agent_id: string
   organization_id: string
   workspace_id: string
   user_id: string
@@ -309,7 +309,7 @@ export interface Frame<T extends string, P = unknown> {
 export type C2S_Connect = Frame<
   "connect",
   {
-    worker_id: string
+    agent_id: string
     organization_id: string
     workspace_id: string
     user_id: string
@@ -451,7 +451,7 @@ export type ConnectionStatus = "idle" | "connecting" | "connected" | "disconnect
 
 export interface Thread {
   id: string
-  workerId: string
+  agentId: string
   title: string | null
   createdAt: string
   updatedAt: string
@@ -502,7 +502,7 @@ import type {
 export function toThread(w: WireThread): Thread {
   return {
     id: w.id,
-    workerId: w.worker_id,
+    agentId: w.agent_id,
     title: w.title,
     createdAt: w.created_at,
     updatedAt: w.updated_at,
@@ -593,12 +593,12 @@ Create `tests/store.test.ts`:
 
 ```ts
 import { describe, expect, it } from "vitest"
-import { createWorkerStore } from "../src/store"
+import { createAgentStore } from "../src/store"
 import type { Thread, ThreadEvent, Run } from "../src/types"
 
 const thread = (id: string, lastEventAt = "2026-01-01T00:00:00Z"): Thread => ({
   id,
-  workerId: "w1",
+  agentId: "w1",
   title: `Thread ${id}`,
   createdAt: "2026-01-01T00:00:00Z",
   updatedAt: "2026-01-01T00:00:00Z",
@@ -629,21 +629,21 @@ const run = (id: string, threadId: string, status: "running" | "succeeded" = "ru
   error: null,
 })
 
-describe("createWorkerStore", () => {
+describe("createAgentStore", () => {
   it("starts with idle connection", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     expect(store.getState().connection.status).toBe("idle")
   })
 
   it("setConnectionStatus updates status and error", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.setConnectionStatus("error", "fail")
     expect(store.getState().connection.status).toBe("error")
     expect(store.getState().connection.error).toBe("fail")
   })
 
   it("onThreadList populates threads and threadOrder", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     const t1 = thread("t1", "2026-01-02T00:00:00Z")
     const t2 = thread("t2", "2026-01-03T00:00:00Z")
     store.getState().actions.onThreadList([t2, t1])
@@ -652,21 +652,21 @@ describe("createWorkerStore", () => {
   })
 
   it("onThreadUpsert adds new thread", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onThreadUpsert(thread("t1"))
     expect(store.getState().threads["t1"]).toBeDefined()
     expect(store.getState().threadOrder).toContain("t1")
   })
 
   it("onThreadUpsert updates existing thread", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onThreadUpsert(thread("t1"))
     store.getState().actions.onThreadUpsert({ ...thread("t1"), title: "Updated" })
     expect(store.getState().threads["t1"]?.title).toBe("Updated")
   })
 
   it("onThreadDeleted removes thread and its events/runs", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onThreadUpsert(thread("t1"))
     store.getState().actions.onThreadSnapshot(thread("t1"), [event("e1", "t1")], [run("r1", "t1")])
     store.getState().actions.onThreadDeleted("t1")
@@ -676,7 +676,7 @@ describe("createWorkerStore", () => {
   })
 
   it("onThreadSnapshot sets events and runs for a thread", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     const t = thread("t1")
     const e = [event("e1", "t1"), event("e2", "t1")]
     const r = [run("r1", "t1")]
@@ -688,27 +688,27 @@ describe("createWorkerStore", () => {
   })
 
   it("onEventAppend appends and deduplicates events", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onEventAppend("t1", [event("e1", "t1")])
     store.getState().actions.onEventAppend("t1", [event("e1", "t1"), event("e2", "t1")])
     expect(store.getState().events["t1"]).toHaveLength(2)
   })
 
   it("onRunUpsert adds new run", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onRunUpsert(run("r1", "t1"))
     expect(store.getState().runs["t1"]).toHaveLength(1)
   })
 
   it("onRunUpsert updates existing run", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.onRunUpsert(run("r1", "t1"))
     store.getState().actions.onRunUpsert({ ...run("r1", "t1"), status: "succeeded" })
     expect(store.getState().runs["t1"]?.[0]?.status).toBe("succeeded")
   })
 
   it("optimistic add and remove", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     const e = event("opt-1", "t1")
     store.getState().actions.addOptimistic("t1", e, "client-1")
     expect(store.getState().optimistic["t1"]).toHaveLength(1)
@@ -717,7 +717,7 @@ describe("createWorkerStore", () => {
   })
 
   it("subscription tracking", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.addSubscription("t1")
     expect(store.getState().subscriptions.has("t1")).toBe(true)
     store.getState().actions.removeSubscription("t1")
@@ -725,7 +725,7 @@ describe("createWorkerStore", () => {
   })
 
   it("resetReconnect resets attempts and failed flag", () => {
-    const store = createWorkerStore()
+    const store = createAgentStore()
     store.getState().actions.setConnectionStatus("connecting")
     store.getState().actions.setConnectionStatus("disconnected")
     const s = store.getState()
@@ -742,7 +742,7 @@ describe("createWorkerStore", () => {
 npx vitest run
 ```
 
-Expected: FAIL — `createWorkerStore` not found.
+Expected: FAIL — `createAgentStore` not found.
 
 **Step 3: Implement the store**
 
@@ -754,8 +754,8 @@ import type { ContentPart, Run, Thread, ThreadEvent } from "./types"
 
 const OPTIMISTIC_PREFIX = "optimistic-"
 
-export interface WorkerActions {
-  setConnectionStatus: (status: WorkerState["connection"]["status"], error?: string) => void
+export interface AgentActions {
+  setConnectionStatus: (status: AgentState["connection"]["status"], error?: string) => void
   resetReconnect: () => void
   onThreadList: (threads: Thread[]) => void
   onThreadUpsert: (thread: Thread) => void
@@ -769,7 +769,7 @@ export interface WorkerActions {
   removeSubscription: (threadId: string) => void
 }
 
-export interface WorkerState {
+export interface AgentState {
   connection: {
     status: "idle" | "connecting" | "connected" | "disconnected" | "error"
     error: string | null
@@ -784,13 +784,13 @@ export interface WorkerState {
   runs: Record<string, Run[]>
   subscriptions: Set<string>
   loadingThreads: Set<string>
-  actions: WorkerActions
+  actions: AgentActions
 }
 
-export type WorkerStore = ReturnType<typeof createWorkerStore>
+export type AgentStore = ReturnType<typeof createAgentStore>
 
-export function createWorkerStore() {
-  return createStore<WorkerState>()((set) => ({
+export function createAgentStore() {
+  return createStore<AgentState>()((set) => ({
     connection: {
       status: "idle",
       error: null,
@@ -956,7 +956,7 @@ git commit -m "feat: add Zustand store with normalized state"
 
 ---
 
-### Task 4: WorkerClient
+### Task 4: AgentClient
 
 **Files:**
 - Create: `src/client.ts`
@@ -970,10 +970,10 @@ Create `tests/client.test.ts`:
 
 ```ts
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { WorkerClient } from "../src/client"
-import type { WorkerActions } from "../src/store"
+import { AgentClient } from "../src/client"
+import type { AgentActions } from "../src/store"
 
-function createMockCallbacks(): WorkerActions {
+function createMockCallbacks(): AgentActions {
   return {
     setConnectionStatus: vi.fn(),
     resetReconnect: vi.fn(),
@@ -1022,8 +1022,8 @@ class MockWebSocket {
   }
 }
 
-describe("WorkerClient", () => {
-  let callbacks: WorkerActions
+describe("AgentClient", () => {
+  let callbacks: AgentActions
 
   beforeEach(() => {
     callbacks = createMockCallbacks()
@@ -1032,7 +1032,7 @@ describe("WorkerClient", () => {
   })
 
   it("sends connect frame on open", async () => {
-    const client = new WorkerClient(callbacks)
+    const client = new AgentClient(callbacks)
     client.connect("wss://test.com/ws", "w1", {
       organizationId: "org1",
       workspaceId: "ws1",
@@ -1048,12 +1048,12 @@ describe("WorkerClient", () => {
     expect(ws.sent).toHaveLength(1)
     const frame = JSON.parse(ws.sent[0]!)
     expect(frame.type).toBe("connect")
-    expect(frame.payload.worker_id).toBe("w1")
+    expect(frame.payload.agent_id).toBe("w1")
     expect(frame.payload.organization_id).toBe("org1")
   })
 
   it("routes ack frame and requests thread list", async () => {
-    const client = new WorkerClient(callbacks)
+    const client = new AgentClient(callbacks)
     client.connect("wss://test.com/ws", "w1")
 
     await new Promise((r) => setTimeout(r, 10))
@@ -1071,7 +1071,7 @@ describe("WorkerClient", () => {
   })
 
   it("routes thread.list.result", async () => {
-    const client = new WorkerClient(callbacks)
+    const client = new AgentClient(callbacks)
     client.connect("wss://test.com/ws", "w1")
     await new Promise((r) => setTimeout(r, 10))
 
@@ -1079,14 +1079,14 @@ describe("WorkerClient", () => {
     ws.receive({
       id: "tlr-1",
       type: "thread.list.result",
-      payload: { threads: [{ id: "t1", worker_id: "w1" }] },
+      payload: { threads: [{ id: "t1", agent_id: "w1" }] },
     })
 
     expect(callbacks.onThreadList).toHaveBeenCalled()
   })
 
   it("refcounts subscriptions", async () => {
-    const client = new WorkerClient(callbacks)
+    const client = new AgentClient(callbacks)
     client.connect("wss://test.com/ws", "w1")
     await new Promise((r) => setTimeout(r, 10))
 
@@ -1110,7 +1110,7 @@ describe("WorkerClient", () => {
   })
 
   it("disconnect cleans up", async () => {
-    const client = new WorkerClient(callbacks)
+    const client = new AgentClient(callbacks)
     client.connect("wss://test.com/ws", "w1")
     await new Promise((r) => setTimeout(r, 10))
 
@@ -1128,7 +1128,7 @@ describe("WorkerClient", () => {
 npx vitest run
 ```
 
-Expected: FAIL — `WorkerClient` not found.
+Expected: FAIL — `AgentClient` not found.
 
 **Step 3: Implement the client**
 
@@ -1137,14 +1137,14 @@ Create `src/client.ts`:
 ```ts
 import type { WireContentPart } from "./protocol/models"
 import type { ServerToClient } from "./protocol/frames"
-import type { WorkerActions } from "./store"
+import type { AgentActions } from "./store"
 import type { ContentPart, ThreadEvent } from "./types"
 import { toThread, toThreadEvent, toRun, toWireContentPart } from "./types"
 
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 
-export interface WorkerMetadata {
+export interface AgentMetadata {
   organizationId?: string
   workspaceId?: string
   user?: {
@@ -1158,14 +1158,14 @@ export interface WorkerMetadata {
 
 export type OnErrorCallback = (error: { code: string; message: string; frameType: string }) => void
 
-export class WorkerClient {
+export class AgentClient {
   private ws: WebSocket | null = null
-  private callbacks: WorkerActions
+  private callbacks: AgentActions
   private onError: OnErrorCallback | null = null
 
   private url = ""
-  private workerId = ""
-  private metadata: WorkerMetadata = {}
+  private agentId = ""
+  private metadata: AgentMetadata = {}
 
   private connectFrameId = ""
   private isIntentionallyClosed = false
@@ -1181,7 +1181,7 @@ export class WorkerClient {
   // Track last event ID per thread for gap recovery on reconnect
   private lastEventIds = new Map<string, string>()
 
-  constructor(callbacks: WorkerActions) {
+  constructor(callbacks: AgentActions) {
     this.callbacks = callbacks
   }
 
@@ -1189,9 +1189,9 @@ export class WorkerClient {
     this.onError = cb
   }
 
-  connect(url: string, workerId: string, metadata?: WorkerMetadata) {
+  connect(url: string, agentId: string, metadata?: AgentMetadata) {
     this.url = url
-    this.workerId = workerId
+    this.agentId = agentId
     this.metadata = metadata ?? {}
     this.isIntentionallyClosed = false
     this.callbacks.setConnectionStatus("connecting")
@@ -1341,7 +1341,7 @@ export class WorkerClient {
       id: this.connectFrameId,
       type: "connect",
       payload: {
-        worker_id: this.workerId,
+        agent_id: this.agentId,
         organization_id: this.metadata.organizationId ?? "",
         workspace_id: this.metadata.workspaceId ?? "",
         user_id: user?.id ?? "",
@@ -1349,7 +1349,7 @@ export class WorkerClient {
         user_email: user?.email ?? "",
         user_role: user?.role ?? "",
         auth_token: this.metadata.authToken,
-        client: { name: "workers-server-client", version: "0.1.0" },
+        client: { name: "agents-server-client", version: "0.1.0" },
       },
     })
   }
@@ -1473,7 +1473,7 @@ Expected: All PASS.
 
 ```bash
 git add src/client.ts tests/client.test.ts
-git commit -m "feat: add WorkerClient with reconnection and refcounted subscriptions"
+git commit -m "feat: add AgentClient with reconnection and refcounted subscriptions"
 ```
 
 ---
@@ -1490,31 +1490,31 @@ Create `src/provider.tsx`:
 ```tsx
 import { createContext, useContext, useEffect, useRef, type ReactNode } from "react"
 import { useStore as useZustandStore } from "zustand"
-import { WorkerClient, type WorkerMetadata, type OnErrorCallback } from "./client"
-import { createWorkerStore, type WorkerState, type WorkerStore } from "./store"
+import { AgentClient, type AgentMetadata, type OnErrorCallback } from "./client"
+import { createAgentStore, type AgentState, type AgentStore } from "./store"
 
-interface WorkerContextValue {
-  store: WorkerStore
-  client: WorkerClient
+interface AgentContextValue {
+  store: AgentStore
+  client: AgentClient
 }
 
-const WorkerContext = createContext<WorkerContextValue | null>(null)
+const AgentContext = createContext<AgentContextValue | null>(null)
 
-export interface WorkerProviderProps {
+export interface AgentProviderProps {
   url: string
-  workerId: string
-  metadata?: WorkerMetadata
+  agentId: string
+  metadata?: AgentMetadata
   onError?: OnErrorCallback
   children: ReactNode
 }
 
-export function WorkerProvider({ url, workerId, metadata, onError, children }: WorkerProviderProps) {
-  const storeRef = useRef<WorkerStore | undefined>(undefined)
-  const clientRef = useRef<WorkerClient | undefined>(undefined)
+export function AgentProvider({ url, agentId, metadata, onError, children }: AgentProviderProps) {
+  const storeRef = useRef<AgentStore | undefined>(undefined)
+  const clientRef = useRef<AgentClient | undefined>(undefined)
 
   if (!storeRef.current) {
-    storeRef.current = createWorkerStore()
-    clientRef.current = new WorkerClient(storeRef.current.getState().actions)
+    storeRef.current = createAgentStore()
+    clientRef.current = new AgentClient(storeRef.current.getState().actions)
   }
 
   // Update onError callback
@@ -1524,29 +1524,29 @@ export function WorkerProvider({ url, workerId, metadata, onError, children }: W
 
   // Connect/disconnect lifecycle
   useEffect(() => {
-    clientRef.current?.connect(url, workerId, metadata)
+    clientRef.current?.connect(url, agentId, metadata)
     return () => clientRef.current?.disconnect()
-  }, [url, workerId, metadata])
+  }, [url, agentId, metadata])
 
   return (
-    <WorkerContext.Provider value={{ store: storeRef.current, client: clientRef.current! }}>
+    <AgentContext.Provider value={{ store: storeRef.current, client: clientRef.current! }}>
       {children}
-    </WorkerContext.Provider>
+    </AgentContext.Provider>
   )
 }
 
 // Internal hook for other hooks to access context
-export function useWorkerContext(): WorkerContextValue {
-  const ctx = useContext(WorkerContext)
+export function useAgentContext(): AgentContextValue {
+  const ctx = useContext(AgentContext)
   if (!ctx) {
-    throw new Error("useWorkerContext must be used within a <WorkerProvider>")
+    throw new Error("useAgentContext must be used within a <AgentProvider>")
   }
   return ctx
 }
 
 // Re-export useStore for hooks to use with our store type
-export function useStore<T>(selector: (state: WorkerState) => T): T {
-  const { store } = useWorkerContext()
+export function useStore<T>(selector: (state: AgentState) => T): T {
+  const { store } = useAgentContext()
   return useZustandStore(store, selector)
 }
 ```
@@ -1561,7 +1561,7 @@ npx tsc --noEmit
 
 ```bash
 git add src/provider.tsx
-git commit -m "feat: add WorkerProvider and context"
+git commit -m "feat: add AgentProvider and context"
 ```
 
 ---
@@ -1580,10 +1580,10 @@ Create `src/hooks/use-connection.ts`:
 
 ```ts
 import { useCallback } from "react"
-import { useWorkerContext, useStore } from "../provider"
+import { useAgentContext, useStore } from "../provider"
 
 export function useConnection() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const status = useStore((s) => s.connection.status)
   const error = useStore((s) => s.connection.error)
@@ -1601,10 +1601,10 @@ Create `src/hooks/use-threads.ts`:
 
 ```ts
 import { useCallback } from "react"
-import { useWorkerContext, useStore } from "../provider"
+import { useAgentContext, useStore } from "../provider"
 
 export function useThreads() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const threads = useStore((s) => s.threadOrder.map((id) => s.threads[id]!).filter(Boolean))
   const isLoading = useStore((s) => s.connection.status !== "connected")
@@ -1621,7 +1621,7 @@ Create `src/hooks/use-thread.ts`:
 
 ```ts
 import { useEffect } from "react"
-import { useWorkerContext, useStore } from "../provider"
+import { useAgentContext, useStore } from "../provider"
 import type { ThreadState } from "../types"
 
 const EMPTY_THREAD_STATE: ThreadState = {
@@ -1635,7 +1635,7 @@ export function useThread<T = ThreadState>(
   threadId: string | null,
   options?: { select?: (state: ThreadState) => T },
 ): T {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   // Auto-subscribe/unsubscribe
   useEffect(() => {
@@ -1668,11 +1668,11 @@ Create `src/hooks/use-message.ts`:
 
 ```ts
 import { useCallback } from "react"
-import { useWorkerContext, useStore } from "../provider"
+import { useAgentContext, useStore } from "../provider"
 import type { ContentPart } from "../types"
 
 export function useMessage() {
-  const { client } = useWorkerContext()
+  const { client } = useAgentContext()
 
   const isWaiting = useStore((s) => {
     for (const threadId of s.subscriptions) {
@@ -1719,8 +1719,8 @@ Replace `src/main.ts`:
 
 ```ts
 // Components
-export { WorkerProvider } from "./provider"
-export type { WorkerProviderProps } from "./provider"
+export { AgentProvider } from "./provider"
+export type { AgentProviderProps } from "./provider"
 
 // Hooks
 export { useConnection } from "./hooks/use-connection"
@@ -1745,7 +1745,7 @@ export type {
 } from "./types"
 
 // Client types (for advanced usage)
-export type { WorkerMetadata } from "./client"
+export type { AgentMetadata } from "./client"
 ```
 
 **Step 2: Build**
@@ -1805,7 +1805,7 @@ Expected: `main.js`, `main.cjs`, `main.d.ts`, `main.d.cts` (plus sourcemaps).
 node -e "const m = require('./dist/main.cjs'); console.log(Object.keys(m))"
 ```
 
-Expected: `WorkerProvider`, `useConnection`, `useThreads`, `useThread`, `useMessage`.
+Expected: `AgentProvider`, `useConnection`, `useThreads`, `useThread`, `useMessage`.
 
 **Step 4: Commit any fixes**
 

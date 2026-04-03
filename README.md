@@ -12,21 +12,21 @@ Peer dependency: `react >= 18`
 
 ## Quick Start
 
-Wrap your component tree in `WorkerProvider`, then use hooks anywhere inside.
+Wrap your component tree in `AgentProvider`, then use hooks anywhere inside.
 
 ```tsx
-import { WorkerProvider, useConnection, useThreadDetails, useMessage } from "dooers-agents-client"
+import { AgentProvider, useConnection, useThreadDetails, useMessage } from "dooers-agents-client"
 
 function App() {
   return (
-    <WorkerProvider
+    <AgentProvider
       url="ws://localhost:8000/ws"
-      workerId="worker-1"
+      agentId="agent-1"
       userId="user-1"
       userName="Alice"
     >
       <Chat threadId="thread-1" />
-    </WorkerProvider>
+    </AgentProvider>
   )
 }
 
@@ -60,12 +60,12 @@ function Chat({ threadId }: { threadId: string }) {
 
 ## Provider
 
-`WorkerProvider` manages the WebSocket lifecycle. On mount it connects, on unmount it disconnects. When any prop changes, the connection resets.
+`AgentProvider` manages the WebSocket lifecycle. On mount it connects, on unmount it disconnects. When any prop changes, the connection resets.
 
 ```tsx
-<WorkerProvider
+<AgentProvider
   url="ws://localhost:8000/ws"   // WebSocket endpoint
-  workerId="worker-1"            // Worker to connect to
+  agentId="agent-1"            // Agent to connect to
   organizationId="org-1"         // Context passed to handler
   workspaceId="ws-1"
   userId="user-1"
@@ -78,14 +78,14 @@ function Chat({ threadId }: { threadId: string }) {
   onError={(err) => console.error(err.code, err.message)}
 >
   {children}
-</WorkerProvider>
+</AgentProvider>
 ```
 
 All props except `children` and `onError` are primitive strings, so React can diff them cheaply.
 
 ## Hooks
 
-All hooks must be called inside a `WorkerProvider`.
+All hooks must be called inside a `AgentProvider`.
 
 ### useConnection
 
@@ -121,7 +121,7 @@ if (hasOlderEvents) {
 
 ### useThreadsList
 
-Read-only thread list for the connected worker.
+Read-only thread list for the connected agent.
 
 ```tsx
 const { threads, isLoading, hasMore, totalCount } = useThreadsList()
@@ -190,7 +190,7 @@ useEffect(() => {
 
 ### useSettings
 
-Worker settings with real-time sync across clients.
+Agent settings with real-time sync across clients.
 
 ```tsx
 const { fields, updatedAt, isLoading, subscribe, unsubscribe, patchField } = useSettings()
@@ -215,7 +215,7 @@ All public types are camelCase. The SDK transforms the wire format (snake_case) 
 ```typescript
 import type {
   User,              // { userId, userName, userEmail, systemRole, organizationRole, workspaceRole }
-  Thread,            // { id, workerId, organizationId, workspaceId, owner, users, title, ... }
+  Thread,            // { id, agentId, organizationId, workspaceId, owner, users, title, ... }
   ThreadEvent,       // { id, threadId, type, actor, author, user, content, data, createdAt, ... }
   Run,               // { id, threadId, agentId, status, startedAt, endedAt, error }
   ContentPart,       // TextPart | ImagePart | DocumentPart
@@ -238,9 +238,9 @@ import { isSettingsFieldGroup } from "dooers-agents-client"  // type guard
 ## Architecture
 
 ```
-WorkerProvider
-  ├── WorkerClient       WebSocket lifecycle, reconnection, optimistic events
-  └── WorkerStore        Zustand vanilla store
+AgentProvider
+  ├── AgentClient       WebSocket lifecycle, reconnection, optimistic events
+  └── AgentStore        Zustand vanilla store
         ├── connection   { status, error, reconnectFailed }
         ├── threads      Record<id, Thread>
         ├── events       Record<threadId, ThreadEvent[]>

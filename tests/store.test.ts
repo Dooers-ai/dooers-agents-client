@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createWorkerStore } from "../src/store";
+import { createAgentStore } from "../src/store";
 import type { Run, SettingsField, Thread, ThreadEvent } from "../src/types";
 
 const thread = (id: string, lastEventAt = "2026-01-01T00:00:00Z"): Thread => ({
   id,
-  workerId: "w1",
+  agentId: "w1",
   metadata: { organizationId: "org1", workspaceId: "ws1", userId: "u1" },
   title: `Thread ${id}`,
   createdAt: "2026-01-01T00:00:00Z",
@@ -38,21 +38,21 @@ const run = (id: string, threadId: string, status: "running" | "succeeded" = "ru
   error: null,
 });
 
-describe("createWorkerStore", () => {
+describe("createAgentStore", () => {
   it("starts with idle connection", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     expect(store.getState().connection.status).toBe("idle");
   });
 
   it("setConnectionStatus updates status and error", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.setConnectionStatus("error", "fail");
     expect(store.getState().connection.status).toBe("error");
     expect(store.getState().connection.error).toBe("fail");
   });
 
   it("onThreadList populates threads and threadOrder", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const t1 = thread("t1", "2026-01-02T00:00:00Z");
     const t2 = thread("t2", "2026-01-03T00:00:00Z");
     store.getState().actions.onThreadList([t2, t1]);
@@ -61,21 +61,21 @@ describe("createWorkerStore", () => {
   });
 
   it("onThreadUpsert adds new thread", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadUpsert(thread("t1"));
     expect(store.getState().threads.t1).toBeDefined();
     expect(store.getState().threadOrder).toContain("t1");
   });
 
   it("onThreadUpsert updates existing thread", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadUpsert(thread("t1"));
     store.getState().actions.onThreadUpsert({ ...thread("t1"), title: "Updated" });
     expect(store.getState().threads.t1?.title).toBe("Updated");
   });
 
   it("onThreadDeleted removes thread and its events/runs", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadUpsert(thread("t1"));
     store.getState().actions.onThreadSnapshot(thread("t1"), [event("e1", "t1")], [run("r1", "t1")]);
     store.getState().actions.onThreadDeleted("t1");
@@ -85,7 +85,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onThreadSnapshot sets events and runs for a thread", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const t = thread("t1");
     const e = [event("e1", "t1"), event("e2", "t1")];
     const r = [run("r1", "t1")];
@@ -97,27 +97,27 @@ describe("createWorkerStore", () => {
   });
 
   it("onEventAppend appends and deduplicates events", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onEventAppend("t1", [event("e1", "t1")]);
     store.getState().actions.onEventAppend("t1", [event("e1", "t1"), event("e2", "t1")]);
     expect(store.getState().events.t1).toHaveLength(2);
   });
 
   it("onRunUpsert adds new run", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onRunUpsert(run("r1", "t1"));
     expect(store.getState().runs.t1).toHaveLength(1);
   });
 
   it("onRunUpsert updates existing run", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onRunUpsert(run("r1", "t1"));
     store.getState().actions.onRunUpsert({ ...run("r1", "t1"), status: "succeeded" });
     expect(store.getState().runs.t1?.[0]?.status).toBe("succeeded");
   });
 
   it("optimistic add and remove", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const e = event("opt-1", "t1");
     store.getState().actions.addOptimistic("t1", e, "client-1");
     expect(store.getState().optimistic.t1).toHaveLength(1);
@@ -126,7 +126,7 @@ describe("createWorkerStore", () => {
   });
 
   it("subscription tracking", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.addSubscription("t1");
     expect(store.getState().subscriptions.has("t1")).toBe(true);
     store.getState().actions.removeSubscription("t1");
@@ -134,7 +134,7 @@ describe("createWorkerStore", () => {
   });
 
   it("resetReconnect resets attempts and failed flag", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.setConnectionStatus("connecting");
     store.getState().actions.setConnectionStatus("disconnected");
     const s = store.getState();
@@ -144,7 +144,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onSettingsSnapshot sets fields and updatedAt", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const field: SettingsField = {
       id: "f1",
       type: "text",
@@ -169,7 +169,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onSettingsPatch updates field value", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const field: SettingsField = {
       id: "f1",
       type: "text",
@@ -195,7 +195,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onSettingsPatch updates field inside group", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     const group = {
       id: "g1",
       label: "Group",
@@ -228,7 +228,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onFeedbackAck stores feedback by target ID", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onFeedbackAck("e1", "like");
     expect(store.getState().feedback.e1).toBe("like");
     store.getState().actions.onFeedbackAck("e1", "dislike");
@@ -236,11 +236,11 @@ describe("createWorkerStore", () => {
   });
 
   it("onAnalyticsEvent appends and increments counters", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onAnalyticsEvent({
       event: "message.c2s",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: "t1",
       userId: "u1",
       runId: null,
@@ -252,12 +252,12 @@ describe("createWorkerStore", () => {
   });
 
   it("onAnalyticsEvent trims to 50 events", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     for (let i = 0; i < 55; i++) {
       store.getState().actions.onAnalyticsEvent({
         event: "message.c2s",
         timestamp: "2026-01-01T00:00:00Z",
-        workerId: "w1",
+        agentId: "w1",
         threadId: null,
         userId: null,
         runId: null,
@@ -270,11 +270,11 @@ describe("createWorkerStore", () => {
   });
 
   it("onAnalyticsEvent counts feedback separately", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onAnalyticsEvent({
       event: "feedback.like",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: null,
       userId: null,
       runId: null,
@@ -284,7 +284,7 @@ describe("createWorkerStore", () => {
     store.getState().actions.onAnalyticsEvent({
       event: "feedback.dislike",
       timestamp: "2026-01-01T00:00:00Z",
-      workerId: "w1",
+      agentId: "w1",
       threadId: null,
       userId: null,
       runId: null,
@@ -297,14 +297,14 @@ describe("createWorkerStore", () => {
   });
 
   it("onThreadList stores cursor and hasMore", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1"), thread("t2")], "cursor-123");
     expect(store.getState().threadListCursor).toBe("cursor-123");
     expect(store.getState().threadListHasMore).toBe(true);
   });
 
   it("onThreadListAppend adds threads without replacing", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1")]);
     store.getState().actions.onThreadListAppend([thread("t2")], null);
     expect(store.getState().threadOrder).toEqual(["t1", "t2"]);
@@ -312,20 +312,20 @@ describe("createWorkerStore", () => {
   });
 
   it("onThreadList stores totalCount", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1"), thread("t2")], "cursor-123", 42);
     expect(store.getState().threadListTotalCount).toBe(42);
   });
 
   it("onThreadListAppend preserves totalCount when not provided", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1")], "cursor-1", 100);
     store.getState().actions.onThreadListAppend([thread("t2")], null);
     expect(store.getState().threadListTotalCount).toBe(100);
   });
 
   it("onEventListResult prepends older events", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onEventAppend("t1", [event("e3", "t1"), event("e4", "t1")]);
     store
       .getState()
@@ -336,7 +336,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onEventListResult deduplicates overlapping events", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onEventAppend("t1", [event("e2", "t1"), event("e3", "t1")]);
     store
       .getState()
@@ -347,7 +347,7 @@ describe("createWorkerStore", () => {
   });
 
   it("onThreadDeleted cleans up eventPagination", () => {
-    const store = createWorkerStore();
+    const store = createAgentStore();
     store.getState().actions.onEventListResult("t1", [event("e1", "t1")], "e1", true);
     expect(store.getState().eventPagination.t1).toBeDefined();
     store.getState().actions.onThreadUpsert(thread("t1"));
