@@ -36,6 +36,8 @@ export interface UploadResult {
   mimeType: string
   filename: string
   sizeBytes: number
+  /** Present when the template persisted the file (HTTP(S) or null if not applicable). */
+  publicUrl?: string | null
 }
 
 export interface PublicSettingsSchemaResult {
@@ -219,6 +221,9 @@ export class AgentClient {
 
     const formData = new FormData()
     formData.append('file', file)
+    if (this.agentId) {
+      formData.append('agent_id', this.agentId)
+    }
 
     const headers: Record<string, string> = {}
     if (this.config.authToken) {
@@ -240,7 +245,8 @@ export class AgentClient {
       refId: result.ref_id,
       mimeType: result.mime_type,
       filename: result.filename,
-      sizeBytes: result.size_bytes,
+      sizeBytes: result.size_bytes ?? result.size ?? 0,
+      publicUrl: result.public_url ?? undefined,
     }
   }
 
