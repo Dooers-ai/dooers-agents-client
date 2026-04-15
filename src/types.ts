@@ -9,16 +9,22 @@ export interface AudioSendPart {
   type: 'audio'
   refId: string
   duration?: number
+  /** When the upload response included a URL (persisted attachment). */
+  url?: string
 }
 
 export interface ImageSendPart {
   type: 'image'
   refId: string
+  /** When the upload response included a fetchable URL (persisted chat attachment). */
+  url?: string
 }
 
 export interface DocumentSendPart {
   type: 'document'
   refId: string
+  /** When the upload response included a URL (persisted attachment). */
+  url?: string
 }
 
 export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | DocumentSendPart
@@ -564,11 +570,30 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
   switch (p.type) {
     case 'text':
       return { type: 'text', text: p.text }
-    case 'audio':
-      return { type: 'audio', ref_id: p.refId, duration: p.duration }
-    case 'image':
-      return { type: 'image', ref_id: p.refId }
-    case 'document':
-      return { type: 'document', ref_id: p.refId }
+    case 'audio': {
+      const w: { type: 'audio'; ref_id: string; duration?: number; url?: string } = {
+        type: 'audio',
+        ref_id: p.refId,
+      }
+      if (p.duration != null) w.duration = p.duration
+      if (p.url) w.url = p.url
+      return w
+    }
+    case 'image': {
+      const w: { type: 'image'; ref_id: string; url?: string } = {
+        type: 'image',
+        ref_id: p.refId,
+      }
+      if (p.url) w.url = p.url
+      return w
+    }
+    case 'document': {
+      const w: { type: 'document'; ref_id: string; url?: string } = {
+        type: 'document',
+        ref_id: p.refId,
+      }
+      if (p.url) w.url = p.url
+      return w
+    }
   }
 }

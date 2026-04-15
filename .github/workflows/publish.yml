@@ -8,6 +8,9 @@ jobs:
   build:
     name: Build and publish
     runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/dooers-agents-client
     permissions:
       contents: read
       id-token: write

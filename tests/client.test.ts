@@ -89,7 +89,9 @@ describe("AgentClient", () => {
     const frame = JSON.parse(ws.sent[0] as string);
     expect(frame.type).toBe("connect");
     expect(frame.payload.agent_id).toBe("w1");
-    expect(frame.payload.metadata.organization_id).toBe("org1");
+    expect(frame.payload.organization_id).toBe("org1");
+    expect(frame.payload.workspace_id).toBe("ws1");
+    expect(frame.payload.user.user_id).toBe("u1");
   });
 
   it("routes ack frame and requests thread list", async () => {
@@ -124,11 +126,18 @@ describe("AgentClient", () => {
           {
             id: "t1",
             agent_id: "w1",
-            metadata: {
-              organization_id: "org1",
-              workspace_id: "ws1",
+            organization_id: "org1",
+            workspace_id: "ws1",
+            owner: {
               user_id: "u1",
+              user_name: null,
+              user_email: null,
+              identity_ids: [],
+              system_role: "user",
+              organization_role: "member",
+              workspace_role: "member",
             },
+            users: [],
             title: null,
             created_at: "2026-01-01T00:00:00Z",
             updated_at: "2026-01-01T00:00:00Z",
@@ -295,7 +304,18 @@ describe("AgentClient", () => {
           {
             id: "t1",
             agent_id: "w1",
-            metadata: { organization_id: "org1", workspace_id: "ws1", user_id: "u1" },
+            organization_id: "org1",
+            workspace_id: "ws1",
+            owner: {
+              user_id: "u1",
+              user_name: null,
+              user_email: null,
+              identity_ids: [],
+              system_role: "user",
+              organization_role: "member",
+              workspace_role: "member",
+            },
+            users: [],
             title: null,
             created_at: "2026-01-01T00:00:00Z",
             updated_at: "2026-01-01T00:00:00Z",

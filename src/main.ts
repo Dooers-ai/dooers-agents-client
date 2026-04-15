@@ -1,6 +1,5 @@
 // Components
 
-export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 // Client types
 export type {
   AgentConnectionConfig,
@@ -9,6 +8,7 @@ export type {
   UploadResult,
 } from './client'
 export { AgentServerClient } from './client'
+export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
 
