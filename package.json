@@ -2,6 +2,14 @@
   "name": "dooers-agents-client",
   "version": "0.8.0",
   "description": "agents-client — react sdk for agents-server",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dooers-ai/dooers-agents-client.git"
+  },
+  "homepage": "https://github.com/Dooers-ai/dooers-agents-client#readme",
+  "bugs": {
+    "url": "https://github.com/Dooers-ai/dooers-agents-client/issues"
+  },
   "type": "module",
   "main": "./dist/main.cjs",
   "module": "./dist/main.js",
