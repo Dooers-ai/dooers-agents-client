@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-04-17
+
+Client-side mirror of the `dooers-agents-server` 0.9.0 release. Additive
+on top of 0.8.0 — no breaking changes.
+
+### Added
+
+- **`metadata` on `event.create`.** `AgentClient.sendMessage()` and
+  `useMessage().send()` accept an optional `metadata?: Record<string, unknown>`
+  param that is forwarded in the `event.create` frame payload. The server
+  persists it on thread creation only (ignored on subsequent messages to
+  the same thread), so callers can attach per-thread context — pre-chat
+  form values, routing hints, external IDs — without polluting the user
+  identity fields.
+- **`Thread.metadata`** on the wire type and high-level `Thread` type.
+  Callers reading a thread through `useThreadDetails()` can surface the
+  stored metadata in the UI.
+
+### Compatibility
+
+Fully additive. Existing `send({ text })` / `send({ content })` callers
+work unchanged. The metadata field is optional everywhere.
+
 ## [0.8.0] — 2026-04-14
 
 Client-side mirror of the `dooers-agents-server` 0.8.0 upload-URL feature.
