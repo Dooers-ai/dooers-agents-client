@@ -209,6 +209,7 @@ export interface Thread {
   owner: User
   users: User[]
   title: string | null
+  metadata: Record<string, unknown> | null
   createdAt: string
   updatedAt: string
   lastEventAt: string
@@ -361,6 +362,7 @@ export function toThread(w: WireThread): Thread {
     owner: toUser(w.owner),
     users: w.users.map((u) => toUser(u)),
     title: w.title,
+    metadata: w.metadata ?? null,
     createdAt: w.created_at,
     updatedAt: w.updated_at,
     lastEventAt: w.last_event_at,

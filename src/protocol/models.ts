@@ -19,6 +19,7 @@ export interface WireThread {
   owner: WireUser
   users: WireUser[]
   title: string | null
+  metadata: Record<string, unknown> | null
   created_at: string
   updated_at: string
   last_event_at: string

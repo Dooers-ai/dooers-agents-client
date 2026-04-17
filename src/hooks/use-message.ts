@@ -6,7 +6,12 @@ export function useMessage() {
   const { client } = useAgentContext()
 
   const send = useCallback(
-    (params: { text?: string; threadId?: string; content?: ContentPart[] }) => {
+    (params: {
+      text?: string
+      threadId?: string
+      content?: ContentPart[]
+      metadata?: Record<string, unknown>
+    }) => {
       return client.sendMessage(params)
     },
     [client]

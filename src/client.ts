@@ -402,6 +402,7 @@ export class AgentClient {
     text?: string
     threadId?: string
     content?: SendContentPart[]
+    metadata?: Record<string, unknown>
   }): Promise<{ threadId: string }> {
     const clientEventId = crypto.randomUUID()
     const content: WireC2S_ContentPart[] = params.content
@@ -458,7 +459,7 @@ export class AgentClient {
 
     const promise = this.createPendingPromise(clientEventId)
 
-    this.send('event.create', {
+    const payload: Record<string, unknown> = {
       thread_id: params.threadId,
       client_event_id: clientEventId,
       event: {
@@ -466,7 +467,12 @@ export class AgentClient {
         actor: 'user' as const,
         content,
       },
-    })
+    }
+    if (params.metadata) {
+      payload.metadata = params.metadata
+    }
+
+    this.send('event.create', payload)
 
     return promise
   }

@@ -52,6 +52,7 @@ export type C2S_EventCreate = Frame<
       content: WireC2S_ContentPart[]
       data?: Record<string, unknown>
     }
+    metadata?: Record<string, unknown>
   }
 >
 
