@@ -489,6 +489,39 @@ describe("AgentClient", () => {
     expect(result).toEqual({ threadId: "existing-t1" });
   });
 
+  it("sendMessage injects configured channel metadata by default", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1", { channel: "dooers-public-chat" });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    client.sendMessage({ text: "hello" });
+    const createFrame = ws.sent
+      .map((s) => JSON.parse(s))
+      .find((f: { type: string }) => f.type === "event.create");
+    expect(createFrame.payload.metadata).toMatchObject({ channel: "dooers-public-chat" });
+  });
+
+  it("sendMessage keeps provided metadata and fills missing channel", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1", {
+      channel: "dooers-public-chat",
+      channelMeta: { source: "widget" },
+    });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    client.sendMessage({ text: "hello", metadata: { guest_name: "Rayan" } });
+    const createFrame = ws.sent
+      .map((s) => JSON.parse(s))
+      .find((f: { type: string }) => f.type === "event.create");
+    expect(createFrame.payload.metadata).toMatchObject({
+      guest_name: "Rayan",
+      channel: "dooers-public-chat",
+      channel_meta: { source: "widget" },
+    });
+  });
+
   it("sends analytics.subscribe and routes analytics.event", async () => {
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
