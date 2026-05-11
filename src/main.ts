@@ -26,7 +26,7 @@ export { useThreadDetails, useThreadEvents } from './hooks/use-thread'
 export { useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
 export type { AgentProviderProps } from './provider'
-export { AgentProvider } from './provider'
+export { AgentProvider, useAgentContext } from './provider'
 // Types
 export type {
   Actor,

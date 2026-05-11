@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] — 2026-05-11
+
+### Fixed
+
+- **Durable chat attachments:** `toWireContentPart` now forwards optional **`filename`** and **`mime_type`** for audio, image, and document parts so the server can rebuild the same blob object key as `POST /uploads` (previously document/image sends without filename defaulted the key segment to `file` / `image`, so GCS/Azure resolution failed with `UPLOAD_NOT_FOUND`).
+- **`event.create` ack errors:** the outbound frame **`id`** for `sendMessage` / `sendFormResponse` is now the same as **`client_event_id`**, matching the server `ack_id`, so failed acks **reject** the returned promise, **roll back** the optimistic thread event, and set **`connection.sendError`** for UI banners.
+- **HTTP upload errors:** `AgentClient.upload()` surfaces FastAPI **`detail`** text when `POST /uploads` returns an error body.
+- **Voice / `Blob` uploads:** `FormData` now sets an explicit multipart filename for **`Blob`** bodies (and optional `upload(file, { filename })`), matching the server’s stored object key; voice messages no longer send a mismatched display-only filename on the WebSocket.
+- **Reconnect:** pending sends are aborted when the socket is replaced or when reconnection is given up, instead of hanging until timeout.
+
+### Added
+
+- **`connection.sendError`** and **`useConnection().dismissSendError`**, plus **`AgentClient.clearSendError()`**, for surfacing the last send/attachment rejection without treating the whole socket as disconnected.
+
 ## [0.9.0] — 2026-04-17
 
 Client-side mirror of the `dooers-agents-server` 0.9.0 release. Additive

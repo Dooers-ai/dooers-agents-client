@@ -25,11 +25,15 @@ export function useFormFileUpload() {
       setIsUploading(true)
       setError(null)
       try {
+        const aid = (params.agentId || '').trim()
+        if (!aid) {
+          throw new Error('agentId is required for upload')
+        }
         const formData = new FormData()
         formData.append('file', params.file)
         formData.append('field_id', params.fieldId)
         formData.append('source', 'chat')
-        formData.append('agent_id', params.agentId)
+        formData.append('agent_id', aid)
         formData.append('run_id', params.runId)
         formData.append('thread_id', params.threadId)
 

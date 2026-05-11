@@ -16,6 +16,39 @@ const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
 
+/** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
+function blobPartFilename(blob: Blob, override?: string): string {
+  const o = (override ?? '').trim()
+  if (o) return o
+  const t = (blob.type || '').toLowerCase()
+  if (t.includes('webm')) return 'recording.webm'
+  if (t.includes('ogg')) return 'recording.ogg'
+  if (t.includes('mpeg') || t.includes('mp3')) return 'recording.mp3'
+  if (t.includes('mp4') || t.includes('m4a') || t.includes('aac')) return 'recording.m4a'
+  if (t.startsWith('audio/')) return `recording.${t.split('/')[1]?.split('+')[0] || 'bin'}`
+  return 'recording.bin'
+}
+
+async function readHttpErrorMessage(response: Response): Promise<string> {
+  const raw = (await response.text().catch(() => '')) || ''
+  const trimmed = raw.trim()
+  if (!trimmed) {
+    return `Upload failed: ${response.status} ${response.statusText}`.trim()
+  }
+  try {
+    const j = JSON.parse(trimmed) as { detail?: unknown }
+    const d = j.detail
+    if (typeof d === 'string') return d
+    if (Array.isArray(d) && d.length > 0) {
+      const first = d[0] as { msg?: string }
+      if (first && typeof first.msg === 'string') return first.msg
+    }
+  } catch {
+    /* use body */
+  }
+  return trimmed.length > 300 ? `${trimmed.slice(0, 300)}…` : trimmed
+}
+
 export interface AgentConnectionConfig {
   organizationId?: string
   workspaceId?: string
@@ -168,6 +201,12 @@ export class AgentClient {
   private url = ''
   private httpBaseUrl = ''
   private agentId = ''
+  /** Mirrors ``AgentProvider`` ``agentId`` so HTTP uploads work before WS ``connect`` completes. */
+  private uploadAgentId = ''
+  /** Current chat thread id for ``POST /uploads`` (aligns GCS path with ``hydrate_thread_events``). */
+  private uploadThreadId = ''
+  /** Optional run id for ``POST /uploads`` (metadata only). */
+  private uploadRunId = ''
   private uploadUrl: string | undefined
   private config: AgentConnectionConfig = {
     organizationId: '',
@@ -186,10 +225,14 @@ export class AgentClient {
   // Track optimistic events for reconciliation
   private pendingOptimistic = new Map<string, { threadId: string; clientEventId: string }>()
 
-  // Pending message promises — resolved when event.append arrives with matching clientEventId
+  // Pending message promises — keyed by outbound frame id (same as client_event_id for sends).
   private pendingMessages = new Map<
     string,
-    { resolve: (value: { threadId: string }) => void; timer: ReturnType<typeof setTimeout> }
+    {
+      resolve: (value: { threadId: string }) => void
+      reject: (reason: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
   >()
 
   // Track last event ID per thread for gap recovery on reconnect
@@ -214,15 +257,45 @@ export class AgentClient {
     this.uploadUrl = url
   }
 
-  async upload(file: File | Blob): Promise<UploadResult> {
+  /** Sync from ``AgentProvider`` ``agentId``; used for ``POST /uploads`` ``agent_id`` (non-WS). */
+  setUploadAgentId(agentId: string | undefined) {
+    this.uploadAgentId = (agentId ?? '').trim()
+  }
+
+  /** Sync active thread id for chat uploads (must match persisted thread for signed URL keys). */
+  setUploadThreadId(threadId: string | undefined) {
+    this.uploadThreadId = (threadId ?? '').trim()
+  }
+
+  setUploadRunId(runId: string | undefined) {
+    this.uploadRunId = (runId ?? '').trim()
+  }
+
+  async upload(file: File | Blob, options?: { filename?: string }): Promise<UploadResult> {
     if (!this.uploadUrl) {
       throw new Error('uploadUrl not configured')
     }
 
+    const aid = (this.uploadAgentId || this.agentId || '').trim()
+    if (!aid) {
+      throw new Error('agentId is required for upload (set AgentProvider agentId)')
+    }
+
     const formData = new FormData()
-    formData.append('file', file)
-    if (this.agentId) {
-      formData.append('agent_id', this.agentId)
+    if (file instanceof File) {
+      const partName = (options?.filename?.trim() || file.name.trim() || 'upload')
+      formData.append('file', file, partName)
+    } else {
+      formData.append('file', file, blobPartFilename(file, options?.filename))
+    }
+    formData.append('agent_id', aid)
+    const tid = this.uploadThreadId.trim()
+    if (tid) {
+      formData.append('thread_id', tid)
+    }
+    const rid = this.uploadRunId.trim()
+    if (rid) {
+      formData.append('run_id', rid)
     }
 
     const headers: Record<string, string> = {}
@@ -237,7 +310,8 @@ export class AgentClient {
     })
 
     if (!response.ok) {
-      throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+      const detail = await readHttpErrorMessage(response)
+      throw new Error(detail)
     }
 
     const result = await response.json()
@@ -253,6 +327,7 @@ export class AgentClient {
   connect(url: string, agentId: string, config?: AgentConnectionConfig) {
     this.url = apiMessagesUrlToWebSocketUrl(url)
     this.agentId = agentId
+    this.uploadAgentId = agentId.trim()
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
 
@@ -272,17 +347,31 @@ export class AgentClient {
     this.createConnection()
   }
 
+  /** Clear the last in-chat send error banner (see ``connection.sendError``). */
+  clearSendError() {
+    this.callbacks.setSendError(null)
+  }
+
+  private abortPendingMessages(reason: string) {
+    for (const [clientEventId, pending] of this.pendingMessages) {
+      clearTimeout(pending.timer)
+      const opt = this.pendingOptimistic.get(clientEventId)
+      if (opt?.threadId) {
+        this.callbacks.removeOptimistic(opt.threadId, clientEventId)
+      }
+      this.pendingOptimistic.delete(clientEventId)
+      pending.reject(new Error(reason))
+    }
+    this.pendingMessages.clear()
+  }
+
   disconnect() {
     this.isIntentionallyClosed = true
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
     }
-    // Clean up pending message promises
-    for (const [, pending] of this.pendingMessages) {
-      clearTimeout(pending.timer)
-    }
-    this.pendingMessages.clear()
+    this.abortPendingMessages('Disconnected')
     if (this.ws) {
       this.ws.onopen = null
       this.ws.onmessage = null
@@ -404,6 +493,7 @@ export class AgentClient {
     content?: SendContentPart[]
     metadata?: Record<string, unknown>
   }): Promise<{ threadId: string }> {
+    this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
     const content: WireC2S_ContentPart[] = params.content
       ? params.content.map(toWireContentPart)
@@ -416,11 +506,27 @@ export class AgentClient {
             case 'text':
               return { type: 'text', text: p.text }
             case 'audio':
-              return { type: 'audio', duration: p.duration }
+              return {
+                type: 'audio',
+                duration: p.duration,
+                ...(p.url ? { url: p.url } : {}),
+                ...(p.mimeType ? { mimeType: p.mimeType } : {}),
+                ...(p.filename ? { filename: p.filename } : {}),
+              }
             case 'image':
-              return { type: 'image' }
+              return {
+                type: 'image',
+                ...(p.url ? { url: p.url } : {}),
+                ...(p.mimeType ? { mimeType: p.mimeType } : {}),
+                ...(p.filename ? { filename: p.filename } : {}),
+              }
             case 'document':
-              return { type: 'document' }
+              return {
+                type: 'document',
+                ...(p.url ? { url: p.url } : {}),
+                ...(p.mimeType ? { mimeType: p.mimeType } : {}),
+                ...(p.filename ? { filename: p.filename } : {}),
+              }
             default:
               return { type: 'text', text: '' }
           }
@@ -472,7 +578,11 @@ export class AgentClient {
       payload.metadata = params.metadata
     }
 
-    this.send('event.create', payload)
+    this.sendRaw({
+      id: clientEventId,
+      type: 'event.create',
+      payload,
+    })
 
     return promise
   }
@@ -483,20 +593,25 @@ export class AgentClient {
     cancelled: boolean
     values: Record<string, unknown>
   }): Promise<{ threadId: string }> {
+    this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
     const promise = this.createPendingPromise(clientEventId)
 
-    this.send('event.create', {
-      thread_id: params.threadId,
-      client_event_id: clientEventId,
-      event: {
-        type: 'form.response' as const,
-        actor: 'user' as const,
-        content: [],
-        data: {
-          form_event_id: params.formEventId,
-          cancelled: params.cancelled,
-          values: params.values,
+    this.sendRaw({
+      id: clientEventId,
+      type: 'event.create',
+      payload: {
+        thread_id: params.threadId,
+        client_event_id: clientEventId,
+        event: {
+          type: 'form.response' as const,
+          actor: 'user' as const,
+          content: [],
+          data: {
+            form_event_id: params.formEventId,
+            cancelled: params.cancelled,
+            values: params.values,
+          },
         },
       },
     })
@@ -509,16 +624,22 @@ export class AgentClient {
   private createPendingPromise(clientEventId: string): Promise<{ threadId: string }> {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
+        const opt = this.pendingOptimistic.get(clientEventId)
+        if (opt?.threadId) {
+          this.callbacks.removeOptimistic(opt.threadId, clientEventId)
+        }
+        this.pendingOptimistic.delete(clientEventId)
         this.pendingMessages.delete(clientEventId)
         reject(new Error('Request timed out waiting for server response'))
       }, SEND_MESSAGE_TIMEOUT)
 
-      this.pendingMessages.set(clientEventId, { resolve, timer })
+      this.pendingMessages.set(clientEventId, { resolve, reject, timer })
     })
   }
 
   private createConnection() {
     if (this.ws) {
+      this.abortPendingMessages('Connection lost; reconnecting')
       this.ws.onopen = null
       this.ws.onmessage = null
       this.ws.onclose = null
@@ -596,9 +717,26 @@ export class AgentClient {
             this.callbacks.setConnectionStatus('error', frame.payload.error?.message)
           }
         } else if (!frame.payload.ok && frame.payload.error) {
+          const ackId = frame.payload.ack_id
+          const err = frame.payload.error
+          if (ackId) {
+            const pending = this.pendingMessages.get(ackId)
+            if (pending) {
+              clearTimeout(pending.timer)
+              this.pendingMessages.delete(ackId)
+              const msg = err.message || 'Request rejected'
+              const opt = this.pendingOptimistic.get(ackId)
+              if (opt?.threadId) {
+                this.callbacks.removeOptimistic(opt.threadId, ackId)
+              }
+              this.pendingOptimistic.delete(ackId)
+              pending.reject(new Error(msg))
+              this.callbacks.setSendError(msg)
+            }
+          }
           this.onError?.({
-            code: frame.payload.error.code,
-            message: frame.payload.error.message,
+            code: err.code,
+            message: err.message,
             frameType: 'ack',
           })
         }
@@ -639,8 +777,9 @@ export class AgentClient {
 
       case 'event.append': {
         const events = this.resolveEventUrls(frame.payload.events.map(toThreadEvent))
-        // Collect reconciled client event IDs and resolve pending message promises
+        // Collect reconciled client event IDs; resolve sends only after store update
         const resolvedClientEventIds: string[] = []
+        const pendingIdsToResolve: string[] = []
         for (const event of events) {
           if (event.clientEventId && this.pendingOptimistic.has(event.clientEventId)) {
             resolvedClientEventIds.push(event.clientEventId)
@@ -650,8 +789,7 @@ export class AgentClient {
             const pendingMessage = this.pendingMessages.get(event.clientEventId)
             if (pendingMessage) {
               clearTimeout(pendingMessage.timer)
-              pendingMessage.resolve({ threadId: frame.payload.thread_id })
-              this.pendingMessages.delete(event.clientEventId)
+              pendingIdsToResolve.push(event.clientEventId)
             }
           }
         }
@@ -668,6 +806,14 @@ export class AgentClient {
           this.callbacks.reconcileEvents(frame.payload.thread_id, events, resolvedClientEventIds)
         } else {
           this.callbacks.onEventAppend(frame.payload.thread_id, events)
+        }
+        const tid = frame.payload.thread_id
+        for (const id of pendingIdsToResolve) {
+          const pending = this.pendingMessages.get(id)
+          if (pending) {
+            pending.resolve({ threadId: tid })
+            this.pendingMessages.delete(id)
+          }
         }
         break
       }
@@ -731,6 +877,7 @@ export class AgentClient {
 
   private scheduleReconnect() {
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      this.abortPendingMessages('Connection lost after maximum retries')
       this.callbacks.setReconnectFailed()
       this.callbacks.setConnectionStatus('error', 'Connection lost after maximum retries')
       return

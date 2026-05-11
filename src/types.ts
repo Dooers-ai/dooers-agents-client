@@ -9,6 +9,9 @@ export interface AudioSendPart {
   type: 'audio'
   refId: string
   duration?: number
+  /** Original name from upload; required for durable blob keys when the server resolves ``ref_id`` from storage. */
+  filename?: string
+  mimeType?: string
   /** When the upload response included a URL (persisted attachment). */
   url?: string
 }
@@ -16,6 +19,8 @@ export interface AudioSendPart {
 export interface ImageSendPart {
   type: 'image'
   refId: string
+  filename?: string
+  mimeType?: string
   /** When the upload response included a fetchable URL (persisted chat attachment). */
   url?: string
 }
@@ -23,6 +28,8 @@ export interface ImageSendPart {
 export interface DocumentSendPart {
   type: 'document'
   refId: string
+  filename?: string
+  mimeType?: string
   /** When the upload response included a URL (persisted attachment). */
   url?: string
 }
@@ -573,27 +580,40 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
     case 'text':
       return { type: 'text', text: p.text }
     case 'audio': {
-      const w: { type: 'audio'; ref_id: string; duration?: number; url?: string } = {
+      const w: {
+        type: 'audio'
+        ref_id: string
+        duration?: number
+        filename?: string
+        mime_type?: string
+        url?: string
+      } = {
         type: 'audio',
         ref_id: p.refId,
       }
       if (p.duration != null) w.duration = p.duration
+      if (p.filename?.trim()) w.filename = p.filename.trim()
+      if (p.mimeType?.trim()) w.mime_type = p.mimeType.trim()
       if (p.url) w.url = p.url
       return w
     }
     case 'image': {
-      const w: { type: 'image'; ref_id: string; url?: string } = {
+      const w: { type: 'image'; ref_id: string; filename?: string; mime_type?: string; url?: string } = {
         type: 'image',
         ref_id: p.refId,
       }
+      if (p.filename?.trim()) w.filename = p.filename.trim()
+      if (p.mimeType?.trim()) w.mime_type = p.mimeType.trim()
       if (p.url) w.url = p.url
       return w
     }
     case 'document': {
-      const w: { type: 'document'; ref_id: string; url?: string } = {
+      const w: { type: 'document'; ref_id: string; filename?: string; mime_type?: string; url?: string } = {
         type: 'document',
         ref_id: p.refId,
       }
+      if (p.filename?.trim()) w.filename = p.filename.trim()
+      if (p.mimeType?.trim()) w.mime_type = p.mimeType.trim()
       if (p.url) w.url = p.url
       return w
     }
