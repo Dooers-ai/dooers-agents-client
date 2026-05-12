@@ -80,6 +80,8 @@ export type C2S_SettingsPatch = Frame<'settings.patch', { field_id: string; valu
 
 export type C2S_SettingsPublicSchema = Frame<'settings.public_schema', Record<string, never>>
 
+// Wire schema only — settings.seed is currently sent server-to-server (service-core → agents-server) and not initiated by this SDK. Kept here for protocol completeness.
+// Field kept as `worker_id` for wire-protocol compatibility with older agent runtimes; semantically equivalent to `agent_id` (the hired agent instance).
 export type C2S_SettingsSeed = Frame<
   'settings.seed',
   {
