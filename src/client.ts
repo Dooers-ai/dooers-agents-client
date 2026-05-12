@@ -283,7 +283,7 @@ export class AgentClient {
 
     const formData = new FormData()
     if (file instanceof File) {
-      const partName = (options?.filename?.trim() || file.name.trim() || 'upload')
+      const partName = options?.filename?.trim() || file.name.trim() || 'upload'
       formData.append('file', file, partName)
     } else {
       formData.append('file', file, blobPartFilename(file, options?.filename))

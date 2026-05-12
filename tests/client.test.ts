@@ -5,6 +5,7 @@ import type { AgentActions } from "../src/store";
 function createMockCallbacks(): AgentActions {
   return {
     setConnectionStatus: vi.fn(),
+    setSendError: vi.fn(),
     setReconnectFailed: vi.fn(),
     resetReconnect: vi.fn(),
     onThreadList: vi.fn(),
@@ -13,6 +14,7 @@ function createMockCallbacks(): AgentActions {
     onThreadDeleted: vi.fn(),
     onThreadSnapshot: vi.fn(),
     onEventAppend: vi.fn(),
+    reconcileEvents: vi.fn(),
     onEventListResult: vi.fn(),
     onRunUpsert: vi.fn(),
     addOptimistic: vi.fn(),
@@ -24,6 +26,11 @@ function createMockCallbacks(): AgentActions {
     onFeedbackAck: vi.fn(),
     onAnalyticsEvent: vi.fn(),
     resetAnalytics: vi.fn(),
+    initFormState: vi.fn(),
+    setFormValue: vi.fn(),
+    setFormSubmitting: vi.fn(),
+    setFormSubmitted: vi.fn(),
+    setFormCancelled: vi.fn(),
   };
 }
 

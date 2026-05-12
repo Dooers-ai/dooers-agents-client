@@ -1,5 +1,12 @@
 import { createStore } from 'zustand/vanilla'
-import type { AnalyticsEvent, DisplayContentPart, Run, SettingsItem, Thread, ThreadEvent } from './types'
+import type {
+  AnalyticsEvent,
+  DisplayContentPart,
+  Run,
+  SettingsItem,
+  Thread,
+  ThreadEvent,
+} from './types'
 import { isSettingsFieldGroup } from './types'
 
 type FormState = {
@@ -35,7 +42,7 @@ function mergeDisplayContentParts(
       continue
     }
     if (n.type === 'image' || n.type === 'audio' || n.type === 'document') {
-      const url = n.url ?? p.url
+      const url = n.url ?? ('url' in p ? p.url : undefined)
       out.push({ ...p, ...n, ...(url ? { url } : {}) } as DisplayContentPart)
       continue
     }

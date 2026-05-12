@@ -598,7 +598,13 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
       return w
     }
     case 'image': {
-      const w: { type: 'image'; ref_id: string; filename?: string; mime_type?: string; url?: string } = {
+      const w: {
+        type: 'image'
+        ref_id: string
+        filename?: string
+        mime_type?: string
+        url?: string
+      } = {
         type: 'image',
         ref_id: p.refId,
       }
@@ -608,7 +614,13 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
       return w
     }
     case 'document': {
-      const w: { type: 'document'; ref_id: string; filename?: string; mime_type?: string; url?: string } = {
+      const w: {
+        type: 'document'
+        ref_id: string
+        filename?: string
+        mime_type?: string
+        url?: string
+      } = {
         type: 'document',
         ref_id: p.refId,
       }
