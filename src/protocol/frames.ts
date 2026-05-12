@@ -82,7 +82,14 @@ export type C2S_SettingsPublicSchema = Frame<'settings.public_schema', Record<st
 
 export type C2S_SettingsSeed = Frame<
   'settings.seed',
-  { worker_id: string; values: Record<string, unknown>; seed_secret: string }
+  {
+    worker_id: string
+    values: Record<string, unknown>
+    seed_secret: string
+    next_seed_secret?: string | null
+    /** When true, server shallow-merges values onto existing worker settings. */
+    merge?: boolean
+  }
 >
 
 // --- Feedback C2S ---

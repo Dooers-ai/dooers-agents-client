@@ -64,6 +64,11 @@ export function AgentProvider({
     clientRef.current?.setUploadUrl(uploadUrl)
   }, [uploadUrl])
 
+  // HTTP uploads require agent_id before WS connect completes
+  useEffect(() => {
+    clientRef.current?.setUploadAgentId(agentId)
+  }, [agentId])
+
   // Stable key for identityIds to avoid reference-equality churn
   const identityIdsKey = identityIds?.join(',') ?? ''
 

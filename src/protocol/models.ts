@@ -36,18 +36,24 @@ export interface WireC2S_AudioPart {
   type: 'audio'
   ref_id: string
   duration?: number
+  filename?: string | null
+  mime_type?: string | null
   url?: string | null
 }
 
 export interface WireC2S_ImagePart {
   type: 'image'
   ref_id: string
+  filename?: string | null
+  mime_type?: string | null
   url?: string | null
 }
 
 export interface WireC2S_DocumentPart {
   type: 'document'
   ref_id: string
+  filename?: string | null
+  mime_type?: string | null
   url?: string | null
 }
 

@@ -103,6 +103,53 @@ describe("createAgentStore", () => {
     expect(store.getState().events.t1).toHaveLength(2);
   });
 
+  it("onEventAppend merge keeps image url when update adds runId only", () => {
+    const store = createAgentStore();
+    const imgNoRun: ThreadEvent = {
+      id: "e-img",
+      threadId: "t1",
+      runId: null,
+      type: "message",
+      actor: "user",
+      author: "U",
+      content: [{ type: "image", filename: "a.jpg", mimeType: "image/jpeg", url: "https://signed.example/a.jpg" }],
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const imgWithRun: ThreadEvent = {
+      ...imgNoRun,
+      runId: "run-1",
+      content: [{ type: "image", filename: "a.jpg", mimeType: "image/jpeg" }],
+    };
+    store.getState().actions.onEventAppend("t1", [imgNoRun]);
+    store.getState().actions.onEventAppend("t1", [imgWithRun]);
+    const ev = store.getState().events.t1?.[0];
+    expect(ev?.runId).toBe("run-1");
+    expect((ev?.content?.[0] as { url?: string })?.url).toBe("https://signed.example/a.jpg");
+  });
+
+  it("onThreadSnapshot merges hydrated image url into existing event by id", () => {
+    const store = createAgentStore();
+    const bare: ThreadEvent = {
+      id: "e1",
+      threadId: "t1",
+      runId: null,
+      type: "message",
+      actor: "user",
+      author: "U",
+      content: [{ type: "image", filename: "a.jpg", mimeType: "image/jpeg" }],
+      createdAt: "2026-01-01T00:00:00Z",
+    };
+    const hydrated: ThreadEvent = {
+      ...bare,
+      content: [{ type: "image", filename: "a.jpg", mimeType: "image/jpeg", url: "https://signed.example/a.jpg" }],
+    };
+    store.getState().actions.onEventAppend("t1", [bare]);
+    store.getState().actions.onThreadSnapshot(thread("t1"), [hydrated], []);
+    expect((store.getState().events.t1?.[0]?.content?.[0] as { url?: string })?.url).toBe(
+      "https://signed.example/a.jpg"
+    );
+  });
+
   it("onRunUpsert adds new run", () => {
     const store = createAgentStore();
     store.getState().actions.onRunUpsert(run("r1", "t1"));

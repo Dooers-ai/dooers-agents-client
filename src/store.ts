@@ -1,5 +1,5 @@
 import { createStore } from 'zustand/vanilla'
-import type { AnalyticsEvent, Run, SettingsItem, Thread, ThreadEvent } from './types'
+import type { AnalyticsEvent, DisplayContentPart, Run, SettingsItem, Thread, ThreadEvent } from './types'
 import { isSettingsFieldGroup } from './types'
 
 type FormState = {
@@ -10,6 +10,49 @@ type FormState = {
 }
 
 /** Extract form states from form.response events to restore submitted/cancelled state. */
+/** Merge wire content so a later frame (e.g. run_id patch) does not drop a hydrated ``url``. */
+function mergeDisplayContentParts(
+  prev: DisplayContentPart[] | undefined,
+  next: DisplayContentPart[] | undefined
+): DisplayContentPart[] | undefined {
+  if (!next?.length) return prev
+  if (!prev?.length) return next
+  const out: DisplayContentPart[] = []
+  const len = Math.max(prev.length, next.length)
+  for (let i = 0; i < len; i++) {
+    const p = prev[i]
+    const n = next[i]
+    if (!n) {
+      if (p) out.push(p)
+      continue
+    }
+    if (!p) {
+      out.push(n)
+      continue
+    }
+    if (p.type !== n.type) {
+      out.push(n)
+      continue
+    }
+    if (n.type === 'image' || n.type === 'audio' || n.type === 'document') {
+      const url = n.url ?? p.url
+      out.push({ ...p, ...n, ...(url ? { url } : {}) } as DisplayContentPart)
+      continue
+    }
+    out.push(n)
+  }
+  return out
+}
+
+function mergeThreadEventById(prev: ThreadEvent, next: ThreadEvent): ThreadEvent {
+  const content = mergeDisplayContentParts(prev.content, next.content)
+  return {
+    ...prev,
+    ...next,
+    ...(content !== undefined ? { content } : {}),
+  }
+}
+
 function extractFormStates(
   events: ThreadEvent[],
   existing: Record<string, FormState>
@@ -33,6 +76,7 @@ function extractFormStates(
 
 export interface AgentActions {
   setConnectionStatus: (status: AgentState['connection']['status'], error?: string) => void
+  setSendError: (message: string | null) => void
   setReconnectFailed: () => void
   resetReconnect: () => void
   onThreadList: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
@@ -73,6 +117,8 @@ export interface AgentState {
   connection: {
     status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
     error: string | null
+    /** Last server rejection for ``event.create`` / send (e.g. upload ref not found). */
+    sendError: string | null
     reconnectAttempts: number
     reconnectFailed: boolean
   }
@@ -113,6 +159,7 @@ export function createAgentStore() {
     connection: {
       status: 'idle',
       error: null,
+      sendError: null,
       reconnectAttempts: 0,
       reconnectFailed: false,
     },
@@ -143,7 +190,17 @@ export function createAgentStore() {
     actions: {
       setConnectionStatus: (status, error) =>
         set((s) => ({
-          connection: { ...s.connection, status, error: error ?? null },
+          connection: {
+            ...s.connection,
+            status,
+            error: error ?? null,
+            ...(status === 'connected' ? { sendError: null } : {}),
+          },
+        })),
+
+      setSendError: (message) =>
+        set((s) => ({
+          connection: { ...s.connection, sendError: message },
         })),
 
       setReconnectFailed: () =>
@@ -255,8 +312,14 @@ export function createAgentStore() {
             mergedEvents = snapshotEvents
           } else {
             const existingIds = new Set(existing.map((e) => e.id))
+            const snapById = new Map(snapshotEvents.map((e) => [e.id, e]))
+            const mergedExisting = existing.map((e) => {
+              const snap = snapById.get(e.id)
+              return snap ? mergeThreadEventById(e, snap) : e
+            })
             const newFromSnapshot = snapshotEvents.filter((e) => !existingIds.has(e.id))
-            mergedEvents = newFromSnapshot.length > 0 ? [...existing, ...newFromSnapshot] : existing
+            mergedEvents =
+              newFromSnapshot.length > 0 ? [...mergedExisting, ...newFromSnapshot] : mergedExisting
           }
 
           // Snapshot is authoritative — clear optimistic state for this thread.
@@ -286,7 +349,8 @@ export function createAgentStore() {
           const appends: ThreadEvent[] = []
           for (const e of newEvents) {
             if (existingIds.has(e.id)) {
-              updates.set(e.id, e)
+              const prev = existing.find((x) => x.id === e.id)!
+              updates.set(e.id, mergeThreadEventById(prev, e))
             } else {
               appends.push(e)
             }
@@ -304,6 +368,13 @@ export function createAgentStore() {
           // Append confirmed events
           const existing = s.events[threadId] ?? []
           const existingIds = new Set(existing.map((e) => e.id))
+          const mergedExisting =
+            newEvents.length > 0
+              ? existing.map((e) => {
+                  const up = newEvents.find((n) => n.id === e.id)
+                  return up ? mergeThreadEventById(e, up) : e
+                })
+              : existing
           const unique = newEvents.filter((e) => !existingIds.has(e.id))
 
           // Remove reconciled optimistic events
@@ -320,7 +391,7 @@ export function createAgentStore() {
           }
 
           return {
-            events: { ...s.events, [threadId]: [...existing, ...unique] },
+            events: { ...s.events, [threadId]: [...mergedExisting, ...unique] },
             optimistic: { ...s.optimistic, [threadId]: optEvents },
             optimisticKeys: { ...s.optimisticKeys, [threadId]: optKeys },
           }
@@ -381,7 +452,10 @@ export function createAgentStore() {
           const subscriptions = new Set(s.subscriptions)
           subscriptions.add(threadId)
           const loadingThreads = new Set(s.loadingThreads)
-          loadingThreads.add(threadId)
+          const alreadyHadEvents = (s.events[threadId]?.length ?? 0) > 0
+          if (!alreadyHadEvents) {
+            loadingThreads.add(threadId)
+          }
           return { subscriptions, loadingThreads }
         }),
 
