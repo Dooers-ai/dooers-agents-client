@@ -9,6 +9,7 @@ export interface WireUser {
   system_role: string
   organization_role: string
   workspace_role: string
+  metadata?: Record<string, unknown>
 }
 
 export interface WireThread {
