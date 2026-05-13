@@ -19,11 +19,15 @@ export interface AgentProviderProps {
   userId?: string
   userName?: string
   userEmail?: string
+  userMobileNumber?: string
+  userWhatsappNumber?: string
   identityIds?: string[]
   systemRole?: string
   organizationRole?: string
   workspaceRole?: string
   authToken?: string
+  channel?: string
+  channelMeta?: Record<string, unknown>
   uploadUrl?: string
   onError?: OnErrorCallback
   children: ReactNode
@@ -37,11 +41,15 @@ export function AgentProvider({
   userId,
   userName,
   userEmail,
+  userMobileNumber,
+  userWhatsappNumber,
   identityIds,
   systemRole,
   organizationRole,
   workspaceRole,
   authToken,
+  channel,
+  channelMeta,
   uploadUrl,
   onError,
   children,
@@ -81,11 +89,15 @@ export function AgentProvider({
       userId,
       userName,
       userEmail,
+      userMobileNumber,
+      userWhatsappNumber,
       identityIds: identityIdsKey ? identityIdsKey.split(',') : undefined,
       systemRole,
       organizationRole,
       workspaceRole,
       authToken,
+      channel,
+      channelMeta,
     })
     return () => clientRef.current?.disconnect()
   }, [
@@ -96,11 +108,15 @@ export function AgentProvider({
     userId,
     userName,
     userEmail,
+    userMobileNumber,
+    userWhatsappNumber,
     identityIdsKey,
     systemRole,
     organizationRole,
     workspaceRole,
     authToken,
+    channel,
+    channelMeta,
   ])
 
   // Stable context value — refs never change after initial creation

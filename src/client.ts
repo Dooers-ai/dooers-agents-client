@@ -56,11 +56,15 @@ export interface AgentConnectionConfig {
   userId?: string
   userName?: string
   userEmail?: string
+  userMobileNumber?: string
+  userWhatsappNumber?: string
   identityIds?: string[]
   systemRole?: string
   organizationRole?: string
   workspaceRole?: string
   authToken?: string
+  channel?: string
+  channelMeta?: Record<string, unknown>
 }
 
 export type OnErrorCallback = (error: { code: string; message: string; frameType: string }) => void
@@ -213,6 +217,7 @@ export class AgentClient {
     organizationId: '',
     workspaceId: '',
     userId: '',
+    channel: 'dooers-platform',
   }
 
   private connectFrameId = ''
@@ -575,9 +580,7 @@ export class AgentClient {
         content,
       },
     }
-    if (params.metadata) {
-      payload.metadata = params.metadata
-    }
+    payload.metadata = this.withChannelMetadata(params.metadata)
 
     this.sendRaw({
       id: clientEventId,
@@ -593,6 +596,7 @@ export class AgentClient {
     formEventId: string
     cancelled: boolean
     values: Record<string, unknown>
+    metadata?: Record<string, unknown>
   }): Promise<{ threadId: string }> {
     this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
@@ -615,6 +619,7 @@ export class AgentClient {
           },
         },
       },
+      metadata: this.withChannelMetadata(params.metadata),
     })
 
     return promise
@@ -687,6 +692,8 @@ export class AgentClient {
           user_id: this.config.userId ?? '',
           user_name: this.config.userName ?? null,
           user_email: this.config.userEmail ?? null,
+          user_mobile_number: this.config.userMobileNumber ?? null,
+          user_whatsapp_number: this.config.userWhatsappNumber ?? null,
           identity_ids: this.config.identityIds ?? [],
           system_role: this.config.systemRole ?? 'user',
           organization_role: this.config.organizationRole ?? 'member',
@@ -894,6 +901,20 @@ export class AgentClient {
 
   private send(type: string, payload: unknown) {
     this.sendRaw({ id: crypto.randomUUID(), type, payload })
+  }
+
+  private withChannelMetadata(
+    metadata: Record<string, unknown> | undefined
+  ): Record<string, unknown> | undefined {
+    const channel = (this.config.channel || 'dooers-platform').trim() || 'dooers-platform'
+    const base = metadata ? { ...metadata } : {}
+    if (!('channel' in base)) {
+      base.channel = channel
+    }
+    if (this.config.channelMeta && !('channel_meta' in base)) {
+      base.channel_meta = this.config.channelMeta
+    }
+    return Object.keys(base).length > 0 ? base : undefined
   }
 
   private sendRaw(frame: unknown) {
