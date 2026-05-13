@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.3] — 2026-05-13
+
+### Added
+
+- **Channel metadata on `event.create`:** `AgentClient.sendMessage()` and `useMessage().send()` accept optional **`channel`** and **`channelMeta`** params, forwarded into the `event.create` payload so external channels (e.g. WhatsApp) can persist routing and audit metadata. Provider/config typing is exposed for typed integrations.
+- **`ref_id` on S2C display parts:** server-to-client audio, image, and document parts now carry an optional **`refId`** mapped from the wire **`ref_id`**, matching `dooers-agents-server` parity.
+- **Handshake `client.version`:** the connect frame now reports `client.version` from **`PACKAGE_VERSION`** (also re-exported from the package entrypoint) so server-side analytics can correlate connections to a specific SDK build.
+
 ## [0.9.2] — 2026-05-12
 
 ### Fixed
