@@ -11,7 +11,6 @@ export { AgentServerClient } from './client'
 export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
-
 // Hooks
 export { useConnection } from './hooks/use-connection'
 export { useFeedback } from './hooks/use-feedback'
@@ -80,3 +79,4 @@ export {
   toFormEventData,
   toFormResponseEventData,
 } from './types'
+export { PACKAGE_VERSION } from './version'

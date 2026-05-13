@@ -76,6 +76,8 @@ export interface WireS2C_AudioPart {
   mime_type?: string
   duration?: number
   filename?: string
+  /** Same id as POST /uploads when the part came from the ref_id upload path (server replay / signing). */
+  ref_id?: string | null
 }
 
 export interface WireS2C_ImagePart {
@@ -86,6 +88,7 @@ export interface WireS2C_ImagePart {
   height?: number
   alt?: string
   filename?: string
+  ref_id?: string | null
 }
 
 export interface WireS2C_DocumentPart {
@@ -94,6 +97,7 @@ export interface WireS2C_DocumentPart {
   filename?: string
   mime_type?: string
   size_bytes?: number
+  ref_id?: string | null
 }
 
 export type WireS2C_ContentPart =

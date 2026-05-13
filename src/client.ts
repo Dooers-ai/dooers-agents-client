@@ -1,4 +1,5 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
+import { PACKAGE_VERSION } from './version'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
@@ -692,7 +693,7 @@ export class AgentClient {
           workspace_role: this.config.workspaceRole ?? 'member',
         },
         auth_token: this.config.authToken,
-        client: { name: 'dooers-agents-client', version: '0.1.0' },
+        client: { name: 'dooers-agents-client', version: PACKAGE_VERSION },
       },
     })
   }
