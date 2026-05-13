@@ -49,6 +49,8 @@ export interface AudioDisplayPart {
   mimeType?: string
   duration?: number
   filename?: string
+  /** Upload ref when present on the wire (replay / blob key correlation). */
+  refId?: string
 }
 
 export interface ImageDisplayPart {
@@ -59,6 +61,7 @@ export interface ImageDisplayPart {
   height?: number
   alt?: string
   filename?: string
+  refId?: string
 }
 
 export interface DocumentDisplayPart {
@@ -67,6 +70,7 @@ export interface DocumentDisplayPart {
   filename?: string
   mimeType?: string
   sizeBytes?: number
+  refId?: string
 }
 
 export type DisplayContentPart =
@@ -387,6 +391,7 @@ export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart
         mimeType: w.mime_type,
         duration: w.duration,
         filename: w.filename,
+        ...(w.ref_id ? { refId: w.ref_id } : {}),
       }
     case 'image':
       return {
@@ -397,6 +402,7 @@ export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart
         height: w.height,
         alt: w.alt,
         filename: w.filename,
+        ...(w.ref_id ? { refId: w.ref_id } : {}),
       }
     case 'document':
       return {
@@ -405,6 +411,7 @@ export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart
         filename: w.filename,
         mimeType: w.mime_type,
         sizeBytes: w.size_bytes,
+        ...(w.ref_id ? { refId: w.ref_id } : {}),
       }
   }
 }
