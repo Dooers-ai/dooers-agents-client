@@ -1,5 +1,5 @@
 {
-  "name": "dooers-agents-client",
+  "name": "dooers-agents",
   "version": "0.9.3",
   "description": "agents-client — react sdk for agents-server",
   "repository": {

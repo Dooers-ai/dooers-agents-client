@@ -700,7 +700,7 @@ export class AgentClient {
           workspace_role: this.config.workspaceRole ?? 'member',
         },
         auth_token: this.config.authToken,
-        client: { name: 'dooers-agents-client', version: PACKAGE_VERSION },
+        client: { name: 'dooers-agents', version: PACKAGE_VERSION },
       },
     })
   }

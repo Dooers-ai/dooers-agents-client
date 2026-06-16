@@ -5,7 +5,7 @@ React agents client SDK for agents server SDK.
 ## Install
 
 ```bash
-npm install dooers-agents-client
+npm install dooers-agents
 ```
 
 Peer dependency: `react >= 18`
@@ -15,7 +15,7 @@ Peer dependency: `react >= 18`
 Wrap your component tree in `AgentProvider`, then use hooks anywhere inside.
 
 ```tsx
-import { AgentProvider, useConnection, useThreadDetails, useMessage } from "dooers-agents-client"
+import { AgentProvider, useConnection, useThreadDetails, useMessage } from "dooers-agents"
 
 function App() {
   return (
@@ -230,9 +230,9 @@ import type {
   AnalyticsEvent,
   FeedbackType,      // "like" | "dislike"
   FeedbackTarget,    // "event" | "run" | "thread"
-} from "dooers-agents-client"
+} from "dooers-agents"
 
-import { isSettingsFieldGroup } from "dooers-agents-client"  // type guard
+import { isSettingsFieldGroup } from "dooers-agents"  // type guard
 ```
 
 ## Architecture
