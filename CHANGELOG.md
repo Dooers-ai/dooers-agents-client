@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] — 2026-06-18
+
+### Added
+
+- **`AgentClient.updateConnectionConfig()`** — refresh handshake token and identity metadata without tearing down the WebSocket.
+- **Settings subscription restore** — active `settings.subscribe` is re-sent after reconnect (same pattern as thread subscriptions).
+- **WebSocket heartbeat** — client sends `ping` every 30s while connected.
+
+### Changed
+
+- **`AgentProvider`** — hard reconnect only when `url` or `agentId` changes; `authToken` and role fields hot-update via `updateConnectionConfig`.
+
 ## [0.10.0] — 2026-06-17
 
 ### Changed

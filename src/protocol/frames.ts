@@ -111,6 +111,8 @@ export type C2S_AnalyticsSubscribe = Frame<'analytics.subscribe', { agent_id: st
 
 export type C2S_AnalyticsUnsubscribe = Frame<'analytics.unsubscribe', { agent_id: string }>
 
+export type C2S_Ping = Frame<'ping', Record<string, never>>
+
 export type ClientToServer =
   | C2S_Connect
   | C2S_ThreadList
@@ -127,6 +129,7 @@ export type ClientToServer =
   | C2S_Feedback
   | C2S_AnalyticsSubscribe
   | C2S_AnalyticsUnsubscribe
+  | C2S_Ping
 
 // --- Server to Client (S2C) ---
 
@@ -199,6 +202,8 @@ export type S2C_FeedbackAck = Frame<
 
 export type S2C_AnalyticsEvent = Frame<'analytics.event', WireAnalyticsEvent>
 
+export type S2C_Pong = Frame<'pong', Record<string, never>>
+
 export type ServerToClient =
   | S2C_Ack
   | S2C_ThreadListResult
@@ -213,3 +218,4 @@ export type ServerToClient =
   | S2C_SettingsPublicSchemaResult
   | S2C_FeedbackAck
   | S2C_AnalyticsEvent
+  | S2C_Pong

@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef } from 'react'
 import { useStore as useZustandStore } from 'zustand'
 import { useShallow } from 'zustand/shallow'
-import { AgentClient, type OnErrorCallback } from './client'
+import { AgentClient, type AgentConnectionConfig, type OnErrorCallback } from './client'
 import { type AgentState, type AgentStore, createAgentStore } from './store'
 
 interface AgentContextValue {
@@ -79,11 +79,18 @@ export function AgentProvider({
 
   // Stable key for identityIds to avoid reference-equality churn
   const identityIdsKey = identityIds?.join(',') ?? ''
+  const channelMetaKey = channelMeta ? JSON.stringify(channelMeta) : ''
 
-  // Connect/disconnect lifecycle — skips connection when url or agentId are missing
-  useEffect(() => {
-    if (!url || !agentId) return
-    clientRef.current?.connect(url, agentId, {
+  const connectionConfig = useMemo((): AgentConnectionConfig => {
+    let parsedChannelMeta: Record<string, unknown> | undefined
+    if (channelMetaKey) {
+      try {
+        parsedChannelMeta = JSON.parse(channelMetaKey) as Record<string, unknown>
+      } catch {
+        parsedChannelMeta = channelMeta
+      }
+    }
+    return {
       organizationId,
       workspaceId,
       userId,
@@ -97,12 +104,9 @@ export function AgentProvider({
       workspaceRole,
       authToken,
       channel,
-      channelMeta,
-    })
-    return () => clientRef.current?.disconnect()
+      channelMeta: parsedChannelMeta,
+    }
   }, [
-    url,
-    agentId,
     organizationId,
     workspaceId,
     userId,
@@ -116,8 +120,28 @@ export function AgentProvider({
     workspaceRole,
     authToken,
     channel,
+    channelMetaKey,
     channelMeta,
   ])
+
+  const connectionConfigRef = useRef(connectionConfig)
+  connectionConfigRef.current = connectionConfig
+
+  // Hard reconnect only when endpoint or agent identity changes.
+  useEffect(() => {
+    if (!url || !agentId) {
+      clientRef.current?.disconnect()
+      return
+    }
+    clientRef.current?.connect(url, agentId, connectionConfigRef.current)
+    return () => clientRef.current?.disconnect()
+  }, [url, agentId])
+
+  // Hot-update metadata (handshake token refresh, roles, user fields) without reconnecting.
+  useEffect(() => {
+    if (!url || !agentId) return
+    clientRef.current?.updateConnectionConfig(connectionConfig)
+  }, [url, agentId, connectionConfig])
 
   // Stable context value — refs never change after initial creation
   const contextValue = useMemo<AgentContextValue>(

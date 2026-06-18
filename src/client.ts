@@ -16,6 +16,7 @@ import {
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
+const PING_INTERVAL_MS = 30_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
 function blobPartFilename(blob: Blob, override?: string): string {
@@ -251,6 +252,14 @@ export class AgentClient {
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
 
+  /** Active settings subscription — restored after reconnect. */
+  private settingsSubscription: {
+    audience: 'creator' | 'user'
+    agentOwnerUserId: string | null
+  } | null = null
+
+  private pingTimer: ReturnType<typeof setInterval> | null = null
+
   constructor(callbacks: AgentActions) {
     this.callbacks = callbacks
   }
@@ -275,6 +284,18 @@ export class AgentClient {
 
   setUploadRunId(runId: string | undefined) {
     this.uploadRunId = (runId ?? '').trim()
+  }
+
+  /**
+   * Merge connection metadata without tearing down the WebSocket.
+   * Use for handshake token refresh and identity/role updates on an open session.
+   */
+  updateConnectionConfig(config: Partial<AgentConnectionConfig>) {
+    this.config = { ...this.config, ...config }
+  }
+
+  isConnected(): boolean {
+    return this.ws?.readyState === WebSocket.OPEN
   }
 
   async upload(file: File | Blob, options?: { filename?: string }): Promise<UploadResult> {
@@ -373,6 +394,7 @@ export class AgentClient {
 
   disconnect() {
     this.isIntentionallyClosed = true
+    this.stopHeartbeat()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
@@ -448,14 +470,18 @@ export class AgentClient {
   // --- Settings ---
 
   subscribeSettings(options?: { audience?: 'creator' | 'user'; agentOwnerUserId?: string | null }) {
+    const audience = options?.audience ?? 'user'
+    const agentOwnerUserId = options?.agentOwnerUserId ?? null
+    this.settingsSubscription = { audience, agentOwnerUserId }
     this.send('settings.subscribe', {
       agent_id: this.agentId,
-      audience: options?.audience ?? 'user',
-      agent_owner_user_id: options?.agentOwnerUserId ?? null,
+      audience,
+      agent_owner_user_id: agentOwnerUserId,
     })
   }
 
   unsubscribeSettings() {
+    this.settingsSubscription = null
     this.send('settings.unsubscribe', { agent_id: this.agentId })
   }
 
@@ -644,6 +670,7 @@ export class AgentClient {
   }
 
   private createConnection() {
+    this.stopHeartbeat()
     if (this.ws) {
       this.abortPendingMessages('Connection lost; reconnecting')
       this.ws.onopen = null
@@ -721,6 +748,8 @@ export class AgentClient {
                 after_event_id: afterEventId,
               })
             }
+            this.resubscribeSettings()
+            this.startHeartbeat()
           } else {
             this.callbacks.setConnectionStatus('error', frame.payload.error?.message)
           }
@@ -880,10 +909,37 @@ export class AgentClient {
       case 'analytics.event':
         this.callbacks.onAnalyticsEvent(toAnalyticsEvent(frame.payload))
         break
+
+      case 'pong':
+        break
+    }
+  }
+
+  private resubscribeSettings() {
+    if (!this.settingsSubscription) return
+    this.send('settings.subscribe', {
+      agent_id: this.agentId,
+      audience: this.settingsSubscription.audience,
+      agent_owner_user_id: this.settingsSubscription.agentOwnerUserId,
+    })
+  }
+
+  private startHeartbeat() {
+    this.stopHeartbeat()
+    this.pingTimer = setInterval(() => {
+      this.send('ping', {})
+    }, PING_INTERVAL_MS)
+  }
+
+  private stopHeartbeat() {
+    if (this.pingTimer) {
+      clearInterval(this.pingTimer)
+      this.pingTimer = null
     }
   }
 
   private scheduleReconnect() {
+    this.stopHeartbeat()
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       this.abortPendingMessages('Connection lost after maximum retries')
       this.callbacks.setReconnectFailed()

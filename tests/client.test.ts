@@ -551,4 +551,43 @@ describe("AgentClient", () => {
       expect.objectContaining({ event: "message.c2s", agentId: "w1", threadId: "t1" }),
     );
   });
+
+  it("updateConnectionConfig updates auth token without closing the socket", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1", { authToken: "token-a" });
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    const connectId = JSON.parse(ws.sent[0] as string).id;
+    ws.receive({ id: "ack-1", type: "ack", payload: { ack_id: connectId, ok: true } });
+
+    const instancesBefore = MockWebSocket.instances.length;
+    client.updateConnectionConfig({ authToken: "token-b" });
+    expect(MockWebSocket.instances.length).toBe(instancesBefore);
+    expect(client.isConnected()).toBe(true);
+  });
+
+  it("re-subscribes settings after reconnect", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1");
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    const connectId = JSON.parse(ws.sent[0] as string).id;
+    ws.receive({ id: "ack-1", type: "ack", payload: { ack_id: connectId, ok: true } });
+
+    client.subscribeSettings({ audience: "user" });
+    const subscribeCount = ws.sent.filter((s) => JSON.parse(s).type === "settings.subscribe").length;
+    expect(subscribeCount).toBe(1);
+
+    ws.onclose?.();
+    await new Promise((r) => setTimeout(r, 1100));
+
+    const ws2 = MockWebSocket.instances[MockWebSocket.instances.length - 1] as MockWebSocket;
+    const connectId2 = JSON.parse(ws2.sent[0] as string).id;
+    ws2.receive({ id: "ack-2", type: "ack", payload: { ack_id: connectId2, ok: true } });
+
+    const settingsFrames = ws2.sent.filter((s) => JSON.parse(s).type === "settings.subscribe");
+    expect(settingsFrames.length).toBeGreaterThanOrEqual(1);
+  });
 });
