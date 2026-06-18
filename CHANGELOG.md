@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-06-18
+
+### Changed
+
+- **BREAKING — package rename.** The npm package is renamed back to **`dooers-agents-client`** (from `dooers-agents`). Update imports: `from "dooers-agents"` → `from "dooers-agents-client"`. The Connect handshake `client.name` identifier is `dooers-agents-client` again.
+
 ## [0.10.1] — 2026-06-18
 
 ### Added
