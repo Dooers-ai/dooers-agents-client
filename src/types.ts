@@ -192,6 +192,7 @@ export interface FormResponseEventData {
 export type Actor = 'user' | 'assistant' | 'system' | 'tool'
 export type EventType =
   | 'message'
+  | 'reasoning'
   | 'run.started'
   | 'run.finished'
   | 'tool.call'

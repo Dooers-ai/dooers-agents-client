@@ -201,6 +201,7 @@ export type WireS2C_FormElement =
 export type WireActor = 'user' | 'assistant' | 'system' | 'tool'
 export type WireEventType =
   | 'message'
+  | 'reasoning'
   | 'run.started'
   | 'run.finished'
   | 'tool.call'
