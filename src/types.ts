@@ -189,6 +189,39 @@ export interface FormResponseEventData {
   values: Record<string, unknown>
 }
 
+export type ChartType =
+  | 'bar'
+  | 'bar_horizontal'
+  | 'stacked_bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+
+export type ChartSize = 'small' | 'medium' | 'large'
+
+export interface ChartSeries {
+  key: string
+  label: string | null
+  color: string | null
+}
+
+export type ChartDataRow = Record<string, string | number | null>
+
+export interface ChartEventData {
+  title: string
+  message: string
+  chartType: ChartType
+  size: ChartSize
+  xKey: string
+  yKeys: string[]
+  data: ChartDataRow[]
+  series: ChartSeries[]
+  xLabel: string | null
+  yLabel: string | null
+}
+
 export type Actor = 'user' | 'assistant' | 'system' | 'tool'
 export type EventType =
   | 'message'
@@ -200,6 +233,7 @@ export type EventType =
   | 'tool.transaction'
   | 'form'
   | 'form.response'
+  | 'chart'
 export type RunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -500,6 +534,40 @@ export function toFormResponseEventData(data: Record<string, unknown>): FormResp
     formEventId: (data.form_event_id as string) ?? '',
     cancelled: (data.cancelled as boolean) ?? false,
     values: (data.values as Record<string, unknown>) ?? {},
+  }
+}
+
+export function toChartSeries(w: {
+  key: string
+  label?: string | null
+  color?: string | null
+}): ChartSeries {
+  return {
+    key: w.key,
+    label: w.label ?? null,
+    color: w.color ?? null,
+  }
+}
+
+export function toChartEventData(data: Record<string, unknown>): ChartEventData {
+  const series = (data.series as Array<Record<string, unknown>>) ?? []
+  return {
+    title: (data.title as string) ?? '',
+    message: (data.message as string) ?? '',
+    chartType: (data.chart_type as ChartType) ?? 'bar',
+    size: ((data.size as string) ?? 'medium') as ChartSize,
+    xKey: (data.x_key as string) ?? '',
+    yKeys: (data.y_keys as string[]) ?? [],
+    data: (data.data as ChartDataRow[]) ?? [],
+    series: series.map((item) =>
+      toChartSeries({
+        key: (item.key as string) ?? '',
+        label: (item.label as string | null) ?? null,
+        color: (item.color as string | null) ?? null,
+      })
+    ),
+    xLabel: (data.x_label as string | null) ?? null,
+    yLabel: (data.y_label as string | null) ?? null,
   }
 }
 

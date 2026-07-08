@@ -198,6 +198,35 @@ export type WireS2C_FormElement =
   | WireS2C_FormCheckboxElement
   | WireS2C_FormFileElement
 
+export type WireChartType =
+  | 'bar'
+  | 'bar_horizontal'
+  | 'stacked_bar'
+  | 'line'
+  | 'area'
+  | 'pie'
+  | 'donut'
+  | 'scatter'
+
+export interface WireS2C_ChartSeries {
+  key: string
+  label?: string | null
+  color?: string | null
+}
+
+export interface WireS2C_ChartEventData {
+  title?: string
+  message?: string
+  chart_type: WireChartType
+  size?: 'small' | 'medium' | 'large'
+  x_key: string
+  y_keys: string[]
+  data: Array<Record<string, string | number | null>>
+  series?: WireS2C_ChartSeries[]
+  x_label?: string | null
+  y_label?: string | null
+}
+
 export type WireActor = 'user' | 'assistant' | 'system' | 'tool'
 export type WireEventType =
   | 'message'
@@ -209,6 +238,7 @@ export type WireEventType =
   | 'tool.transaction'
   | 'form'
   | 'form.response'
+  | 'chart'
 export type WireRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 
 export interface WireThreadEvent {

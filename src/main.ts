@@ -33,6 +33,11 @@ export type {
   AudioDisplayPart,
   AudioPart,
   AudioSendPart,
+  ChartDataRow,
+  ChartEventData,
+  ChartSeries,
+  ChartSize,
+  ChartType,
   ConnectionStatus,
   ContentPart,
   DisplayContentPart,
@@ -75,6 +80,7 @@ export type {
 } from './types'
 export {
   isSettingsFieldGroup,
+  toChartEventData,
   toFormElement,
   toFormEventData,
   toFormResponseEventData,

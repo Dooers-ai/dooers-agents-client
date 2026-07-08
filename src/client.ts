@@ -1,5 +1,4 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
-import { PACKAGE_VERSION } from './version'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
@@ -12,6 +11,7 @@ import {
   toThreadEvent,
   toWireContentPart,
 } from './types'
+import { PACKAGE_VERSION } from './version'
 
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
