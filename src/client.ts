@@ -206,6 +206,13 @@ export class AgentClient {
 
   private url = ''
   private httpBaseUrl = ''
+  /**
+   * Explicit HTTP base for resolving relative content URLs (e.g. `/audio/<id>`).
+   * When set (from the agent's canonical `hostUrl`), it takes precedence over
+   * deriving the base from the WS URL — which cannot know the Load Balancer
+   * path prefix (`/<agent-seg>`) and would otherwise drop it.
+   */
+  private httpBaseUrlOverride: string | undefined
   private agentId = ''
   /** Mirrors ``AgentProvider`` ``agentId`` so HTTP uploads work before WS ``connect`` completes. */
   private uploadAgentId = ''
@@ -270,6 +277,19 @@ export class AgentClient {
 
   setUploadUrl(url: string | undefined) {
     this.uploadUrl = url
+  }
+
+  /**
+   * Set (or clear) the explicit HTTP base used to resolve relative content URLs.
+   * Pass the agent's canonical `hostUrl` (base incl. LB seg, no message path).
+   * Takes effect immediately and persists across reconnects.
+   */
+  setHttpBaseUrl(url: string | undefined) {
+    const normalized = url?.trim().replace(/\/+$/, '')
+    this.httpBaseUrlOverride = normalized || undefined
+    if (this.httpBaseUrlOverride) {
+      this.httpBaseUrl = this.httpBaseUrlOverride
+    }
   }
 
   /** Sync from ``AgentProvider`` ``agentId``; used for ``POST /uploads`` ``agent_id`` (non-WS). */
@@ -359,15 +379,21 @@ export class AgentClient {
     this.isIntentionallyClosed = false
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
-    try {
-      const parsed = new URL(this.url)
-      parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:'
-      parsed.pathname = ''
-      parsed.search = ''
-      parsed.hash = ''
-      this.httpBaseUrl = parsed.toString().replace(/\/$/, '')
-    } catch {
-      this.httpBaseUrl = ''
+    if (this.httpBaseUrlOverride) {
+      // Caller provided the canonical base (hostUrl); trust it verbatim so the
+      // LB path prefix is preserved when resolving relative content URLs.
+      this.httpBaseUrl = this.httpBaseUrlOverride
+    } else {
+      try {
+        const parsed = new URL(this.url)
+        parsed.protocol = parsed.protocol === 'wss:' ? 'https:' : 'http:'
+        parsed.pathname = ''
+        parsed.search = ''
+        parsed.hash = ''
+        this.httpBaseUrl = parsed.toString().replace(/\/$/, '')
+      } catch {
+        this.httpBaseUrl = ''
+      }
     }
 
     this.callbacks.setConnectionStatus('connecting')

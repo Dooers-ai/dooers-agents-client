@@ -29,6 +29,12 @@ export interface AgentProviderProps {
   channel?: string
   channelMeta?: Record<string, unknown>
   uploadUrl?: string
+  /**
+   * Explicit HTTP base (agent `hostUrl`: scheme+host+seg, no message path) used
+   * to resolve relative content URLs like `/audio/<id>`. When omitted, the base
+   * is derived from `url` — which cannot preserve the Load Balancer path prefix.
+   */
+  httpBaseUrl?: string
   onError?: OnErrorCallback
   children: ReactNode
 }
@@ -51,6 +57,7 @@ export function AgentProvider({
   channel,
   channelMeta,
   uploadUrl,
+  httpBaseUrl,
   onError,
   children,
 }: AgentProviderProps) {
@@ -71,6 +78,11 @@ export function AgentProvider({
   useEffect(() => {
     clientRef.current?.setUploadUrl(uploadUrl)
   }, [uploadUrl])
+
+  // Set the explicit HTTP base (hostUrl) before connect derives one from the WS URL.
+  useEffect(() => {
+    clientRef.current?.setHttpBaseUrl(httpBaseUrl)
+  }, [httpBaseUrl])
 
   // HTTP uploads require agent_id before WS connect completes
   useEffect(() => {
