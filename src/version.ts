@@ -1,2 +1,2 @@
 /** Must match `package.json` `"version"` (connect frame telemetry). */
-export const PACKAGE_VERSION = '0.15.0' as const
+export const PACKAGE_VERSION = '0.15.1' as const

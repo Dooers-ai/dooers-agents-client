@@ -8,6 +8,12 @@ export type {
   UploadResult,
 } from './client'
 export { AgentServerClient } from './client'
+export {
+  compareSemver,
+  isServerAtLeast,
+  supportsThreadArtifactsList,
+  THREAD_ARTIFACTS_MIN_SERVER_VERSION,
+} from './helpers/server-version'
 export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'

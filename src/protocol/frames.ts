@@ -147,7 +147,12 @@ export type ClientToServer =
 
 export type S2C_Ack = Frame<
   'ack',
-  { ack_id: string; ok: boolean; error?: { code: string; message: string } }
+  {
+    ack_id: string
+    ok: boolean
+    error?: { code: string; message: string }
+    server?: { name: string; version: string }
+  }
 >
 
 export type S2C_ThreadListResult = Frame<

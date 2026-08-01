@@ -6,6 +6,7 @@ export function useConnection() {
 
   const status = useStore((s) => s.connection.status)
   const error = useStore((s) => s.connection.error)
+  const serverVersion = useStore((s) => s.connection.serverVersion)
   const sendError = useStore((s) => s.connection.sendError)
   const reconnectFailed = useStore((s) => s.connection.reconnectFailed)
 
@@ -14,5 +15,13 @@ export function useConnection() {
     client.clearSendError()
   }, [client])
 
-  return { status, error, sendError, dismissSendError, reconnectFailed, reconnect }
+  return {
+    status,
+    error,
+    serverVersion,
+    sendError,
+    dismissSendError,
+    reconnectFailed,
+    reconnect,
+  }
 }

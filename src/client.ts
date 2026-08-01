@@ -17,7 +17,7 @@ import { PACKAGE_VERSION } from './version'
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
-const ARTIFACTS_LIST_TIMEOUT = 30_000
+const ARTIFACTS_LIST_TIMEOUT = 5_000
 const PING_INTERVAL_MS = 30_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
@@ -833,6 +833,8 @@ export class AgentClient {
       case 'ack': {
         if (frame.payload.ack_id === this.connectFrameId) {
           if (frame.payload.ok) {
+            const sv = frame.payload.server?.version?.trim()
+            this.callbacks.setServerVersion(sv || null)
             this.callbacks.setConnectionStatus('connected')
             this.callbacks.resetReconnect()
             this.requestThreadList()

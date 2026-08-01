@@ -83,6 +83,7 @@ function extractFormStates(
 
 export interface AgentActions {
   setConnectionStatus: (status: AgentState['connection']['status'], error?: string) => void
+  setServerVersion: (version: string | null) => void
   setSendError: (message: string | null) => void
   setReconnectFailed: () => void
   resetReconnect: () => void
@@ -124,6 +125,8 @@ export interface AgentState {
   connection: {
     status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
     error: string | null
+    /** agents-server version from connect ack (null = legacy runtime without version). */
+    serverVersion: string | null
     /** Last server rejection for ``event.create`` / send (e.g. upload ref not found). */
     sendError: string | null
     reconnectAttempts: number
@@ -166,6 +169,7 @@ export function createAgentStore() {
     connection: {
       status: 'idle',
       error: null,
+      serverVersion: null,
       sendError: null,
       reconnectAttempts: 0,
       reconnectFailed: false,
@@ -202,7 +206,13 @@ export function createAgentStore() {
             status,
             error: error ?? null,
             ...(status === 'connected' ? { sendError: null } : {}),
+            ...(status === 'connecting' ? { serverVersion: null } : {}),
           },
+        })),
+
+      setServerVersion: (version) =>
+        set((s) => ({
+          connection: { ...s.connection, serverVersion: version },
         })),
 
       setSendError: (message) =>

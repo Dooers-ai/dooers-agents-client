@@ -8,6 +8,7 @@ function createMockCallbacks(): AgentActions {
     setSendError: vi.fn(),
     setReconnectFailed: vi.fn(),
     resetReconnect: vi.fn(),
+    setServerVersion: vi.fn(),
     onThreadList: vi.fn(),
     onThreadListAppend: vi.fn(),
     onThreadUpsert: vi.fn(),
@@ -110,8 +111,17 @@ describe("AgentClient", () => {
     const ws = MockWebSocket.instances[0] as MockWebSocket;
     const connectId = JSON.parse(ws.sent[0] as string).id;
 
-    ws.receive({ id: "ack-1", type: "ack", payload: { ack_id: connectId, ok: true } });
+    ws.receive({
+      id: "ack-1",
+      type: "ack",
+      payload: {
+        ack_id: connectId,
+        ok: true,
+        server: { name: "dooers-agents-server", version: "0.17.1" },
+      },
+    });
 
+    expect(callbacks.setServerVersion).toHaveBeenCalledWith("0.17.1");
     expect(callbacks.setConnectionStatus).toHaveBeenCalledWith("connected");
     expect(callbacks.resetReconnect).toHaveBeenCalled();
     // Should have sent thread.list
