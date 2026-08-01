@@ -2,12 +2,13 @@ import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
-import type { DisplayContentPart, SendContentPart, SettingsItem, ThreadEvent } from './types'
+import type { DisplayContentPart, SendContentPart, SettingsItem, ThreadArtifact, ThreadEvent } from './types'
 import {
   toAnalyticsEvent,
   toRun,
   toSettingsItem,
   toThread,
+  toThreadArtifact,
   toThreadEvent,
   toWireContentPart,
 } from './types'
@@ -16,6 +17,7 @@ import { PACKAGE_VERSION } from './version'
 const MAX_RECONNECT_ATTEMPTS = 5
 const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
+const ARTIFACTS_LIST_TIMEOUT = 30_000
 const PING_INTERVAL_MS = 30_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
@@ -249,6 +251,20 @@ export class AgentClient {
     }
   >()
 
+  private pendingArtifactsRequests = new Map<
+    string,
+    {
+      threadId: string
+      resolve: (value: {
+        artifacts: ThreadArtifact[]
+        cursor: string | null
+        hasMore: boolean
+      }) => void
+      reject: (reason: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
+
   // Track last event ID per thread for gap recovery on reconnect
   private lastEventIds = new Map<string, string>()
 
@@ -418,6 +434,14 @@ export class AgentClient {
     this.pendingMessages.clear()
   }
 
+  private abortPendingArtifacts(reason: string) {
+    for (const [frameId, pending] of this.pendingArtifactsRequests) {
+      clearTimeout(pending.timer)
+      this.pendingArtifactsRequests.delete(frameId)
+      pending.reject(new Error(reason))
+    }
+  }
+
   disconnect() {
     this.isIntentionallyClosed = true
     this.stopHeartbeat()
@@ -426,6 +450,7 @@ export class AgentClient {
       this.reconnectTimer = null
     }
     this.abortPendingMessages('Disconnected')
+    this.abortPendingArtifacts('Disconnected')
     if (this.ws) {
       this.ws.onopen = null
       this.ws.onmessage = null
@@ -490,6 +515,51 @@ export class AgentClient {
       thread_id: threadId,
       before_event_id: cursor ?? null,
       limit,
+    })
+  }
+
+  requestThreadArtifactsList(
+    threadId: string,
+    options?: {
+      cursor?: string | null
+      limit?: number
+      direction?: 'in' | 'out' | 'all'
+    }
+  ): Promise<{ artifacts: ThreadArtifact[]; cursor: string | null; hasMore: boolean }> {
+    if (!this.isConnected()) {
+      return Promise.reject(new Error('Not connected'))
+    }
+
+    const frameId = crypto.randomUUID()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingArtifactsRequests.delete(frameId)
+        reject(new Error('thread.artifacts.list timed out'))
+      }, ARTIFACTS_LIST_TIMEOUT)
+
+      this.pendingArtifactsRequests.set(frameId, {
+        threadId,
+        resolve: (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        reject: (err) => {
+          clearTimeout(timer)
+          reject(err)
+        },
+        timer,
+      })
+
+      this.sendRaw({
+        id: frameId,
+        type: 'thread.artifacts.list',
+        payload: {
+          thread_id: threadId,
+          cursor: options?.cursor ?? null,
+          limit: options?.limit,
+          direction: options?.direction ?? 'all',
+        },
+      })
     })
   }
 
@@ -796,6 +866,13 @@ export class AgentClient {
               pending.reject(new Error(msg))
               this.callbacks.setSendError(msg)
             }
+            const artifactsPending = this.pendingArtifactsRequests.get(ackId)
+            if (artifactsPending) {
+              clearTimeout(artifactsPending.timer)
+              this.pendingArtifactsRequests.delete(ackId)
+              const msg = err.message || 'Request rejected'
+              artifactsPending.reject(new Error(msg))
+            }
           }
           this.onError?.({
             code: err.code,
@@ -893,6 +970,22 @@ export class AgentClient {
         break
       }
 
+      case 'thread.artifacts.list.result': {
+        const threadId = frame.payload.thread_id
+        for (const [frameId, pending] of this.pendingArtifactsRequests) {
+          if (pending.threadId !== threadId) continue
+          clearTimeout(pending.timer)
+          this.pendingArtifactsRequests.delete(frameId)
+          pending.resolve({
+            artifacts: this.resolveArtifactUrls(frame.payload.artifacts.map(toThreadArtifact)),
+            cursor: frame.payload.cursor,
+            hasMore: frame.payload.has_more,
+          })
+          break
+        }
+        break
+      }
+
       case 'thread.upsert':
         this.callbacks.onThreadUpsert(toThread(frame.payload.thread))
         break
@@ -968,6 +1061,7 @@ export class AgentClient {
     this.stopHeartbeat()
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       this.abortPendingMessages('Connection lost after maximum retries')
+      this.abortPendingArtifacts('Connection lost after maximum retries')
       this.callbacks.setReconnectFailed()
       this.callbacks.setConnectionStatus('error', 'Connection lost after maximum retries')
       return
@@ -1016,6 +1110,15 @@ export class AgentClient {
           'url' in part && part.url?.startsWith('/') ? { ...part, url: `${base}${part.url}` } : part
         ),
       }
+    })
+  }
+
+  private resolveArtifactUrls(artifacts: ThreadArtifact[]): ThreadArtifact[] {
+    if (!this.httpBaseUrl) return artifacts
+    const base = this.httpBaseUrl
+    return artifacts.map((artifact) => {
+      if (!artifact.url?.startsWith('/')) return artifact
+      return { ...artifact, url: `${base}${artifact.url}` }
     })
   }
 }

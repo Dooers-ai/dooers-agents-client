@@ -257,6 +257,19 @@ export interface WireThreadEvent {
   client_event_id?: string
 }
 
+export interface WireThreadArtifact {
+  event_id: string
+  direction: 'in' | 'out'
+  kind: 'audio' | 'image' | 'document'
+  filename?: string | null
+  mime_type?: string | null
+  url?: string | null
+  ref_id?: string | null
+  created_at: string
+  user_id?: string | null
+  user_name?: string | null
+}
+
 export interface WireRun {
   id: string
   thread_id: string

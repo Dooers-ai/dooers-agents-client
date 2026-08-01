@@ -4,6 +4,7 @@ import type {
   WireRun,
   WireSettingsItem,
   WireThread,
+  WireThreadArtifact,
   WireThreadEvent,
   WireUser,
 } from './models'
@@ -61,6 +62,16 @@ export type C2S_EventCreate = Frame<
 export type C2S_EventList = Frame<
   'event.list',
   { thread_id: string; before_event_id?: string | null; limit?: number }
+>
+
+export type C2S_ThreadArtifactsList = Frame<
+  'thread.artifacts.list',
+  {
+    thread_id: string
+    cursor?: string | null
+    limit?: number
+    direction?: 'in' | 'out' | 'all'
+  }
 >
 
 // --- Settings C2S ---
@@ -121,6 +132,7 @@ export type ClientToServer =
   | C2S_ThreadDelete
   | C2S_EventCreate
   | C2S_EventList
+  | C2S_ThreadArtifactsList
   | C2S_SettingsSubscribe
   | C2S_SettingsUnsubscribe
   | C2S_SettingsPatch
@@ -158,6 +170,16 @@ export type S2C_EventListResult = Frame<
   {
     thread_id: string
     events: WireThreadEvent[]
+    cursor: string | null
+    has_more: boolean
+  }
+>
+
+export type S2C_ThreadArtifactsListResult = Frame<
+  'thread.artifacts.list.result',
+  {
+    thread_id: string
+    artifacts: WireThreadArtifact[]
     cursor: string | null
     has_more: boolean
   }
@@ -210,6 +232,7 @@ export type ServerToClient =
   | S2C_ThreadSnapshot
   | S2C_EventAppend
   | S2C_EventListResult
+  | S2C_ThreadArtifactsListResult
   | S2C_ThreadUpsert
   | S2C_ThreadDeleted
   | S2C_RunUpsert

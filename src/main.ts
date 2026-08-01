@@ -22,6 +22,8 @@ export { useSettings } from './hooks/use-settings'
 export type { SettingsFileMetadata } from './hooks/use-settings-file-upload'
 export { useSettingsFileUpload } from './hooks/use-settings-file-upload'
 export { useThreadDetails, useThreadEvents } from './hooks/use-thread'
+export { useThreadArtifacts } from './hooks/use-thread-artifacts'
+export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
 export type { AgentProviderProps } from './provider'
@@ -74,6 +76,9 @@ export type {
   TextPart,
   TextSendPart,
   Thread,
+  ThreadArtifact,
+  ArtifactDirection,
+  ArtifactKind,
   ThreadEvent,
   ThreadState,
   User,

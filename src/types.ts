@@ -263,6 +263,22 @@ export interface Thread {
   lastEventAt: string
 }
 
+export type ArtifactDirection = 'in' | 'out'
+export type ArtifactKind = 'audio' | 'image' | 'document'
+
+export interface ThreadArtifact {
+  eventId: string
+  direction: ArtifactDirection
+  kind: ArtifactKind
+  filename?: string | null
+  mimeType?: string | null
+  url?: string | null
+  refId?: string | null
+  createdAt: string
+  userId?: string | null
+  userName?: string | null
+}
+
 export interface ThreadEvent {
   id: string
   threadId: string
@@ -382,6 +398,7 @@ import type {
   WireSettingsFieldGroup,
   WireSettingsItem,
   WireThread,
+  WireThreadArtifact,
   WireThreadEvent,
   WireUser,
 } from './protocol/models'
@@ -584,6 +601,21 @@ export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
     data: w.data,
     createdAt: w.created_at,
     clientEventId: w.client_event_id,
+  }
+}
+
+export function toThreadArtifact(w: WireThreadArtifact): ThreadArtifact {
+  return {
+    eventId: w.event_id,
+    direction: w.direction,
+    kind: w.kind,
+    filename: w.filename,
+    mimeType: w.mime_type,
+    url: w.url,
+    refId: w.ref_id,
+    createdAt: w.created_at,
+    userId: w.user_id,
+    userName: w.user_name,
   }
 }
 
