@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] — 2026-08-18
+
+### Added
+
+- **`chatContext` on `sendMessage` / `useMessage().send()`.** Forwarded as ``event.create`` ``chat_context`` (currently ``llm_model``).
+- **`supportsChatContext(serverVersion)`** — true for agents-server `>= 0.19.0`.
+- **`LLM_MODELS_FIELD_ID`** — reserved settings field id (`llm_models`) for the chat model catalog.
+- **`AgentClient.fetchPublicSettingsSchema()`** on an open session (same frame as `AgentServerClient`).
+
 ## [0.11.0] — 2026-06-18
 
 ### Changed

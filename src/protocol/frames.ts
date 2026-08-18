@@ -54,6 +54,7 @@ export type C2S_EventCreate = Frame<
       data?: Record<string, unknown>
     }
     metadata?: Record<string, unknown>
+    chat_context?: { llm_model?: string | null }
   }
 >
 

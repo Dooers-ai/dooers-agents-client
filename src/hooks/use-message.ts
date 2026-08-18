@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useAgentContext } from '../provider'
-import type { ContentPart } from '../types'
+import type { ChatContext, ContentPart } from '../types'
 
 export function useMessage() {
   const { client } = useAgentContext()
@@ -11,6 +11,7 @@ export function useMessage() {
       threadId?: string
       content?: ContentPart[]
       metadata?: Record<string, unknown>
+      chatContext?: ChatContext
     }) => {
       return client.sendMessage(params)
     },

@@ -2,7 +2,14 @@ import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
-import type { DisplayContentPart, SendContentPart, SettingsItem, ThreadArtifact, ThreadEvent } from './types'
+import type {
+  ChatContext,
+  DisplayContentPart,
+  SendContentPart,
+  SettingsItem,
+  ThreadArtifact,
+  ThreadEvent,
+} from './types'
 import {
   toAnalyticsEvent,
   toRun,
@@ -265,6 +272,15 @@ export class AgentClient {
     }
   >()
 
+  private pendingPublicSchema = new Map<
+    string,
+    {
+      resolve: (value: PublicSettingsSchemaResult) => void
+      reject: (reason: Error) => void
+      timer: ReturnType<typeof setTimeout>
+    }
+  >()
+
   // Track last event ID per thread for gap recovery on reconnect
   private lastEventIds = new Map<string, string>()
 
@@ -442,6 +458,14 @@ export class AgentClient {
     }
   }
 
+  private abortPendingPublicSchema(reason: string) {
+    for (const [frameId, pending] of this.pendingPublicSchema) {
+      clearTimeout(pending.timer)
+      this.pendingPublicSchema.delete(frameId)
+      pending.reject(new Error(reason))
+    }
+  }
+
   disconnect() {
     this.isIntentionallyClosed = true
     this.stopHeartbeat()
@@ -451,6 +475,7 @@ export class AgentClient {
     }
     this.abortPendingMessages('Disconnected')
     this.abortPendingArtifacts('Disconnected')
+    this.abortPendingPublicSchema('Disconnected')
     if (this.ws) {
       this.ws.onopen = null
       this.ws.onmessage = null
@@ -585,6 +610,41 @@ export class AgentClient {
     this.send('settings.patch', { field_id: fieldId, value })
   }
 
+  /**
+   * Request ``settings.public_schema`` on the open session (schema + defaults, no stored values).
+   */
+  fetchPublicSettingsSchema(options?: { timeoutMs?: number }): Promise<PublicSettingsSchemaResult> {
+    if (!this.isConnected()) {
+      return Promise.reject(new Error('Not connected'))
+    }
+    const timeoutMs = options?.timeoutMs ?? 15_000
+    const frameId = crypto.randomUUID()
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingPublicSchema.delete(frameId)
+        reject(new Error('settings.public_schema timed out'))
+      }, timeoutMs)
+
+      this.pendingPublicSchema.set(frameId, {
+        resolve: (value) => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        reject: (err) => {
+          clearTimeout(timer)
+          reject(err)
+        },
+        timer,
+      })
+
+      this.sendRaw({
+        id: frameId,
+        type: 'settings.public_schema',
+        payload: {},
+      })
+    })
+  }
+
   // --- Feedback ---
 
   sendFeedback(
@@ -620,6 +680,7 @@ export class AgentClient {
     threadId?: string
     content?: SendContentPart[]
     metadata?: Record<string, unknown>
+    chatContext?: ChatContext
   }): Promise<{ threadId: string }> {
     this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
@@ -703,6 +764,10 @@ export class AgentClient {
       },
     }
     payload.metadata = this.withChannelMetadata(params.metadata)
+    const chatContext = this.toWireChatContext(params.chatContext)
+    if (chatContext) {
+      payload.chat_context = chatContext
+    }
 
     this.sendRaw({
       id: clientEventId,
@@ -769,6 +834,8 @@ export class AgentClient {
     this.stopHeartbeat()
     if (this.ws) {
       this.abortPendingMessages('Connection lost; reconnecting')
+      this.abortPendingArtifacts('Connection lost; reconnecting')
+      this.abortPendingPublicSchema('Connection lost; reconnecting')
       this.ws.onopen = null
       this.ws.onmessage = null
       this.ws.onclose = null
@@ -874,6 +941,12 @@ export class AgentClient {
               this.pendingArtifactsRequests.delete(ackId)
               const msg = err.message || 'Request rejected'
               artifactsPending.reject(new Error(msg))
+            }
+            const schemaPending = this.pendingPublicSchema.get(ackId)
+            if (schemaPending) {
+              clearTimeout(schemaPending.timer)
+              this.pendingPublicSchema.delete(ackId)
+              schemaPending.reject(new Error(err.message || 'Request rejected'))
             }
           }
           this.onError?.({
@@ -1015,8 +1088,22 @@ export class AgentClient {
         )
         break
 
-      case 'settings.public_schema.result':
+      case 'settings.public_schema.result': {
+        const pending = this.pendingPublicSchema.get(frame.id)
+        if (pending) {
+          this.pendingPublicSchema.delete(frame.id)
+          clearTimeout(pending.timer)
+          const raw = frame.payload.schema as {
+            version?: string
+            fields?: WireSettingsItem[]
+          }
+          pending.resolve({
+            version: raw.version ?? '1.0',
+            fields: (raw.fields ?? []).map(toSettingsItem),
+          })
+        }
         break
+      }
 
       case 'feedback.ack':
         if (frame.payload.ok) {
@@ -1064,6 +1151,7 @@ export class AgentClient {
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
       this.abortPendingMessages('Connection lost after maximum retries')
       this.abortPendingArtifacts('Connection lost after maximum retries')
+      this.abortPendingPublicSchema('Connection lost after maximum retries')
       this.callbacks.setReconnectFailed()
       this.callbacks.setConnectionStatus('error', 'Connection lost after maximum retries')
       return
@@ -1093,6 +1181,14 @@ export class AgentClient {
       base.channel_meta = this.config.channelMeta
     }
     return Object.keys(base).length > 0 ? base : undefined
+  }
+
+  private toWireChatContext(
+    chatContext: ChatContext | undefined
+  ): { llm_model?: string } | undefined {
+    const llmModel = chatContext?.llmModel?.trim()
+    if (!llmModel) return undefined
+    return { llm_model: llmModel }
   }
 
   private sendRaw(frame: unknown) {

@@ -36,6 +36,14 @@ export interface DocumentSendPart {
 
 export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | DocumentSendPart
 
+/** Per-turn execution hints sent on ``event.create`` as ``chat_context``. */
+export interface ChatContext {
+  llmModel?: string
+}
+
+/** Reserved settings field id: SELECT options are the chat model catalog. */
+export const LLM_MODELS_FIELD_ID = 'llm_models'
+
 // --- Display content parts (server → client, rendered in chat) ---
 
 export interface TextDisplayPart {
