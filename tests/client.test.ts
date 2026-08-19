@@ -545,6 +545,25 @@ describe("AgentClient", () => {
     expect(createFrame.payload.chat_context).toEqual({ llm_model: "gpt-4o" });
   });
 
+  it("sendMessage forwards reasoningEffort on chat_context", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1");
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    client.sendMessage({
+      text: "hello",
+      chatContext: { llmModel: "gpt-5.2-chat", reasoningEffort: "high" },
+    });
+    const createFrame = ws.sent
+      .map((s) => JSON.parse(s))
+      .find((f: { type: string }) => f.type === "event.create");
+    expect(createFrame.payload.chat_context).toEqual({
+      llm_model: "gpt-5.2-chat",
+      reasoning_effort: "high",
+    });
+  });
+
   it("sends analytics.subscribe and routes analytics.event", async () => {
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");

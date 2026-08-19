@@ -39,6 +39,7 @@ export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | Doc
 /** Per-turn execution hints sent on ``event.create`` as ``chat_context``. */
 export interface ChatContext {
   llmModel?: string
+  reasoningEffort?: string
 }
 
 /** Reserved settings field id: SELECT options are the chat model catalog. */
@@ -676,6 +677,18 @@ export function toSettingsItem(w: WireSettingsItem): SettingsItem {
     }
   }
   return toSettingsField(w as WireSettingsField)
+}
+
+/** ``settings.public_schema.result`` — accept ``schema`` (wire) or ``schema_`` (0.19.0 dump bug). */
+export function publicSchemaFromResultPayload(payload: {
+  schema?: { version?: string; fields?: WireSettingsItem[] }
+  schema_?: { version?: string; fields?: WireSettingsItem[] }
+}): { version: string; fields: WireSettingsItem[] } {
+  const raw = payload.schema ?? payload.schema_
+  return {
+    version: typeof raw?.version === 'string' ? raw.version : '1.0',
+    fields: Array.isArray(raw?.fields) ? raw.fields : [],
+  }
 }
 
 // --- Analytics transforms ---

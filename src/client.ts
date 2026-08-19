@@ -14,6 +14,7 @@ import {
   toAnalyticsEvent,
   toRun,
   toSettingsItem,
+  publicSchemaFromResultPayload,
   toThread,
   toThreadArtifact,
   toThreadEvent,
@@ -151,6 +152,7 @@ export class AgentServerClient {
             ok?: boolean
             error?: { code?: string; message?: string }
             schema?: { version?: string; fields?: WireSettingsItem[] }
+            schema_?: { version?: string; fields?: WireSettingsItem[] }
           }
         }
         try {
@@ -174,14 +176,11 @@ export class AgentServerClient {
         }
 
         if (msg.type === 'settings.public_schema.result' && msg.id === frameId) {
-          const raw = msg.payload?.schema as
-            | { version?: string; fields?: WireSettingsItem[] }
-            | undefined
-          const fieldsWire = raw?.fields ?? []
-          const fields = fieldsWire.map((w) => toSettingsItem(w))
+          const parsed = publicSchemaFromResultPayload(msg.payload ?? {})
+          const fields = parsed.fields.map((w) => toSettingsItem(w))
           finish(() =>
             resolve({
-              version: typeof raw?.version === 'string' ? raw.version : '1.0',
+              version: parsed.version,
               fields,
             })
           )
@@ -1093,13 +1092,15 @@ export class AgentClient {
         if (pending) {
           this.pendingPublicSchema.delete(frame.id)
           clearTimeout(pending.timer)
-          const raw = frame.payload.schema as {
-            version?: string
-            fields?: WireSettingsItem[]
-          }
+          const parsed = publicSchemaFromResultPayload(
+            frame.payload as {
+              schema?: { version?: string; fields?: WireSettingsItem[] }
+              schema_?: { version?: string; fields?: WireSettingsItem[] }
+            }
+          )
           pending.resolve({
-            version: raw.version ?? '1.0',
-            fields: (raw.fields ?? []).map(toSettingsItem),
+            version: parsed.version,
+            fields: parsed.fields.map(toSettingsItem),
           })
         }
         break
@@ -1185,10 +1186,13 @@ export class AgentClient {
 
   private toWireChatContext(
     chatContext: ChatContext | undefined
-  ): { llm_model?: string } | undefined {
+  ): { llm_model?: string; reasoning_effort?: string } | undefined {
     const llmModel = chatContext?.llmModel?.trim()
-    if (!llmModel) return undefined
-    return { llm_model: llmModel }
+    const reasoningEffort = chatContext?.reasoningEffort?.trim().toLowerCase()
+    const out: { llm_model?: string; reasoning_effort?: string } = {}
+    if (llmModel) out.llm_model = llmModel
+    if (reasoningEffort) out.reasoning_effort = reasoningEffort
+    return Object.keys(out).length > 0 ? out : undefined
   }
 
   private sendRaw(frame: unknown) {
