@@ -54,7 +54,7 @@ export type C2S_EventCreate = Frame<
       data?: Record<string, unknown>
     }
     metadata?: Record<string, unknown>
-    chat_context?: { llm_model?: string | null }
+    chat_context?: { llm_model?: string | null; reasoning_effort?: string | null }
   }
 >
 
@@ -211,7 +211,7 @@ export type S2C_SettingsPatch = Frame<
 
 export type S2C_SettingsPublicSchemaResult = Frame<
   'settings.public_schema.result',
-  { schema: Record<string, unknown> }
+  { schema?: Record<string, unknown>; schema_?: Record<string, unknown> }
 >
 
 // --- Feedback S2C ---
