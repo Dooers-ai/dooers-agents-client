@@ -127,7 +127,7 @@ export interface WireS2C_FormTextElement {
   disabled?: boolean
   placeholder?: string | null
   default?: string | null
-  input_type?: 'text' | 'password' | 'email' | 'number'
+  input_type?: 'text' | 'password' | 'email' | 'number' | 'date'
 }
 
 export interface WireS2C_FormTextareaElement {

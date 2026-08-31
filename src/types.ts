@@ -111,7 +111,7 @@ export interface FormTextElement {
   disabled: boolean
   placeholder: string | null
   default: string | null
-  inputType: 'text' | 'password' | 'email' | 'number'
+  inputType: 'text' | 'password' | 'email' | 'number' | 'date'
 }
 
 export interface FormTextareaElement {
