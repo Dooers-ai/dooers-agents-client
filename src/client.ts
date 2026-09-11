@@ -243,6 +243,8 @@ export class AgentClient {
 
   // Refcounted subscriptions
   private subscriptionRefs = new Map<string, number>()
+  /** Elevated view reasons retained for reconnect re-subscribe (same process day). */
+  private subscriptionAccessReasons = new Map<string, string>()
 
   // Track optimistic events for reconciliation
   private pendingOptimistic = new Map<string, { threadId: string; clientEventId: string }>()
@@ -499,12 +501,20 @@ export class AgentClient {
     this.send('thread.list', { cursor, limit })
   }
 
-  subscribe(threadId: string) {
+  subscribe(threadId: string, options?: { accessReason?: string }) {
     const refs = this.subscriptionRefs.get(threadId) ?? 0
     this.subscriptionRefs.set(threadId, refs + 1)
+    if (options?.accessReason?.trim()) {
+      this.subscriptionAccessReasons.set(threadId, options.accessReason.trim())
+    }
     if (refs === 0) {
       const afterEventId = this.lastEventIds.get(threadId) ?? null
-      this.send('thread.subscribe', { thread_id: threadId, after_event_id: afterEventId })
+      const accessReason = this.subscriptionAccessReasons.get(threadId)
+      this.send('thread.subscribe', {
+        thread_id: threadId,
+        after_event_id: afterEventId,
+        ...(accessReason ? { access_reason: accessReason } : {}),
+      })
       this.callbacks.addSubscription(threadId)
     }
   }
@@ -513,6 +523,7 @@ export class AgentClient {
     const refs = this.subscriptionRefs.get(threadId) ?? 0
     if (refs <= 1) {
       this.subscriptionRefs.delete(threadId)
+      this.subscriptionAccessReasons.delete(threadId)
       this.lastEventIds.delete(threadId)
       this.eventPaginationCursors.delete(threadId)
       this.send('thread.unsubscribe', { thread_id: threadId })
@@ -524,6 +535,29 @@ export class AgentClient {
 
   deleteThread(threadId: string) {
     this.send('thread.delete', { thread_id: threadId })
+  }
+
+  addParticipant(
+    threadId: string,
+    user: {
+      userId: string
+      userName?: string | null
+      userEmail?: string | null
+      identityIds?: string[]
+    }
+  ) {
+    this.send('thread.participants.add', {
+      thread_id: threadId,
+      user: {
+        user_id: user.userId,
+        user_name: user.userName ?? null,
+        user_email: user.userEmail ?? null,
+        identity_ids: user.identityIds ?? [],
+        system_role: 'user',
+        organization_role: 'member',
+        workspace_role: 'member',
+      },
+    })
   }
 
   loadMoreThreads(limit?: number) {
@@ -907,9 +941,11 @@ export class AgentClient {
             // Re-subscribe to previously tracked threads
             for (const threadId of this.subscriptionRefs.keys()) {
               const afterEventId = this.lastEventIds.get(threadId) ?? null
+              const accessReason = this.subscriptionAccessReasons.get(threadId)
               this.send('thread.subscribe', {
                 thread_id: threadId,
                 after_event_id: afterEventId,
+                ...(accessReason ? { access_reason: accessReason } : {}),
               })
             }
             this.resubscribeSettings()

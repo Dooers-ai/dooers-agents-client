@@ -14,7 +14,9 @@ export {
   compareSemver,
   isServerAtLeast,
   supportsChatContext,
+  supportsThreadAccess,
   supportsThreadArtifactsList,
+  THREAD_ACCESS_MIN_SERVER_VERSION,
   THREAD_ARTIFACTS_MIN_SERVER_VERSION,
 } from './helpers/server-version'
 export { useAnalytics } from './hooks/use-analytics'
@@ -86,6 +88,7 @@ export type {
   TextDisplayPart,
   TextPart,
   TextSendPart,
+  ThreadAccess,
   Thread,
   ThreadArtifact,
   ThreadEvent,

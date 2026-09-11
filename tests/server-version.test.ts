@@ -3,6 +3,7 @@ import {
   compareSemver,
   isServerAtLeast,
   supportsChatContext,
+  supportsThreadAccess,
   supportsThreadArtifactsList,
 } from '../src/helpers/server-version'
 
@@ -26,5 +27,11 @@ describe('server-version', () => {
     expect(supportsChatContext('0.18.4')).toBe(false)
     expect(supportsChatContext('0.19.0')).toBe(true)
     expect(supportsChatContext('0.19.1')).toBe(true)
+  })
+
+  it('supportsThreadAccess from 0.22.0', () => {
+    expect(supportsThreadAccess(null)).toBe(false)
+    expect(supportsThreadAccess('0.21.0')).toBe(false)
+    expect(supportsThreadAccess('0.22.0')).toBe(true)
   })
 })

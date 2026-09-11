@@ -5,15 +5,27 @@ import type { Run, Thread, ThreadEvent, ThreadState } from '../types'
 const EMPTY_ARRAY: ThreadEvent[] = []
 const EMPTY_RUNS: Run[] = []
 
-export function useThreadDetails(threadId: string | null): ThreadState {
+export type UseThreadDetailsOptions = {
+  /** When false, do not subscribe (e.g. waiting for elevated access reason). */
+  enabled?: boolean
+  /** Required for elevated non-participant open when server has no same-day grant. */
+  accessReason?: string
+}
+
+export function useThreadDetails(
+  threadId: string | null,
+  options?: UseThreadDetailsOptions
+): ThreadState {
   const { client } = useAgentContext()
+  const enabled = options?.enabled !== false
+  const accessReason = options?.accessReason
 
   // Auto-subscribe/unsubscribe
   useEffect(() => {
-    if (!threadId) return
-    client.subscribe(threadId)
+    if (!threadId || !enabled) return
+    client.subscribe(threadId, accessReason ? { accessReason } : undefined)
     return () => client.unsubscribe(threadId)
-  }, [threadId, client])
+  }, [threadId, client, enabled, accessReason])
 
   // All selectors return direct store references or constants — Object.is is sufficient
   const thread = useStore((s): Thread | null => (threadId ? (s.threads[threadId] ?? null) : null))

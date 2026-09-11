@@ -25,6 +25,7 @@ export interface WireThread {
   created_at: string
   updated_at: string
   last_event_at: string
+  access?: { read?: boolean; write?: boolean; manage?: boolean } | null
 }
 
 // --- C2S wire format (ref_id for uploads) ---

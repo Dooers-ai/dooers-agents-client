@@ -258,6 +258,12 @@ export interface User {
   workspaceRole: string
 }
 
+export interface ThreadAccess {
+  read: boolean
+  write: boolean
+  manage: boolean
+}
+
 export interface Thread {
   id: string
   agentId: string
@@ -270,6 +276,7 @@ export interface Thread {
   createdAt: string
   updatedAt: string
   lastEventAt: string
+  access?: ThreadAccess | null
 }
 
 export type ArtifactDirection = 'in' | 'out'
@@ -442,6 +449,13 @@ export function toThread(w: WireThread): Thread {
     createdAt: w.created_at,
     updatedAt: w.updated_at,
     lastEventAt: w.last_event_at,
+    access: w.access
+      ? {
+          read: Boolean(w.access.read),
+          write: Boolean(w.access.write),
+          manage: Boolean(w.access.manage),
+        }
+      : null,
   }
 }
 
