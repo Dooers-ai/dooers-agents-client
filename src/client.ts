@@ -1021,7 +1021,7 @@ export class AgentClient {
         if (oldestEvent) {
           this.eventPaginationCursors.set(thread.id, oldestEvent.id)
         }
-        this.callbacks.onThreadSnapshot(thread, events, runs)
+        this.callbacks.onThreadSnapshot(thread, events, runs, frame.payload.has_more === true)
         break
       }
 

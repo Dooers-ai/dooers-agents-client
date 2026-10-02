@@ -163,7 +163,7 @@ export type S2C_ThreadListResult = Frame<
 
 export type S2C_ThreadSnapshot = Frame<
   'thread.snapshot',
-  { thread: WireThread; events: WireThreadEvent[]; runs?: WireRun[] }
+  { thread: WireThread; events: WireThreadEvent[]; runs?: WireRun[]; has_more?: boolean }
 >
 
 export type S2C_EventAppend = Frame<
