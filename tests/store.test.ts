@@ -94,6 +94,13 @@ describe("createAgentStore", () => {
     expect(store.getState().runs.t1).toHaveLength(1);
     expect(store.getState().threads.t1).toBeDefined();
     expect(store.getState().loadingThreads.has("t1")).toBe(false);
+    expect(store.getState().eventPagination.t1?.hasMore).toBe(false);
+  });
+
+  it("onThreadSnapshot records hasMore so older events can be requested", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadSnapshot(thread("t1"), [event("e1", "t1")], [], true);
+    expect(store.getState().eventPagination.t1).toEqual({ cursor: "e1", hasMore: true });
   });
 
   it("onEventAppend appends and deduplicates events", () => {

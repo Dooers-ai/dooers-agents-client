@@ -91,7 +91,12 @@ export interface AgentActions {
   onThreadListAppend: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
   onThreadUpsert: (thread: Thread) => void
   onThreadDeleted: (threadId: string) => void
-  onThreadSnapshot: (thread: Thread, events: ThreadEvent[], runs: Run[]) => void
+  onThreadSnapshot: (
+    thread: Thread,
+    events: ThreadEvent[],
+    runs: Run[],
+    hasMore?: boolean
+  ) => void
   onEventAppend: (threadId: string, events: ThreadEvent[]) => void
   reconcileEvents: (
     threadId: string,
@@ -310,7 +315,7 @@ export function createAgentStore() {
           }
         }),
 
-      onThreadSnapshot: (thread, snapshotEvents, runs) =>
+      onThreadSnapshot: (thread, snapshotEvents, runs, hasMore = false) =>
         set((s) => {
           const threads = { ...s.threads, [thread.id]: thread }
           const threadOrder = s.threadOrder.includes(thread.id)
@@ -352,6 +357,13 @@ export function createAgentStore() {
             runs: { ...s.runs, [thread.id]: runs },
             optimistic,
             optimisticKeys,
+            eventPagination: {
+              ...s.eventPagination,
+              [thread.id]: {
+                cursor: snapshotEvents[0]?.id ?? null,
+                hasMore,
+              },
+            },
             loadingThreads,
             formStates: extractFormStates(mergedEvents, s.formStates),
           }
