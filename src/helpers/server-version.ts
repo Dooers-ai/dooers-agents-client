@@ -7,6 +7,9 @@ export const CHAT_CONTEXT_MIN_SERVER_VERSION = '0.19.0'
 /** Minimum agents-server semver for thread access / participants / elevated view. */
 export const THREAD_ACCESS_MIN_SERVER_VERSION = '0.22.0'
 
+/** Minimum agents-server semver for thread queues. */
+export const THREAD_QUEUES_MIN_SERVER_VERSION = '0.24.0'
+
 /** Parse ``major.minor.patch`` prefix; non-numeric parts become 0. */
 function parseSemverParts(version: string): [number, number, number] {
   const core = version.trim().split('-')[0]?.split('+')[0] ?? ''
@@ -39,4 +42,8 @@ export function supportsChatContext(serverVersion: string | null | undefined): b
 
 export function supportsThreadAccess(serverVersion: string | null | undefined): boolean {
   return isServerAtLeast(serverVersion, THREAD_ACCESS_MIN_SERVER_VERSION)
+}
+
+export function supportsThreadQueues(serverVersion: string | null | undefined): boolean {
+  return isServerAtLeast(serverVersion, THREAD_QUEUES_MIN_SERVER_VERSION)
 }

@@ -243,6 +243,7 @@ export type EventType =
   | 'form'
   | 'form.response'
   | 'chart'
+  | 'thread.update'
 export type RunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
 
@@ -273,6 +274,7 @@ export interface Thread {
   users: User[]
   title: string | null
   metadata: Record<string, unknown> | null
+  queue?: string | null
   createdAt: string
   updatedAt: string
   lastEventAt: string
@@ -446,6 +448,7 @@ export function toThread(w: WireThread): Thread {
     users: w.users.map((u) => toUser(u)),
     title: w.title,
     metadata: w.metadata ?? null,
+    queue: w.queue ?? null,
     createdAt: w.created_at,
     updatedAt: w.updated_at,
     lastEventAt: w.last_event_at,

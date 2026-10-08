@@ -7,6 +7,7 @@ import type {
   Thread,
   ThreadEvent,
 } from './types'
+import { isUnqueuedQueueFilter } from './helpers/thread-queue'
 import { isSettingsFieldGroup } from './types'
 
 type FormState = {
@@ -60,6 +61,24 @@ function mergeThreadEventById(prev: ThreadEvent, next: ThreadEvent): ThreadEvent
   }
 }
 
+function threadMatchesListQueue(thread: Thread, queue: string | null): boolean {
+  if (!queue) return true
+  if (isUnqueuedQueueFilter(queue)) return !thread.queue
+  return thread.queue === queue
+}
+
+/** Keep the thread in the sidebar only when it matches the active list filter. */
+function listOrderAfterUpsert(
+  order: string[],
+  thread: Thread,
+  queue: string | null
+): string[] {
+  const matches = threadMatchesListQueue(thread, queue)
+  const inOrder = order.includes(thread.id)
+  if (matches) return inOrder ? order : [thread.id, ...order]
+  return inOrder ? order.filter((id) => id !== thread.id) : order
+}
+
 function extractFormStates(
   events: ThreadEvent[],
   existing: Record<string, FormState>
@@ -87,7 +106,12 @@ export interface AgentActions {
   setSendError: (message: string | null) => void
   setReconnectFailed: () => void
   resetReconnect: () => void
-  onThreadList: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
+  onThreadList: (
+    threads: Thread[],
+    cursor?: string | null,
+    totalCount?: number,
+    queue?: string | null
+  ) => void
   onThreadListAppend: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
   onThreadUpsert: (thread: Thread) => void
   onThreadDeleted: (threadId: string) => void
@@ -142,6 +166,8 @@ export interface AgentState {
   threadListCursor: string | null
   threadListHasMore: boolean
   threadListTotalCount: number
+  /** Active ``thread.list`` queue filter (null = all). */
+  threadListQueue: string | null
   events: Record<string, ThreadEvent[]>
   eventPagination: Record<string, { cursor: string | null; hasMore: boolean }>
   optimistic: Record<string, ThreadEvent[]>
@@ -184,6 +210,7 @@ export function createAgentStore() {
     threadListCursor: null,
     threadListHasMore: false,
     threadListTotalCount: 0,
+    threadListQueue: null,
     events: {},
     eventPagination: {},
     optimistic: {},
@@ -235,13 +262,18 @@ export function createAgentStore() {
           connection: { ...s.connection, reconnectAttempts: 0, reconnectFailed: false },
         })),
 
-      onThreadList: (threads, cursor, totalCount) =>
-        set(() => {
+      onThreadList: (threads, cursor, totalCount, queue) =>
+        set((s) => {
           const map: Record<string, Thread> = {}
           const order: string[] = []
           for (const t of threads) {
             map[t.id] = t
             order.push(t.id)
+          }
+          for (const id of s.subscriptions) {
+            if (!map[id] && s.threads[id]) {
+              map[id] = s.threads[id]
+            }
           }
           return {
             threads: map,
@@ -249,6 +281,7 @@ export function createAgentStore() {
             threadListCursor: cursor ?? null,
             threadListHasMore: cursor != null,
             threadListTotalCount: totalCount ?? 0,
+            threadListQueue: queue ?? null,
           }
         }),
 
@@ -273,9 +306,7 @@ export function createAgentStore() {
       onThreadUpsert: (thread) =>
         set((s) => {
           const threads = { ...s.threads, [thread.id]: thread }
-          const threadOrder = s.threadOrder.includes(thread.id)
-            ? s.threadOrder
-            : [thread.id, ...s.threadOrder]
+          const threadOrder = listOrderAfterUpsert(s.threadOrder, thread, s.threadListQueue)
           return { threads, threadOrder }
         }),
 
@@ -318,9 +349,7 @@ export function createAgentStore() {
       onThreadSnapshot: (thread, snapshotEvents, runs, hasMore = false) =>
         set((s) => {
           const threads = { ...s.threads, [thread.id]: thread }
-          const threadOrder = s.threadOrder.includes(thread.id)
-            ? s.threadOrder
-            : [thread.id, ...s.threadOrder]
+          const threadOrder = listOrderAfterUpsert(s.threadOrder, thread, s.threadListQueue)
           const loadingThreads = new Set(s.loadingThreads)
           loadingThreads.delete(thread.id)
 

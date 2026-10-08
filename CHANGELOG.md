@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.0] — 2026-10-08
+
+### Added
+
+- Workspace **thread queues** (agents-server `>= 0.24.0`): optional `Thread.queue` slug.
+- `requestThreadList(..., queue)` / `useThreadsActions().requestThreadList` — filter by slug.
+- `UNQUEUED_QUEUE_FILTER` (`__none__`) lists threads with no queue.
+- `updateThread(threadId, { queue })` / `useThreadsActions().updateThread` — `thread.update`.
+- `sendMessage({ queue })` / `useMessage().send({ queue })` on new threads (`event.create`).
+- `supportsThreadQueues(serverVersion)` — true for agents-server `>= 0.24.0`.
+
+### Fixed
+
+- Snapshot/upsert of the open thread no longer inserts it into the sidebar list when it does not match the active `thread.list` queue filter.
+
 ## [0.17.0] — 2026-09-11
 
 ### Added

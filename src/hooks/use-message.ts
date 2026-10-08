@@ -12,6 +12,7 @@ export function useMessage() {
       content?: ContentPart[]
       metadata?: Record<string, unknown>
       chatContext?: ChatContext
+      queue?: string | null
     }) => {
       return client.sendMessage(params)
     },

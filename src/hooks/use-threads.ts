@@ -28,6 +28,15 @@ export function useThreadsActions() {
 
   const deleteThread = useCallback((threadId: string) => client.deleteThread(threadId), [client])
   const loadMore = useCallback((limit?: number) => client.loadMoreThreads(limit), [client])
+  const requestThreadList = useCallback(
+    (cursor?: string | null, limit?: number, queue?: string | null) =>
+      client.requestThreadList(cursor, limit, queue),
+    [client]
+  )
+  const updateThread = useCallback(
+    (threadId: string, patch: { queue?: string | null }) => client.updateThread(threadId, patch),
+    [client]
+  )
 
-  return { deleteThread, loadMore }
+  return { deleteThread, loadMore, requestThreadList, updateThread }
 }

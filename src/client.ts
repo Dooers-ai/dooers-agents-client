@@ -287,6 +287,7 @@ export class AgentClient {
 
   // Pagination
   private lastThreadListCursor: string | null = null
+  private threadListQueue: string | null = null
   private isLoadingMore = false
 
   // Event pagination cursors per thread
@@ -497,8 +498,19 @@ export class AgentClient {
 
   // --- Thread operations ---
 
-  requestThreadList(cursor?: string | null, limit?: number) {
-    this.send('thread.list', { cursor, limit })
+  requestThreadList(cursor?: string | null, limit?: number, queue?: string | null) {
+    if (!cursor) {
+      this.threadListQueue = queue ?? null
+    }
+    this.send('thread.list', {
+      cursor,
+      limit,
+      ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+    })
+  }
+
+  updateThread(threadId: string, patch: { queue?: string | null }) {
+    this.send('thread.update', { thread_id: threadId, queue: patch.queue ?? null })
   }
 
   subscribe(threadId: string, options?: { accessReason?: string }) {
@@ -564,7 +576,11 @@ export class AgentClient {
     const cursor = this.lastThreadListCursor
     if (!cursor || this.isLoadingMore) return
     this.isLoadingMore = true
-    this.send('thread.list', { cursor, limit })
+    this.send('thread.list', {
+      cursor,
+      limit,
+      ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+    })
   }
 
   loadOlderEvents(threadId: string, limit?: number) {
@@ -714,6 +730,8 @@ export class AgentClient {
     content?: SendContentPart[]
     metadata?: Record<string, unknown>
     chatContext?: ChatContext
+    /** New-thread queue slug. Ignored when ``threadId`` is set. */
+    queue?: string | null
   }): Promise<{ threadId: string }> {
     this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
@@ -800,6 +818,9 @@ export class AgentClient {
     const chatContext = this.toWireChatContext(params.chatContext)
     if (chatContext) {
       payload.chat_context = chatContext
+    }
+    if (!params.threadId && params.queue) {
+      payload.queue = params.queue
     }
 
     this.sendRaw({
@@ -1001,7 +1022,7 @@ export class AgentClient {
         if (this.isLoadingMore) {
           this.callbacks.onThreadListAppend(threads, cursor, totalCount)
         } else {
-          this.callbacks.onThreadList(threads, cursor, totalCount)
+          this.callbacks.onThreadList(threads, cursor, totalCount, this.threadListQueue)
         }
         this.isLoadingMore = false
         break

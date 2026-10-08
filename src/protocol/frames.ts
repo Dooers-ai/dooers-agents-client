@@ -31,7 +31,12 @@ export type C2S_Connect = Frame<
   }
 >
 
-export type C2S_ThreadList = Frame<'thread.list', { cursor?: string | null; limit?: number }>
+export type C2S_ThreadList = Frame<
+  'thread.list',
+  { cursor?: string | null; limit?: number; queue?: string | null }
+>
+
+export type C2S_ThreadUpdate = Frame<'thread.update', { thread_id: string; queue?: string | null }>
 
 export type C2S_ThreadSubscribe = Frame<
   'thread.subscribe',
@@ -55,6 +60,7 @@ export type C2S_EventCreate = Frame<
     }
     metadata?: Record<string, unknown>
     chat_context?: { llm_model?: string | null; reasoning_effort?: string | null }
+    queue?: string | null
   }
 >
 
@@ -131,6 +137,7 @@ export type ClientToServer =
   | C2S_ThreadSubscribe
   | C2S_ThreadUnsubscribe
   | C2S_ThreadDelete
+  | C2S_ThreadUpdate
   | C2S_EventCreate
   | C2S_EventList
   | C2S_ThreadArtifactsList

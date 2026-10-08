@@ -5,6 +5,7 @@ import {
   supportsChatContext,
   supportsThreadAccess,
   supportsThreadArtifactsList,
+  supportsThreadQueues,
 } from '../src/helpers/server-version'
 
 describe('server-version', () => {
@@ -33,5 +34,11 @@ describe('server-version', () => {
     expect(supportsThreadAccess(null)).toBe(false)
     expect(supportsThreadAccess('0.21.0')).toBe(false)
     expect(supportsThreadAccess('0.22.0')).toBe(true)
+  })
+
+  it('supportsThreadQueues from 0.24.0', () => {
+    expect(supportsThreadQueues(null)).toBe(false)
+    expect(supportsThreadQueues('0.23.3')).toBe(false)
+    expect(supportsThreadQueues('0.24.0')).toBe(true)
   })
 })

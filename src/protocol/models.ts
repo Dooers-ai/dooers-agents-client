@@ -22,6 +22,7 @@ export interface WireThread {
   users: WireUser[]
   title: string | null
   metadata: Record<string, unknown> | null
+  queue?: string | null
   created_at: string
   updated_at: string
   last_event_at: string
@@ -240,6 +241,7 @@ export type WireEventType =
   | 'form'
   | 'form.response'
   | 'chart'
+  | 'thread.update'
 export type WireRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 
 export interface WireThreadEvent {

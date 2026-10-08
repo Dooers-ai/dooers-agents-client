@@ -350,6 +350,53 @@ describe("createAgentStore", () => {
     expect(store.getState().analytics.counters.totalRequests).toBe(0);
   });
 
+  it("onThreadSnapshot of the open thread does not enter a mismatched queue filter", () => {
+    const store = createAgentStore();
+    const listed = { ...thread("human-1"), queue: "human" };
+    const open = { ...thread("agent-1"), queue: "agent" };
+    store.getState().actions.addSubscription("agent-1");
+    store.getState().actions.onThreadList([listed], null, 1, "human");
+    store.getState().actions.onThreadSnapshot(open, [event("e1", "agent-1")], []);
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+    expect(store.getState().threads["agent-1"]).toBeDefined();
+  });
+
+  it("onThreadUpsert does not insert a thread that misses the active queue filter", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([{ ...thread("human-1"), queue: "human" }], null, 1, "human");
+    store.getState().actions.onThreadUpsert({ ...thread("agent-1"), queue: "agent" });
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+    expect(store.getState().threads["agent-1"]).toBeDefined();
+  });
+
+  it("onThreadUpsert drops a thread from the list when its queue no longer matches", () => {
+    const store = createAgentStore();
+    const t = { ...thread("t1"), queue: "human" };
+    store.getState().actions.onThreadList([t], null, 1, "human");
+    store.getState().actions.onThreadUpsert({ ...t, queue: "agent" });
+    expect(store.getState().threadOrder).toEqual([]);
+    expect(store.getState().threads.t1?.queue).toBe("agent");
+  });
+
+  it("onThreadUpsert of an unqueued thread appears in the none filter", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([], null, 0, "__none__");
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), queue: null });
+    expect(store.getState().threadOrder).toEqual(["t1"]);
+    store.getState().actions.onThreadUpsert({ ...thread("t2"), queue: "agent" });
+    expect(store.getState().threadOrder).toEqual(["t1"]);
+  });
+
+  it("onThreadList keeps a subscribed thread in the map without listing it", () => {
+    const store = createAgentStore();
+    const open = { ...thread("agent-1"), queue: "agent" };
+    store.getState().actions.onThreadUpsert(open);
+    store.getState().actions.addSubscription("agent-1");
+    store.getState().actions.onThreadList([], null, 0, "human");
+    expect(store.getState().threadOrder).toEqual([]);
+    expect(store.getState().threads["agent-1"]).toEqual(open);
+  });
+
   it("onThreadList stores cursor and hasMore", () => {
     const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1"), thread("t2")], "cursor-123");
