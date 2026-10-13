@@ -11,10 +11,10 @@ import type {
   ThreadEvent,
 } from './types'
 import {
+  publicSchemaFromResultPayload,
   toAnalyticsEvent,
   toRun,
   toSettingsItem,
-  publicSchemaFromResultPayload,
   toThread,
   toThreadArtifact,
   toThreadEvent,
@@ -536,7 +536,8 @@ export class AgentClient {
     if (refs <= 1) {
       this.subscriptionRefs.delete(threadId)
       this.subscriptionAccessReasons.delete(threadId)
-      this.lastEventIds.delete(threadId)
+      // Keep the cursor. A queue move can drop and resubscribe the open thread;
+      // wiping it makes the next subscribe pull a full snapshot and race the tail.
       this.eventPaginationCursors.delete(threadId)
       this.send('thread.unsubscribe', { thread_id: threadId })
       this.callbacks.removeSubscription(threadId)

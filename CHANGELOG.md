@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] — 2026-10-13
+
+### Fixed
+
+- Live events and snapshot merges are placed by `createdAt` (then id). A queue
+  move no longer leaves the timeline out of order until refresh.
+- Unsubscribing keeps the last event cursor, so a resubscribe fills the gap
+  instead of replaying the whole snapshot onto the tail.
+- A `thread.upsert` that omits `access` no longer clears flags already received
+  from list or snapshot.
+
 ## [0.18.0] — 2026-10-08
 
 ### Added

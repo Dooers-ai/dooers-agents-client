@@ -110,6 +110,49 @@ describe("createAgentStore", () => {
     expect(store.getState().events.t1).toHaveLength(2);
   });
 
+  it("onEventAppend inserts an older event before the live tail", () => {
+    const store = createAgentStore();
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:02.000Z" },
+    ]);
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("e1", "t1"), createdAt: "2026-01-01T00:00:01.000Z" },
+    ]);
+    expect((store.getState().events.t1 ?? []).map((item) => item.id)).toEqual(["e1", "queue"]);
+  });
+
+  it("onThreadSnapshot places history before events that arrived first", () => {
+    const store = createAgentStore();
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:03.000Z" },
+    ]);
+    store.getState().actions.onThreadSnapshot(
+      thread("t1"),
+      [
+        { ...event("e1", "t1"), createdAt: "2026-01-01T00:00:01.000Z" },
+        { ...event("e2", "t1"), createdAt: "2026-01-01T00:00:02.000Z" },
+        { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:03.000Z" },
+      ],
+      [],
+    );
+    expect((store.getState().events.t1 ?? []).map((item) => item.id)).toEqual(["e1", "e2", "queue"]);
+  });
+
+  it("onThreadUpsert keeps access when a later frame omits it", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({
+      ...thread("t1"),
+      access: { read: true, write: false, manage: true },
+    });
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), queue: "agent", access: null });
+    expect(store.getState().threads.t1?.access).toEqual({
+      read: true,
+      write: false,
+      manage: true,
+    });
+    expect(store.getState().threads.t1?.queue).toBe("agent");
+  });
+
   it("onEventAppend merge keeps image url when update adds runId only", () => {
     const store = createAgentStore();
     const imgNoRun: ThreadEvent = {
