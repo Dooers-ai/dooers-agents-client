@@ -70,9 +70,11 @@ function eventTime(event: ThreadEvent): number {
 function insertionIndex(events: ThreadEvent[], event: ThreadEvent): number {
   const time = eventTime(event)
   for (let i = 0; i < events.length; i++) {
-    const other = eventTime(events[i])
+    const current = events[i]
+    if (!current) continue
+    const other = eventTime(current)
     if (other > time) return i
-    if (other === time && events[i].id > event.id) return i
+    if (other === time && current.id > event.id) return i
   }
   return events.length
 }
