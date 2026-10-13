@@ -440,6 +440,41 @@ describe("createAgentStore", () => {
     expect(store.getState().threads["agent-1"]).toEqual(open);
   });
 
+  it("onThreadList keeps a thread upserted after the list was requested", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({ ...thread("live"), queue: null });
+    store.getState().actions.onThreadList([thread("old")], null, 1, null, Date.now() - 1_000);
+    expect(store.getState().threadOrder[0]).toBe("live");
+    expect(store.getState().threadOrder).toContain("old");
+  });
+
+  it("onThreadList drops a live thread that misses the requested queue", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([], null, 0, "human");
+    store.getState().actions.onThreadUpsert({ ...thread("agent-1"), queue: "agent" });
+    store.getState().actions.onThreadList(
+      [{ ...thread("human-1"), queue: "human" }],
+      null,
+      1,
+      "human",
+      Date.now() - 1_000,
+    );
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+  });
+
+  it("onThreadList prefers the live thread over a stale snapshot row", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), title: "Live title" });
+    store.getState().actions.onThreadList(
+      [{ ...thread("t1"), title: "Stale title" }],
+      null,
+      1,
+      null,
+      Date.now() - 1_000,
+    );
+    expect(store.getState().threads.t1?.title).toBe("Live title");
+  });
+
   it("onThreadList stores cursor and hasMore", () => {
     const store = createAgentStore();
     store.getState().actions.onThreadList([thread("t1"), thread("t2")], "cursor-123");

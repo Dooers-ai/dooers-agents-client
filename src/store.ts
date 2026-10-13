@@ -173,7 +173,9 @@ export interface AgentActions {
     threads: Thread[],
     cursor?: string | null,
     totalCount?: number,
-    queue?: string | null
+    queue?: string | null,
+    /** Keep live upserts newer than this (ms). Omit to replace the list as-is. */
+    upsertedAfter?: number | null
   ) => void
   onThreadListAppend: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
   onThreadUpsert: (thread: Thread) => void
@@ -226,6 +228,8 @@ export interface AgentState {
   threadListTotalCount: number
   /** Active ``thread.list`` queue filter (null = all). */
   threadListQueue: string | null
+  /** When each thread last arrived via ``thread.upsert`` (ms). */
+  threadUpsertedAt: Record<string, number>
   events: Record<string, ThreadEvent[]>
   eventPagination: Record<string, { cursor: string | null; hasMore: boolean }>
   optimistic: Record<string, ThreadEvent[]>
@@ -269,6 +273,7 @@ export function createAgentStore() {
     threadListHasMore: false,
     threadListTotalCount: 0,
     threadListQueue: null,
+    threadUpsertedAt: {},
     events: {},
     eventPagination: {},
     optimistic: {},
@@ -320,13 +325,35 @@ export function createAgentStore() {
           connection: { ...s.connection, reconnectAttempts: 0, reconnectFailed: false },
         })),
 
-      onThreadList: (threads, cursor, totalCount, queue) =>
+      onThreadList: (threads, cursor, totalCount, queue, upsertedAfter) =>
         set((s) => {
+          const activeQueue = queue ?? null
+          const cutoff = upsertedAfter ?? null
           const map: Record<string, Thread> = {}
           const order: string[] = []
-          for (const t of threads) {
-            map[t.id] = t
-            order.push(t.id)
+          const seen = new Set<string>()
+          for (const incoming of threads) {
+            const upsertedAt = s.threadUpsertedAt[incoming.id] ?? 0
+            const live = s.threads[incoming.id]
+            const next = cutoff != null && live && upsertedAt > cutoff ? live : incoming
+            if (!threadMatchesListQueue(next, activeQueue)) continue
+            map[next.id] = next
+            order.push(next.id)
+            seen.add(next.id)
+          }
+          if (cutoff != null) {
+            const fresh = Object.values(s.threads)
+              .filter((thread) => {
+                const upsertedAt = s.threadUpsertedAt[thread.id] ?? 0
+                return (
+                  upsertedAt > cutoff &&
+                  !seen.has(thread.id) &&
+                  threadMatchesListQueue(thread, activeQueue)
+                )
+              })
+              .sort((a, b) => (s.threadUpsertedAt[b.id] ?? 0) - (s.threadUpsertedAt[a.id] ?? 0))
+            for (const thread of fresh) map[thread.id] = thread
+            order.unshift(...fresh.map((thread) => thread.id))
           }
           for (const id of s.subscriptions) {
             if (!map[id] && s.threads[id]) {
@@ -339,7 +366,7 @@ export function createAgentStore() {
             threadListCursor: cursor ?? null,
             threadListHasMore: cursor != null,
             threadListTotalCount: totalCount ?? 0,
-            threadListQueue: queue ?? null,
+            threadListQueue: activeQueue,
           }
         }),
 
@@ -366,12 +393,17 @@ export function createAgentStore() {
           const next = withPreservedAccess(s.threads[thread.id], thread)
           const threads = { ...s.threads, [thread.id]: next }
           const threadOrder = listOrderAfterUpsert(s.threadOrder, next, s.threadListQueue)
-          return { threads, threadOrder }
+          return {
+            threads,
+            threadOrder,
+            threadUpsertedAt: { ...s.threadUpsertedAt, [thread.id]: Date.now() },
+          }
         }),
 
       onThreadDeleted: (threadId) =>
         set((s) => {
           const { [threadId]: _, ...threads } = s.threads
+          const { [threadId]: _upserted, ...threadUpsertedAt } = s.threadUpsertedAt
           const { [threadId]: _e, ...events } = s.events
           const { [threadId]: _r, ...runs } = s.runs
           const { [threadId]: _o, ...optimistic } = s.optimistic
@@ -394,6 +426,7 @@ export function createAgentStore() {
           return {
             threads,
             threadOrder,
+            threadUpsertedAt,
             events,
             runs,
             optimistic,

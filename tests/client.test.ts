@@ -129,6 +129,57 @@ describe("AgentClient", () => {
     expect(JSON.parse(ws.sent[1] as string).type).toBe("thread.list");
   });
 
+  it("does not send a second full list while one is in flight for the same queue", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1");
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    const connectId = JSON.parse(ws.sent[0] as string).id;
+    ws.receive({
+      id: "ack-1",
+      type: "ack",
+      payload: { ack_id: connectId, ok: true, server: { name: "dooers-agents-server", version: "0.24.1" } },
+    });
+    expect(ws.sent).toHaveLength(2);
+
+    client.requestThreadList(undefined, undefined, null);
+    expect(ws.sent).toHaveLength(2);
+  });
+
+  it("drops a stale list result and fetches the queue that was requested later", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "w1");
+    await new Promise((r) => setTimeout(r, 10));
+
+    const ws = MockWebSocket.instances[0] as MockWebSocket;
+    const connectId = JSON.parse(ws.sent[0] as string).id;
+    ws.receive({
+      id: "ack-1",
+      type: "ack",
+      payload: { ack_id: connectId, ok: true, server: { name: "dooers-agents-server", version: "0.24.1" } },
+    });
+
+    client.requestThreadList(undefined, undefined, "n1");
+    expect(ws.sent).toHaveLength(2);
+
+    ws.receive({
+      id: "tlr-1",
+      type: "thread.list.result",
+      payload: { threads: [], cursor: null, total_count: 0 },
+    });
+    expect(callbacks.onThreadList).not.toHaveBeenCalled();
+    expect(ws.sent).toHaveLength(3);
+    expect(JSON.parse(ws.sent[2] as string).payload.queue).toBe("n1");
+
+    ws.receive({
+      id: "tlr-2",
+      type: "thread.list.result",
+      payload: { threads: [], cursor: null, total_count: 0 },
+    });
+    expect(callbacks.onThreadList).toHaveBeenCalledWith([], null, 0, "n1", expect.any(Number));
+  });
+
   it("routes thread.list.result", async () => {
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
@@ -348,6 +399,7 @@ describe("AgentClient", () => {
       expect.any(Array),
       "2026-01-01T00:00:00Z",
       42,
+      null,
       null,
     );
   });

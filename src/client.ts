@@ -289,6 +289,11 @@ export class AgentClient {
   private lastThreadListCursor: string | null = null
   private threadListQueue: string | null = null
   private isLoadingMore = false
+  /** One full ``thread.list`` at a time. A second call waits and replaces it. */
+  private fullListInFlight = false
+  private fullListSentAt = 0
+  private fullListSentQueue: string | null = null
+  private fullListPending: { queue: string | null; limit?: number } | null = null
 
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
@@ -411,6 +416,8 @@ export class AgentClient {
     this.uploadAgentId = agentId.trim()
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
+    this.fullListInFlight = false
+    this.fullListPending = null
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
     if (this.httpBaseUrlOverride) {
@@ -478,6 +485,8 @@ export class AgentClient {
     this.abortPendingMessages('Disconnected')
     this.abortPendingArtifacts('Disconnected')
     this.abortPendingPublicSchema('Disconnected')
+    this.fullListInFlight = false
+    this.fullListPending = null
     if (this.ws) {
       this.ws.onopen = null
       this.ws.onmessage = null
@@ -499,13 +508,35 @@ export class AgentClient {
   // --- Thread operations ---
 
   requestThreadList(cursor?: string | null, limit?: number, queue?: string | null) {
-    if (!cursor) {
-      this.threadListQueue = queue ?? null
+    if (cursor) {
+      this.send('thread.list', {
+        cursor,
+        limit,
+        ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+      })
+      return
     }
+    const nextQueue = queue ?? null
+    this.threadListQueue = nextQueue
+    if (this.fullListInFlight) {
+      if (nextQueue !== this.fullListSentQueue) {
+        this.fullListPending = { queue: nextQueue, limit }
+      }
+      return
+    }
+    this.dispatchFullList(nextQueue, limit)
+  }
+
+  /** Full list (no cursor). The result applies this queue, not a later one. */
+  private dispatchFullList(queue: string | null, limit?: number) {
+    this.fullListInFlight = true
+    this.fullListPending = null
+    this.fullListSentQueue = queue
+    this.threadListQueue = queue
+    this.fullListSentAt = Date.now()
     this.send('thread.list', {
-      cursor,
       limit,
-      ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+      ...(queue ? { queue } : {}),
     })
   }
 
@@ -1022,10 +1053,25 @@ export class AgentClient {
         this.lastThreadListCursor = cursor
         if (this.isLoadingMore) {
           this.callbacks.onThreadListAppend(threads, cursor, totalCount)
-        } else {
-          this.callbacks.onThreadList(threads, cursor, totalCount, this.threadListQueue)
+          this.isLoadingMore = false
+          break
         }
-        this.isLoadingMore = false
+        const sentAt = this.fullListSentAt
+        const sentQueue = this.fullListSentQueue
+        const pending = this.fullListPending
+        this.fullListInFlight = false
+        this.fullListPending = null
+        if (pending && pending.queue !== sentQueue) {
+          this.dispatchFullList(pending.queue, pending.limit)
+          break
+        }
+        this.callbacks.onThreadList(
+          threads,
+          cursor,
+          totalCount,
+          sentQueue,
+          sentAt > 0 ? sentAt : null
+        )
         break
       }
 

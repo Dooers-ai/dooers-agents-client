@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] — 2026-10-13
+
+### Fixed
+
+- A `thread.list` snapshot no longer erases a thread that arrived via
+  `thread.upsert` after that request was sent. The sidebar keeps new threads
+  while the page stays open.
+- Only one full list is in flight. A later queue filter replaces the in-flight
+  snapshot instead of letting the slower response relabel the menu.
+
 ## [0.18.1] — 2026-10-13
 
 ### Fixed
