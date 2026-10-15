@@ -1,7 +1,7 @@
 {
   "name": "dooers-agents-client",
   "version": "0.17.1",
-  "description": "agents-client — react sdk for agents-server",
+  "description": "agents-client \u2014 react sdk for agents-server",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Dooers-ai/dooers-agents-client.git"
@@ -24,10 +24,31 @@
         "types": "./dist/main.d.cts",
         "default": "./dist/main.cjs"
       }
+    },
+    "./maestro/contracts": {
+      "import": {
+        "types": "./dist/maestro/contracts.d.ts",
+        "default": "./dist/maestro/contracts.js"
+      },
+      "require": {
+        "types": "./dist/maestro/contracts.d.cts",
+        "default": "./dist/maestro/contracts.cjs"
+      }
+    },
+    "./maestro": {
+      "import": {
+        "types": "./dist/maestro/index.d.ts",
+        "default": "./dist/maestro/index.js"
+      },
+      "require": {
+        "types": "./dist/maestro/index.d.cts",
+        "default": "./dist/maestro/index.cjs"
+      }
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "vendor/maestro-v1/consumer-manifest.json"
   ],
   "sideEffects": false,
   "publishConfig": {
@@ -40,18 +61,26 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "contracts:check": "node scripts/maestro-contracts-check.mjs",
+    "test:maestro:package": "npm run build && node scripts/maestro-package-test.mjs",
+    "pretest": "npm run contracts:check",
+    "pretest:watch": "npm run contracts:check",
+    "prebuild": "npm run contracts:check",
+    "test:maestro:transport-package": "npm run build && node scripts/maestro-transport-package-test.mjs"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0"
   },
   "dependencies": {
+    "zod": "4.4.3",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.4",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
+    "esbuild": "0.27.3",
     "jsdom": "^28.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",

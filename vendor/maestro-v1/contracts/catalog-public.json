@@ -1,0 +1,1019 @@
+{
+  "protocol_version": 1,
+  "schema_version": 1,
+  "status": "contract-only; no API implemented",
+  "source": "contracts/v1/public.ts",
+  "registry": "publicSchemas",
+  "prefix": "/api/v1",
+  "websocket_path": "/ws",
+  "rules": {
+    "unknown_command_fields": "reject",
+    "response_client_forward_compatibility": "clients tolerate optional unknown fields; publisher schema remains strict",
+    "authorization": "schemas validate shape; current core+local policy decisions are mandatory",
+    "tokens": "only transport auth fields; never logs/events/catalog credentials",
+    "http_headers": "normalize canonical names; infrastructure headers not schema fields",
+    "ack": "exactly one correlated result or connection ends; persisted only after transaction commit",
+    "callback_auth": "core instance identity + short execution capability; transport finalized by E00-04",
+    "operation_field": "HTTP route operationId only, not the core authorization operation enum. Resolve current authorization operations using contracts/catalog-identity.json and v1/identity.ts. Examples: thread.update -> thread.rename/archive/unarchive; execution.heartbeat -> delivery.heartbeat; participant.list -> thread.read."
+  },
+  "http": [
+    {
+      "method": "GET",
+      "path": "/capabilities",
+      "operation": "capabilities.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.Capabilities",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "human_or_agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": ["authenticated scope only; capabilities grant no thread access"],
+      "fixtures": {
+        "response": "public.Capabilities.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads",
+      "operation": "thread.create",
+      "request_schema": "Public.ThreadCreateRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.Thread",
+      "status_codes": [201],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core scope/participants authorization",
+        "creator owner included",
+        "all-or-nothing participants"
+      ],
+      "fixtures": {
+        "request": "public.ThreadCreateRequest.valid",
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads",
+      "operation": "thread.list",
+      "request_schema": null,
+      "query_schema": "Public.ThreadListQuery",
+      "path_schema": null,
+      "response_schema": "Public.ThreadPage",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "query": "public.ThreadListQuery.valid",
+        "response": "public.ThreadPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/supervision/threads",
+      "operation": "thread.supervision.list",
+      "request_schema": null,
+      "query_schema": "Public.SupervisionListQuery",
+      "path_schema": null,
+      "response_schema": "Public.SupervisionThreadPage",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": ["elevated decision + audit", "no content grant is implied"],
+      "fixtures": {
+        "query": "public.SupervisionListQuery.valid",
+        "response": "public.SupervisionThreadPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads/:id",
+      "operation": "thread.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Thread",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "path": "public.IdPath.valid",
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/threads/:id",
+      "operation": "thread.update",
+      "request_schema": "Public.ThreadPatchRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Thread",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key", "If-Match"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ThreadPatchRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/threads/:id",
+      "operation": "thread.delete",
+      "request_schema": "Public.ReasonRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.DeleteResponse",
+      "status_codes": [202],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key", "If-Match"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ReasonRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.DeleteResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads/:id/participants",
+      "operation": "participant.list",
+      "request_schema": null,
+      "query_schema": "Public.PageQuery",
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.ParticipantPage",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "query": "public.PageQuery.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.ParticipantPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads/:id/participants",
+      "operation": "participant.add",
+      "request_schema": "Public.ParticipantAddRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Participant",
+      "status_codes": [200, 201],
+      "required_capability": "participants.humans or participants.agents",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ParticipantAddRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.Participant.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/threads/:id/participants/:participantId",
+      "operation": "participant.remove",
+      "request_schema": "Public.ReasonRequest",
+      "query_schema": null,
+      "path_schema": "Public.ParticipantPath",
+      "response_schema": "Public.Participant",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ReasonRequest.valid",
+        "path": "public.ParticipantPath.valid",
+        "response": "public.Participant.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads/:id/ownership",
+      "operation": "thread.ownership.transfer",
+      "request_schema": "Public.OwnershipRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Thread",
+      "status_codes": [200],
+      "required_capability": "participants.humans",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key", "If-Match"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.OwnershipRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads/:id/events",
+      "operation": "thread.history",
+      "request_schema": null,
+      "query_schema": "Public.EventsQuery",
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.EventPage",
+      "status_codes": [200],
+      "required_capability": "history.replay",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "query": "public.EventsQuery.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.EventPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads/:id/events",
+      "operation": "message.publish",
+      "request_schema": "Public.MessageCreateRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.PersistedResponse",
+      "status_codes": [200, 201],
+      "required_capability": "messages.text",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "Idempotency-Key equals client_event_id",
+        "same unique(org,thread,actor,operation,key) as WS",
+        "ACK only after Postgres commit; broker not required",
+        "artifact binding and recipient capabilities validated before commit"
+      ],
+      "fixtures": {
+        "request": "public.MessageCreateRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.PersistedResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads/:id/deliveries",
+      "operation": "delivery.list",
+      "request_schema": null,
+      "query_schema": "Public.DeliveryListQuery",
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.DeliveryPage",
+      "status_codes": [200],
+      "required_capability": "deliveries.status",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "query": "public.DeliveryListQuery.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.DeliveryPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/cancel",
+      "operation": "execution.cancel",
+      "request_schema": "Public.ReasonRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.CancelResponse",
+      "status_codes": [202],
+      "required_capability": "executions.cancel",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ReasonRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.CancelResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads/:id/roots/:eventId/stop",
+      "operation": "root.stop",
+      "request_schema": "Public.ReasonRequest",
+      "query_schema": null,
+      "path_schema": "Public.RootPath",
+      "response_schema": "Public.StopResponse",
+      "status_codes": [200],
+      "required_capability": "executions.cancel",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "request": "public.ReasonRequest.valid",
+        "path": "public.RootPath.valid",
+        "response": "public.StopResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/threads/:id/supervision",
+      "operation": "thread.supervise",
+      "request_schema": "Public.SupervisionRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.SupervisionGrant",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "current policy may require access_reason",
+        "audit commits before grant",
+        "grant is read-only, bound to identity/session/thread/version"
+      ],
+      "fixtures": {
+        "request": "public.SupervisionRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.SupervisionGrant.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/threads/:id/export",
+      "operation": "thread.export",
+      "request_schema": null,
+      "query_schema": "Public.ExportQuery",
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.ExportResponse",
+      "status_codes": [200],
+      "required_capability": "export",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [],
+      "fixtures": {
+        "query": "public.ExportQuery.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.ExportResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/interactions/:id/responses",
+      "operation": "interaction.respond",
+      "request_schema": "Public.InteractionResponseRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.PersistedResponse",
+      "status_codes": [200],
+      "required_capability": "interactions.forms or interactions.tool_approval",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "saved schema validates allowed field names/types/required/options",
+        "first valid response wins; directed resume of same delivery",
+        "approve hash equals immutable request; no effect before authorization"
+      ],
+      "fixtures": {
+        "request": "public.InteractionResponseRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.PersistedResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "PUT",
+      "path": "/events/:id/feedback",
+      "operation": "feedback.write",
+      "request_schema": "Public.FeedbackRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.PersistedResponse",
+      "status_codes": [200],
+      "required_capability": "feedback",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": ["own feedback; target event author; optimistic version and idempotency"],
+      "fixtures": {
+        "request": "public.FeedbackRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.PersistedResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/artifacts",
+      "operation": "artifact.upload",
+      "request_schema": "Public.ArtifactCreateRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.UploadSessionResponse",
+      "status_codes": [200, 201],
+      "required_capability": "attachments.durable",
+      "auth": "human_or_agent_execution",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "multipart bytes are bounded outside JSON contract",
+        "mandatory configured quota/allowlist/scan policy",
+        "upload scope from authorized actor; optional thread/lease bindings checked",
+        "prethread: artifacts:write + threads:create and artifact.upload.prethread; linked human: artifacts:write + messages:write; agent: responses:write + execution capability"
+      ],
+      "fixtures": {
+        "request": "public.ArtifactCreateRequest.valid",
+        "response": "public.UploadSessionResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/artifacts/:id/complete",
+      "operation": "artifact.complete",
+      "request_schema": "Public.ArtifactCompleteRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Artifact",
+      "status_codes": [200],
+      "required_capability": "attachments.durable",
+      "auth": "human_or_agent_execution",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "only direct_private backend; object size/hash verified server-side",
+        "prethread: artifacts:write + threads:create and artifact.upload.prethread; linked human: artifacts:write + messages:write; agent: responses:write + execution capability"
+      ],
+      "fixtures": {
+        "request": "public.ArtifactCompleteRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.Artifact.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/artifacts/:id/download",
+      "operation": "artifact.download",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.DownloadMetadata",
+      "status_codes": [200, 206],
+      "required_capability": "attachments.durable",
+      "auth": "human_or_agent_execution",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "actual body is binary; metadata schema describes response headers, not JSON body",
+        "Range validated by HTTP adapter",
+        "authenticated proxy and current ACL; never expose storage URL"
+      ],
+      "fixtures": {
+        "path": "public.IdPath.valid",
+        "response": "public.DownloadMetadata.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/deliveries/:id/context",
+      "operation": "delivery.context",
+      "request_schema": null,
+      "query_schema": "Public.PageQuery",
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.ContextResponse",
+      "status_codes": [200],
+      "required_capability": "history.context",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "history cutoff fixed to context_cursor",
+        "own delivery and current read/fence/deadline"
+      ],
+      "fixtures": {
+        "query": "public.PageQuery.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.ContextResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/heartbeat",
+      "operation": "execution.heartbeat",
+      "request_schema": "Public.HeartbeatRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.HeartbeatResponse",
+      "status_codes": [200],
+      "required_capability": "deliveries.http",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": ["CAS/fence/deadline; no command ledger"],
+      "fixtures": {
+        "request": "public.HeartbeatRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.HeartbeatResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/outputs",
+      "operation": "execution.output",
+      "request_schema": "Public.OutputRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.PersistedResponse",
+      "status_codes": [200],
+      "required_capability": "messages.text",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Idempotency-Key", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "current lease + core identity",
+        "output namespace delivery/phase/output_id",
+        "author derived from execution; no impersonation"
+      ],
+      "fixtures": {
+        "request": "public.OutputRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.PersistedResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/stream",
+      "operation": "execution.stream",
+      "request_schema": "Public.StreamRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.StreamResponse",
+      "status_codes": [200],
+      "required_capability": "stream.delta",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "execution/output/chunk dedupe; ephemeral; never sequence or broadcast trigger"
+      ],
+      "fixtures": {
+        "request": "public.StreamRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.StreamResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/complete",
+      "operation": "execution.complete",
+      "request_schema": "Public.CompleteRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.CallbackResponse",
+      "status_codes": [200],
+      "required_capability": "deliveries.http",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Idempotency-Key", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "responded requires at least one durable message including earlier output",
+        "silent forbids message output; failures are not silence",
+        "final outputs and terminal state atomic"
+      ],
+      "fixtures": {
+        "request": "public.CompleteRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.CallbackResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/suspend",
+      "operation": "execution.suspend",
+      "request_schema": "Public.SuspendRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.CallbackResponse",
+      "status_codes": [200],
+      "required_capability": "interactions.forms or interactions.tool_approval",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Idempotency-Key", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "persist interaction/checkpoint reference before release",
+        "execution suspended/delivery waiting_input",
+        "checkpoint_ref restricted; never public event"
+      ],
+      "fixtures": {
+        "request": "public.SuspendRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.CallbackResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/internal/broker/events",
+      "operation": "broker.events",
+      "request_schema": "Public.BrokerEventRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.BrokerEventResponse",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "broker",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "durable transition before transport ACK",
+        "provider envelope authentication is broker adapter responsibility"
+      ],
+      "fixtures": {
+        "request": "public.BrokerEventRequest.valid",
+        "response": "public.BrokerEventResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/internal/deliveries/:id",
+      "operation": "delivery.inspect",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Delivery",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "operator_or_worker",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": ["filtered projection; no leases/tokens included"],
+      "fixtures": {
+        "path": "public.IdPath.valid",
+        "response": "public.Delivery.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/internal/deliveries/:id/retry",
+      "operation": "delivery.retry",
+      "request_schema": "Public.RetryRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.RetryResponse",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "operator_or_worker",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "reason+audit",
+        "same logical delivery; responded/silent terminal not reset"
+      ],
+      "fixtures": {
+        "request": "public.RetryRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.RetryResponse.valid",
+        "error": "public.Error.valid"
+      }
+    }
+  ],
+  "ws_commands": [
+    {
+      "command": "connect",
+      "schema": "Public.WsCommand.connect",
+      "response_schema": "Public.WsAck.connect",
+      "fixture": "public.WsCommand.connect.valid",
+      "response_fixture": "public.WsAck.connect.valid",
+      "idempotency": "transport_only",
+      "auth": "first-frame-token",
+      "capability": null
+    },
+    {
+      "command": "auth.refresh",
+      "schema": "Public.WsCommand.auth.refresh",
+      "response_schema": "Public.WsAck.auth.refresh",
+      "fixture": "public.WsCommand.auth.refresh.valid",
+      "response_fixture": "public.WsAck.auth.refresh.valid",
+      "idempotency": "transport_only",
+      "auth": "authenticated-session",
+      "capability": null
+    },
+    {
+      "command": "ping",
+      "schema": "Public.WsCommand.ping",
+      "response_schema": "Public.WsPong",
+      "fixture": "public.WsCommand.ping.valid",
+      "response_fixture": "public.WsPong.valid",
+      "idempotency": "transport_only",
+      "auth": "authenticated-session",
+      "capability": null
+    },
+    {
+      "command": "thread.subscribe",
+      "schema": "Public.WsCommand.thread.subscribe",
+      "response_schema": "Public.WsAck.thread.subscribe",
+      "fixture": "public.WsCommand.thread.subscribe.valid",
+      "response_fixture": "public.WsAck.thread.subscribe.valid",
+      "idempotency": "transport_only",
+      "auth": "authenticated-session",
+      "capability": "history.replay"
+    },
+    {
+      "command": "thread.unsubscribe",
+      "schema": "Public.WsCommand.thread.unsubscribe",
+      "response_schema": "Public.WsAck.thread.unsubscribe",
+      "fixture": "public.WsCommand.thread.unsubscribe.valid",
+      "response_fixture": "public.WsAck.thread.unsubscribe.valid",
+      "idempotency": "transport_only",
+      "auth": "authenticated-session",
+      "capability": "history.replay"
+    },
+    {
+      "command": "message.publish",
+      "schema": "Public.WsCommand.message.publish",
+      "response_schema": "Public.WsAck.message.publish",
+      "fixture": "public.WsCommand.message.publish.valid",
+      "response_fixture": "public.WsAck.message.publish.valid",
+      "idempotency": "client_event_id; shared with HTTP",
+      "auth": "authenticated-session",
+      "capability": "messages.text"
+    },
+    {
+      "command": "execution.cancel",
+      "schema": "Public.WsCommand.execution.cancel",
+      "response_schema": "Public.WsAck.execution.cancel",
+      "fixture": "public.WsCommand.execution.cancel.valid",
+      "response_fixture": "public.WsAck.execution.cancel.valid",
+      "idempotency": "idempotency_key",
+      "auth": "authenticated-session",
+      "capability": "executions.cancel"
+    },
+    {
+      "command": "root.stop",
+      "schema": "Public.WsCommand.root.stop",
+      "response_schema": "Public.WsAck.root.stop",
+      "fixture": "public.WsCommand.root.stop.valid",
+      "response_fixture": "public.WsAck.root.stop.valid",
+      "idempotency": "idempotency_key",
+      "auth": "authenticated-session",
+      "capability": "executions.cancel"
+    },
+    {
+      "command": "interaction.respond",
+      "schema": "Public.WsCommand.interaction.respond",
+      "response_schema": "Public.WsAck.interaction.respond",
+      "fixture": "public.WsCommand.interaction.respond.valid",
+      "response_fixture": "public.WsAck.interaction.respond.valid",
+      "idempotency": "idempotency_key",
+      "auth": "authenticated-session",
+      "capability": "interactions.forms or interactions.tool_approval"
+    }
+  ],
+  "durable_events": [
+    {
+      "type": "thread.created",
+      "schema": "Public.Event.thread.created",
+      "fixture": "public.Event.thread.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "thread.updated",
+      "schema": "Public.Event.thread.updated",
+      "fixture": "public.Event.thread.updated.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "thread.archived",
+      "schema": "Public.Event.thread.archived",
+      "fixture": "public.Event.thread.archived.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "participant.added",
+      "schema": "Public.Event.participant.added",
+      "fixture": "public.Event.participant.added.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "participant.removed",
+      "schema": "Public.Event.participant.removed",
+      "fixture": "public.Event.participant.removed.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "message.created",
+      "schema": "Public.Event.message.created",
+      "fixture": "public.Event.message.created.valid",
+      "triggers_agents": true
+    },
+    {
+      "type": "execution.started",
+      "schema": "Public.Event.execution.started",
+      "fixture": "public.Event.execution.started.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "execution.completed",
+      "schema": "Public.Event.execution.completed",
+      "fixture": "public.Event.execution.completed.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "execution.failed",
+      "schema": "Public.Event.execution.failed",
+      "fixture": "public.Event.execution.failed.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "execution.canceled",
+      "schema": "Public.Event.execution.canceled",
+      "fixture": "public.Event.execution.canceled.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "delivery.updated",
+      "schema": "Public.Event.delivery.updated",
+      "fixture": "public.Event.delivery.updated.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "root.stopped",
+      "schema": "Public.Event.root.stopped",
+      "fixture": "public.Event.root.stopped.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "interaction.created",
+      "schema": "Public.Event.interaction.created",
+      "fixture": "public.Event.interaction.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "interaction.responded",
+      "schema": "Public.Event.interaction.responded",
+      "fixture": "public.Event.interaction.responded.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "interaction.expired",
+      "schema": "Public.Event.interaction.expired",
+      "fixture": "public.Event.interaction.expired.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "feedback.updated",
+      "schema": "Public.Event.feedback.updated",
+      "fixture": "public.Event.feedback.updated.valid",
+      "triggers_agents": false
+    }
+  ],
+  "server_frames": [
+    {
+      "type": "thread.snapshot",
+      "schema": "Public.WsFrame.thread.snapshot",
+      "fixture": "public.WsFrame.thread.snapshot.valid",
+      "durable": false
+    },
+    {
+      "type": "thread.replay",
+      "schema": "Public.WsFrame.thread.replay",
+      "fixture": "public.WsFrame.thread.replay.valid",
+      "durable": false
+    },
+    {
+      "type": "thread.caught_up",
+      "schema": "Public.WsFrame.thread.caught_up",
+      "fixture": "public.WsFrame.thread.caught_up.valid",
+      "durable": false
+    },
+    {
+      "type": "event.append",
+      "schema": "Public.WsFrame.event.append",
+      "fixture": "public.WsFrame.event.append.valid",
+      "durable": false
+    },
+    {
+      "type": "stream.delta",
+      "schema": "Public.WsFrame.stream.delta",
+      "fixture": "public.WsFrame.stream.delta.valid",
+      "durable": false
+    },
+    {
+      "type": "stream.reset",
+      "schema": "Public.WsFrame.stream.reset",
+      "fixture": "public.WsFrame.stream.reset.valid",
+      "durable": false
+    },
+    {
+      "type": "subscription.revoked",
+      "schema": "Public.WsFrame.subscription.revoked",
+      "fixture": "public.WsFrame.subscription.revoked.valid",
+      "durable": false
+    },
+    {
+      "type": "session.expiring",
+      "schema": "Public.WsFrame.session.expiring",
+      "fixture": "public.WsFrame.session.expiring.valid",
+      "durable": false
+    },
+    {
+      "type": "session.expired",
+      "schema": "Public.WsFrame.session.expired",
+      "fixture": "public.WsFrame.session.expired.valid",
+      "durable": false
+    },
+    {
+      "type": "resync.required",
+      "schema": "Public.WsFrame.resync.required",
+      "fixture": "public.WsFrame.resync.required.valid",
+      "durable": false
+    }
+  ],
+  "errors": {
+    "schema": "Public.Error",
+    "ws_schema": "Public.WsError",
+    "status_codes": [400, 401, 403, 404, 409, 410, 413, 422, 429, 503],
+    "retry_policy": "retry only retryable causes; never blindly replay 403/conflict/stale fence"
+  },
+  "semantic_validation": [
+    "Public.PublicationExchange: transport bindings and same canonical semantic payload",
+    "message content: at least one attachment or text with non-whitespace",
+    "agent_options: unique participant_id",
+    "form fields: unique name",
+    "all access, membership, state, artifact readiness, saved form schema and lease checks require service implementation"
+  ],
+  "semantic_keyword": "x-maestro-semantic",
+  "semantic_validators": {
+    "nonblank-content": {
+      "input": "array",
+      "algorithm": "At least one attachment or text with non-whitespace after ECMAScript trim."
+    },
+    "unique-option-participant": {
+      "input": "array",
+      "algorithm": "Unique participant_id across items."
+    },
+    "unique-form-field": {
+      "input": "array",
+      "algorithm": "Unique name across items."
+    },
+    "publication-exchange": {
+      "input": "object",
+      "algorithm": "Equal external key, HTTP Idempotency-Key and HTTP/WS client_event_id; equal outer thread_id and WS thread_id; equal canonical content, mentions and agent_options (missing optional arrays normalize to [])."
+    }
+  }
+}

@@ -1,3 +1,4 @@
+// Legacy direct-agent models. Maestro models are exported separately from ./maestro.
 // --- Send content parts (client → server, used in send()) ---
 
 export interface TextSendPart {

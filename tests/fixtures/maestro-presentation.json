@@ -1,0 +1,460 @@
+{
+  "thread": {
+    "organization_id": "00000000-0000-4000-8000-000000000001",
+    "scope_kind": "personal",
+    "workspace_id": null,
+    "thread_id": "00000000-0000-4000-8000-000000000003",
+    "mode": "maestro",
+    "title": "Thread de contrato",
+    "state": "active",
+    "version": 1,
+    "participants": [
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000019",
+        "kind": "human",
+        "principal_id": "human-secondary",
+        "display_name": "Pessoa",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000020",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000030",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000040",
+        "capabilities": [
+          "messages.text"
+        ]
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000021",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000031",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000041",
+        "capabilities": [
+          "messages.text"
+        ]
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000022",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000032",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000042",
+        "capabilities": [
+          "messages.text"
+        ]
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000023",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000033",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000043",
+        "capabilities": [
+          "messages.text"
+        ]
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000024",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000034",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000044",
+        "capabilities": [
+          "messages.text"
+        ]
+      },
+      {
+        "participant_id": "00000000-0000-4000-8000-000000000025",
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000035",
+        "display_name": "Mesmo nome",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "availability": "available",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000045",
+        "capabilities": []
+      }
+    ],
+    "permissions": {
+      "read": true,
+      "write": true,
+      "manage": true,
+      "supervise": false,
+      "export": true,
+      "cancel": true,
+      "feedback": true
+    },
+    "capabilities": [
+      "messages.text",
+      "feedback",
+      "export"
+    ],
+    "last_sequence": "9007199254741010",
+    "cursor": "fixture.cursor.opaque",
+    "supervision_policy": "strict",
+    "policy_version": 1,
+    "created_at": "2026-10-13T15:00:00Z",
+    "updated_at": "2026-10-13T15:00:00Z"
+  },
+  "events": [
+    {
+      "event_id": "00000000-0000-4000-8000-000000000200",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740992",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000030",
+        "participant_id": "00000000-0000-4000-8000-000000000020",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000040",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "event_id": "00000000-0000-4000-8000-000000000201",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740993",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000031",
+        "participant_id": "00000000-0000-4000-8000-000000000021",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000041",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "event_id": "00000000-0000-4000-8000-000000000202",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740994",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000032",
+        "participant_id": "00000000-0000-4000-8000-000000000022",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000042",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "event_id": "00000000-0000-4000-8000-000000000203",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740995",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000033",
+        "participant_id": "00000000-0000-4000-8000-000000000023",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000043",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "event_id": "00000000-0000-4000-8000-000000000204",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740996",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000034",
+        "participant_id": "00000000-0000-4000-8000-000000000024",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000044",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "event_id": "00000000-0000-4000-8000-000000000205",
+      "thread_id": "00000000-0000-4000-8000-000000000003",
+      "sequence": "9007199254740997",
+      "schema_version": 1,
+      "actor": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000035",
+        "participant_id": "00000000-0000-4000-8000-000000000025",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000045",
+        "display_name": "Mesmo nome"
+      },
+      "created_at": "2026-10-13T15:00:00Z",
+      "causation_event_id": null,
+      "root_event_id": "00000000-0000-4000-8000-000000000005",
+      "type": "message.created",
+      "payload": {
+        "content": [
+          {
+            "type": "text",
+            "text": "Ol\u00e1"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    }
+  ],
+  "deliveries": [
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000100",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000020",
+      "state": "responded",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000101",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000021",
+      "state": "silent",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000102",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000022",
+      "state": "failed",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000103",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000023",
+      "state": "running",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000104",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000024",
+      "state": "waiting_input",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "delivery_id": "00000000-0000-4000-8000-000000000105",
+      "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+      "participant_id": "00000000-0000-4000-8000-000000000025",
+      "state": "waiting_broker",
+      "attempt_count": 0,
+      "execution_id": null,
+      "phase_id": "initial",
+      "reason_code": null,
+      "created_at": "2026-10-13T15:00:00Z",
+      "updated_at": "2026-10-13T15:00:00Z",
+      "completed_at": null,
+      "expires_at": "2026-10-13T15:00:00Z"
+    }
+  ],
+  "executions": [
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000300",
+      "delivery_id": "00000000-0000-4000-8000-000000000100",
+      "participant_id": "00000000-0000-4000-8000-000000000020",
+      "phase_id": "initial",
+      "state": "completed",
+      "outcome": "responded",
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000301",
+      "delivery_id": "00000000-0000-4000-8000-000000000101",
+      "participant_id": "00000000-0000-4000-8000-000000000021",
+      "phase_id": "initial",
+      "state": "completed",
+      "outcome": "silent",
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000302",
+      "delivery_id": "00000000-0000-4000-8000-000000000102",
+      "participant_id": "00000000-0000-4000-8000-000000000022",
+      "phase_id": "initial",
+      "state": "failed",
+      "outcome": "failed",
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000303",
+      "delivery_id": "00000000-0000-4000-8000-000000000103",
+      "participant_id": "00000000-0000-4000-8000-000000000023",
+      "phase_id": "initial",
+      "state": "running",
+      "outcome": null,
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000304",
+      "delivery_id": "00000000-0000-4000-8000-000000000104",
+      "participant_id": "00000000-0000-4000-8000-000000000024",
+      "phase_id": "initial",
+      "state": "suspended",
+      "outcome": null,
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    },
+    {
+      "execution_id": "00000000-0000-4000-8000-000000000305",
+      "delivery_id": "00000000-0000-4000-8000-000000000105",
+      "participant_id": "00000000-0000-4000-8000-000000000025",
+      "phase_id": "initial",
+      "state": "canceled",
+      "outcome": "canceled",
+      "reason_code": null,
+      "deadline_at": "2026-10-13T15:00:00Z",
+      "completed_at": "2026-10-13T15:00:00Z"
+    }
+  ]
+}

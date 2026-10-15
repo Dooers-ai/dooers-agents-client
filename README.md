@@ -261,3 +261,28 @@ The client handles:
 ## See Also
 
 - [dooers-agents-server](https://github.com/Dooers-ai/dooers-agents-server) — Python SDK for building the agents this client connects to
+
+### Maestro presentation model (local candidate E07-01)
+
+`dooers-agents-client/maestro` exports `toMaestroConversationPresentation(snapshot,
+threadId, connection, expectedScope)` and its `MaestroConversationPresentation`
+type. Feed the canonical `MaestroStore` snapshot and the authenticated session scope.
+The adapter checks the scope/authority, preserves decimal sequence strings and
+IDs, converts delivery/execution fields explicitly, and keeps publication commands
+separate from persisted events. It returns `null` for absent, revoked, unreadable,
+deleting or deleted threads. Unknown event payloads are omitted from this view.
+
+`permissions` is the unmodified server decision; `textAction` is only a UI gate,
+requiring write permission, active thread, connected transport and advertised
+`messages.text` on both thread and connection. Thread phases failed, disconnected,
+subscribing, replaying and resync block sending even if the global connection is
+connected. Only live or idle with a validated HTTP thread snapshot can enable the
+text action; idle without a thread returns null. It is not authorization. No other
+feature is enabled implicitly. Delivery silence/failure and suspension remain
+individual states; no message or provider usage is inferred from them.
+
+Legacy `src/types.ts` and the root entrypoint retain their existing models/exports.
+Domain event payloads stay discriminated wire shapes; arbitrary content/form keys
+are not recursively renamed. This local candidate retains package version 0.17.1;
+identify it by tarball SHA-256, not a registry release. No UI/provider is mounted by
+this pure adapter.

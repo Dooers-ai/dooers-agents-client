@@ -1,0 +1,358 @@
+{
+  "source": "contracts/fixtures/v1/identity.json",
+  "source_sha256": "94fc037199d475eb2f572d069f3fd53c828164718d8e266e96ec83a46e97c224",
+  "manifest_sha256": "7792256d9967ae2e3307b8dd627561e750ffeebc6f39ab270dbfd687336a1fcd",
+  "cases": [
+    {
+      "id": "identity.claims.human-opaque",
+      "schema": "Identity.HumanTokenClaims",
+      "valid": true,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.human-opaque"
+    },
+    {
+      "id": "identity.claims.agent-instance",
+      "schema": "Identity.AgentTokenClaims",
+      "valid": true,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "00000003-0000-4000-8000-000000000000",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": "00000002-0000-4000-8000-000000000000",
+        "actor_type": "aiagent",
+        "agent_id": "00000003-0000-4000-8000-000000000000",
+        "runtime_id": "00000005-0000-4000-8000-000000000000",
+        "credential_version": 4,
+        "authorization_version": 8,
+        "scopes": [
+          "deliveries:read",
+          "context:read",
+          "responses:write",
+          "processing:write"
+        ]
+      },
+      "description": "identity.claims.agent-instance"
+    },
+    {
+      "id": "identity.claims.legacy-audience",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "agent-server",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.legacy-audience"
+    },
+    {
+      "id": "identity.claims.other-issuer",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "untrusted-example",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.other-issuer"
+    },
+    {
+      "id": "identity.claims.human-substituted",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "00000051-0000-4000-8000-000000000000",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.human-substituted"
+    },
+    {
+      "id": "identity.claims.infra-as-subject",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "00000004-0000-4000-8000-000000000000",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": "00000002-0000-4000-8000-000000000000",
+        "actor_type": "aiagent",
+        "agent_id": "00000003-0000-4000-8000-000000000000",
+        "runtime_id": "00000005-0000-4000-8000-000000000000",
+        "credential_version": 4,
+        "authorization_version": 8,
+        "scopes": [
+          "deliveries:read",
+          "context:read",
+          "responses:write",
+          "processing:write"
+        ]
+      },
+      "description": "identity.claims.infra-as-subject"
+    },
+    {
+      "id": "identity.claims.original-session-leak",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ],
+        "session_token": "EXAMPLE-SESSION-NOT-A-SECRET"
+      },
+      "description": "identity.claims.original-session-leak"
+    },
+    {
+      "id": "identity.claims.invalid-ttl",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903600,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.invalid-ttl"
+    },
+    {
+      "id": "identity.claims.excessive-ttl",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903901,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.excessive-ttl"
+    },
+    {
+      "id": "identity.claims.missing-lineage",
+      "schema": "Identity.TokenClaims",
+      "valid": false,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "identity.claims.missing-lineage"
+    },
+    {
+      "id": "identity.claims.union-human",
+      "schema": "Identity.TokenClaims",
+      "valid": true,
+      "data": {
+        "iss": "dooers-service-core",
+        "aud": "dooers-service-maestro",
+        "sub": "betterauth_user_opaque",
+        "iat": 1791903600,
+        "exp": 1791903900,
+        "jti": "00000007-0000-4000-8000-000000000000",
+        "organization_id": "00000001-0000-4000-8000-000000000000",
+        "workspace_id": null,
+        "actor_type": "human",
+        "user_id": "betterauth_user_opaque",
+        "session_ref": "session_ref_example",
+        "session_version": 3,
+        "scopes": [
+          "threads:read",
+          "threads:create",
+          "messages:write",
+          "threads:manage",
+          "participants:manage",
+          "threads:supervise",
+          "executions:cancel",
+          "roots:stop",
+          "feedback:write",
+          "artifacts:write",
+          "interactions:write"
+        ]
+      },
+      "description": "Cobertura positiva do registry union TokenClaims; reutiliza claims humanas j\u00e1 v\u00e1lidas."
+    }
+  ]
+}

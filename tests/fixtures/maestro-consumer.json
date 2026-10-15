@@ -1,0 +1,502 @@
+{
+  "protocol_version": 1,
+  "cases": [
+    {
+      "id": "consumer.sequence-above-safe-integer",
+      "schema": "Public.Event",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "900719925474099312345678901234567890",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      }
+    },
+    {
+      "id": "consumer.sequence-numeric-rejected",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": 9007199254740992,
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      }
+    },
+    {
+      "id": "consumer.sequence-leading-zero-rejected",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "01",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      }
+    },
+    {
+      "id": "consumer.sequence-negative-rejected",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "-1",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      }
+    },
+    {
+      "id": "consumer.opaque-cursor-preserved",
+      "schema": "Public.EventPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          }
+        ],
+        "next_cursor": "opaque.v1:nao-decodificar/+=💬",
+        "has_more": true,
+        "watermark": "900719925474099312345"
+      }
+    },
+    {
+      "id": "consumer.numeric-cursor-rejected",
+      "schema": "Public.EventPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          }
+        ],
+        "next_cursor": 1,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      }
+    },
+    {
+      "id": "consumer.absent-feature-advertisement",
+      "schema": "Public.Capabilities",
+      "valid": true,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": []
+      }
+    },
+    {
+      "id": "consumer.missing-capabilities-field",
+      "schema": "Public.Capabilities",
+      "valid": false,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro"
+      }
+    },
+    {
+      "id": "consumer.future-capability-not-inferred",
+      "schema": "Public.Capabilities",
+      "valid": true,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": ["future.extra"]
+      }
+    },
+    {
+      "id": "consumer.connect-no-mode",
+      "schema": "Public.WsCommand.connect",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 1,
+          "client_capabilities": []
+        }
+      }
+    },
+    {
+      "id": "consumer.connect-legacy-mode-rejected",
+      "schema": "Public.WsCommand.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 1,
+          "client_capabilities": ["messages.text", "feedback", "export"],
+          "mode": "agent"
+        }
+      }
+    },
+    {
+      "id": "consumer.connect-maestro-mode-rejected",
+      "schema": "Public.WsCommand.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 1,
+          "client_capabilities": ["messages.text", "feedback", "export"],
+          "mode": "maestro"
+        }
+      }
+    },
+    {
+      "id": "consumer.connect-protocol-two-rejected",
+      "schema": "Public.WsCommand.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 2,
+          "client_capabilities": ["messages.text", "feedback", "export"]
+        }
+      }
+    },
+    {
+      "id": "consumer.ack-maestro-authority",
+      "schema": "Public.WsAck.connect",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "connected",
+          "connection_id": "00000000-0000-4000-8000-000000000017",
+          "server_version": "0.0.0-contract",
+          "protocol_version": 1,
+          "history_authority": "maestro",
+          "capabilities": [],
+          "expires_at": "2026-10-13T15:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "consumer.ack-agent-authority-rejected",
+      "schema": "Public.WsAck.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "connected",
+          "connection_id": "00000000-0000-4000-8000-000000000017",
+          "server_version": "0.0.0-contract",
+          "protocol_version": 1,
+          "history_authority": "agent",
+          "capabilities": ["messages.text", "feedback", "export"],
+          "expires_at": "2026-10-13T15:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "consumer.ack-missing-authority-rejected",
+      "schema": "Public.WsAck.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "connected",
+          "connection_id": "00000000-0000-4000-8000-000000000017",
+          "server_version": "0.0.0-contract",
+          "protocol_version": 1,
+          "capabilities": ["messages.text", "feedback", "export"],
+          "expires_at": "2026-10-13T15:00:00Z"
+        }
+      }
+    },
+    {
+      "id": "consumer.divergent-header-key",
+      "schema": "Public.PublicationExchange",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "different"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      }
+    },
+    {
+      "id": "consumer.divergent-ws-key",
+      "schema": "Public.PublicationExchange",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "publish-fixture-001"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "different",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      }
+    },
+    {
+      "id": "consumer.divergent-content",
+      "schema": "Public.PublicationExchange",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "publish-fixture-001"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Different"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      }
+    },
+    {
+      "id": "consumer.error-non-retryable-preserved",
+      "schema": "Public.Error",
+      "valid": true,
+      "data": {
+        "error": {
+          "code": "CORE_UNAVAILABLE",
+          "message": "Serviço de identidade indisponível.",
+          "retryable": false,
+          "request_id": "00000000-0000-4000-8000-000000000011"
+        }
+      }
+    }
+  ]
+}

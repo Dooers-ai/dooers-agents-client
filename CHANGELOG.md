@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased — Maestro E04-09/10 (local)
+
+- Add scoped Maestro thread store and React hooks with exact contiguous replay cursors, independent historical pagination, subscription references, bounded recovery and revocation cleanup.
+- Add opt-in `dooers-agents-client/maestro` transport/provider, canonical publication receipts and explicit same-key retries.
+- Preserve the legacy entrypoint and private agent settings/analytics connection. See [transport notes](docs/maestro-transport.md) for local validation and replay/integration boundaries.
+
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

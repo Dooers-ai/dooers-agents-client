@@ -1,0 +1,391 @@
+{
+  "protocol_version": 1,
+  "cases": [
+    {
+      "id": "harness.principal-utf16-boundary",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      "description": "Cross-language boundary: principal-utf16-boundary"
+    },
+    {
+      "id": "harness.principal-utf16-overflow",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      "description": "Cross-language boundary: principal-utf16-overflow"
+    },
+    {
+      "id": "harness.name-utf16-overflow",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀😀",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      "description": "Cross-language boundary: name-utf16-overflow"
+    },
+    {
+      "id": "harness.uuid-nil",
+      "schema": "Public.IdPath",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-0000-0000-000000000000"
+      },
+      "description": "Cross-language boundary: uuid-nil"
+    },
+    {
+      "id": "harness.uuid-max",
+      "schema": "Public.IdPath",
+      "valid": true,
+      "data": {
+        "id": "ffffffff-ffff-ffff-ffff-ffffffffffff"
+      },
+      "description": "Cross-language boundary: uuid-max"
+    },
+    {
+      "id": "harness.uuid-version9",
+      "schema": "Public.IdPath",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-9000-8000-000000000004"
+      },
+      "description": "Cross-language boundary: uuid-version9"
+    },
+    {
+      "id": "harness.uuid-malformed",
+      "schema": "Public.IdPath",
+      "valid": false,
+      "data": {
+        "id": "00000000000040008000000000000004"
+      },
+      "description": "Cross-language boundary: uuid-malformed"
+    },
+    {
+      "id": "harness.url-https",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://example.test/avatar"
+      },
+      "description": "Cross-language boundary: url-https"
+    },
+    {
+      "id": "harness.url-http",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "http://example.test/avatar"
+      },
+      "description": "Cross-language boundary: url-http"
+    },
+    {
+      "id": "harness.url-no-host",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://"
+      },
+      "description": "Cross-language boundary: url-no-host"
+    },
+    {
+      "id": "harness.url-bad-ipv6",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://[xyz]/avatar"
+      },
+      "description": "Cross-language boundary: url-bad-ipv6"
+    },
+    {
+      "id": "harness.url-unicode-domain",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://münchen.example/avatar"
+      },
+      "description": "Cross-language boundary: url-unicode-domain"
+    },
+    {
+      "id": "harness.url-invalid-port",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://example.test:70000/a"
+      },
+      "description": "Cross-language boundary: url-invalid-port"
+    },
+    {
+      "id": "harness.url-newline",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://example.test/\nimage"
+      },
+      "description": "Cross-language boundary: url-newline"
+    },
+    {
+      "id": "harness.datetime-leap-valid",
+      "schema": "Public.Artifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2024-02-29T12:30:00Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-leap-valid"
+    },
+    {
+      "id": "harness.datetime-leap-invalid",
+      "schema": "Public.Artifact",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2023-02-29T12:30:00Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-leap-invalid"
+    },
+    {
+      "id": "harness.datetime-offset",
+      "schema": "Public.Artifact",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2024-02-29T12:30:00+00:00",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-offset"
+    },
+    {
+      "id": "harness.datetime-seconds-optional",
+      "schema": "Public.Artifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2024-02-29T12:30Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-seconds-optional"
+    },
+    {
+      "id": "harness.datetime-year-zero",
+      "schema": "Public.Artifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "0000-02-29T12:30:00Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-year-zero"
+    },
+    {
+      "id": "harness.datetime-arabic-digits",
+      "schema": "Public.Artifact",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "٢٠٢٤-02-29T12:30:00Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-arabic-digits"
+    },
+    {
+      "id": "harness.datetime-fractions",
+      "schema": "Public.Artifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2024-02-29T12:30:00.123456789Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Cross-language boundary: datetime-fractions"
+    },
+    {
+      "id": "harness.number-not-bool",
+      "schema": "Public.PageQuery",
+      "valid": false,
+      "data": {
+        "limit": true
+      },
+      "description": "Cross-language boundary: number-not-bool"
+    },
+    {
+      "id": "harness.number-integer-float",
+      "schema": "Public.PageQuery",
+      "valid": true,
+      "data": {
+        "limit": 1.0
+      },
+      "description": "Cross-language boundary: number-integer-float"
+    },
+    {
+      "id": "harness.number-fraction",
+      "schema": "Public.PageQuery",
+      "valid": false,
+      "data": {
+        "limit": 1.5
+      },
+      "description": "Cross-language boundary: number-fraction"
+    },
+    {
+      "id": "harness.reason-bom-blank",
+      "schema": "Identity.AuthorizeRequest",
+      "valid": false,
+      "data": {
+        "request_id": "00000008-0000-4000-8000-000000000000",
+        "token_ref": "token_ref_example",
+        "operation": "thread.supervision.open",
+        "scope": {
+          "organization_id": "00000001-0000-4000-8000-000000000000",
+          "scope_kind": "workspace",
+          "workspace_id": "00000002-0000-4000-8000-000000000000"
+        },
+        "thread_id": "00000006-0000-4000-8000-000000000000",
+        "targets": [],
+        "supervision": {
+          "purpose": "Audit",
+          "access_reason": "﻿"
+        }
+      },
+      "description": "Cross-language boundary: reason-bom-blank"
+    },
+    {
+      "id": "harness.reason-0085-content",
+      "schema": "Identity.AuthorizeRequest",
+      "valid": true,
+      "data": {
+        "request_id": "00000008-0000-4000-8000-000000000000",
+        "token_ref": "token_ref_example",
+        "operation": "thread.supervision.open",
+        "scope": {
+          "organization_id": "00000001-0000-4000-8000-000000000000",
+          "scope_kind": "workspace",
+          "workspace_id": "00000002-0000-4000-8000-000000000000"
+        },
+        "thread_id": "00000006-0000-4000-8000-000000000000",
+        "targets": [],
+        "supervision": {
+          "purpose": "Audit",
+          "access_reason": ""
+        }
+      },
+      "description": "Cross-language boundary: reason-0085-content"
+    }
+  ]
+}

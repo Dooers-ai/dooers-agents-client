@@ -1,0 +1,4902 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "delta-final-late",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "final", "ignored_final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "early-final",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["final", "ignored_final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "identical-duplicate",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "B"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "duplicate", "partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "38164fbd17603d73f696b8b4d72664d735bb6a7c88577687fd2ae33fd6964153"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "conflicting-index",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "B"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "reset_conflict", "waiting_final"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "initial-gap",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["reset_gap", "waiting_final"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "middle-gap",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "A"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "reset_gap", "final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "reset",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "reset",
+          "execution": "a",
+          "output": "output:0"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "reset", "waiting_final"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "reconnect",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "reconnect"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "reconnect", "waiting_final", "final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "terminal-completed",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "completed"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "terminal", "ignored_terminal"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "terminal-failed",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "failed"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "terminal", "ignored_terminal"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "terminal-canceled",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "canceled"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "terminal", "ignored_terminal"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "terminal-expired",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "expired"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "terminal", "ignored_terminal"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "terminal-then-earlier-final",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "completed"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "terminal", "final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "cancel-is-request",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "cancel",
+          "execution": "a"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "cancel_requested", "partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "58bb119c35513a451d24dc20ef0e9031ec85b35bfc919d263e7e5d9868909cb5"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "cancel-one-preserves-other",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "b",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "terminal",
+          "execution": "a",
+          "status": "canceled"
+        },
+        {
+          "op": "delta",
+          "execution": "b",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "partial", "terminal", "partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"b\",\"output:0\"]",
+            "58bb119c35513a451d24dc20ef0e9031ec85b35bfc919d263e7e5d9868909cb5"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "root-stop-is-request",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "root_stop"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "stop_requested", "partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "58bb119c35513a451d24dc20ef0e9031ec85b35bfc919d263e7e5d9868909cb5"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "capability-missing",
+      "capabilities": [],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["capability_required"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "cancel-capability-missing",
+      "capabilities": ["stream.delta"],
+      "steps": [
+        {
+          "op": "cancel",
+          "execution": "a"
+        },
+        {
+          "op": "root_stop"
+        }
+      ],
+      "expected": {
+        "results": ["capability_required", "capability_required"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "stale-fence",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "fence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["stale_fence"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "current-bigint-fence",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "fence": "9007199254740994"
+        }
+      ],
+      "expected": {
+        "results": ["partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "unauthorized",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "authorized": false
+        }
+      ],
+      "expected": {
+        "results": ["access_denied"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "same-output-different-executions",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "b",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "partial"],
+        "partials": 2,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"b\",\"output:0\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "multiple-outputs",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "partial"],
+        "partials": 2,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:1\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "duplicate-final",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["final", "duplicate_final"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "conflicting-final",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "canonical",
+          "sequence": "9007199254740993"
+        },
+        {
+          "op": "final",
+          "execution": "a",
+          "output": "output:0",
+          "text": "changed",
+          "sequence": "9007199254740993"
+        }
+      ],
+      "expected": {
+        "results": ["final", "canonical_conflict"],
+        "partials": 0,
+        "finals": 1,
+        "cursor": "9007199254740993",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "utf8-policy",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "é",
+          "repeat": 8193
+        }
+      ],
+      "expected": {
+        "results": ["reset_chunk_bytes"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "utf8-boundary",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "é",
+          "repeat": 8192
+        }
+      ],
+      "expected": {
+        "results": ["partial"],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "293a06e65c1d5b64ec2ea315d9089eb59e8b749f5f3d3dc13367b2eb54c69edb"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "output-buffer",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 4,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 400
+        }
+      ],
+      "expected": {
+        "results": ["partial", "partial", "partial", "partial", "reset_output_bytes"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "request-rate",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        }
+      ],
+      "expected": {
+        "results": [
+          "partial",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "duplicate",
+          "reset_rate"
+        ],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "rate-window-boundary",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A",
+          "at_ms": 50
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "A",
+          "at_ms": 100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 3,
+          "text": "A",
+          "at_ms": 150
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 4,
+          "text": "A",
+          "at_ms": 200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 5,
+          "text": "A",
+          "at_ms": 250
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 6,
+          "text": "A",
+          "at_ms": 300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 7,
+          "text": "A",
+          "at_ms": 350
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 8,
+          "text": "A",
+          "at_ms": 400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 9,
+          "text": "A",
+          "at_ms": 450
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 10,
+          "text": "A",
+          "at_ms": 500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 11,
+          "text": "A",
+          "at_ms": 550
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 12,
+          "text": "A",
+          "at_ms": 600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 13,
+          "text": "A",
+          "at_ms": 650
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 14,
+          "text": "A",
+          "at_ms": 700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 15,
+          "text": "A",
+          "at_ms": 750
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 16,
+          "text": "A",
+          "at_ms": 800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 17,
+          "text": "A",
+          "at_ms": 850
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 18,
+          "text": "A",
+          "at_ms": 900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 19,
+          "text": "A",
+          "at_ms": 950
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 20,
+          "text": "A",
+          "at_ms": 1000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 21,
+          "text": "A",
+          "at_ms": 1050
+        }
+      ],
+      "expected": {
+        "results": [
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial"
+        ],
+        "partials": 1,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "8a5bdb4cc15164126c6ef2668de9dd240d299ce6397a42c95a9411b93d080ed8"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "chunk-count",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A",
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A",
+          "at_ms": 100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "A",
+          "at_ms": 200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 3,
+          "text": "A",
+          "at_ms": 300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 4,
+          "text": "A",
+          "at_ms": 400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 5,
+          "text": "A",
+          "at_ms": 500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 6,
+          "text": "A",
+          "at_ms": 600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 7,
+          "text": "A",
+          "at_ms": 700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 8,
+          "text": "A",
+          "at_ms": 800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 9,
+          "text": "A",
+          "at_ms": 900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 10,
+          "text": "A",
+          "at_ms": 1000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 11,
+          "text": "A",
+          "at_ms": 1100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 12,
+          "text": "A",
+          "at_ms": 1200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 13,
+          "text": "A",
+          "at_ms": 1300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 14,
+          "text": "A",
+          "at_ms": 1400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 15,
+          "text": "A",
+          "at_ms": 1500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 16,
+          "text": "A",
+          "at_ms": 1600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 17,
+          "text": "A",
+          "at_ms": 1700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 18,
+          "text": "A",
+          "at_ms": 1800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 19,
+          "text": "A",
+          "at_ms": 1900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 20,
+          "text": "A",
+          "at_ms": 2000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 21,
+          "text": "A",
+          "at_ms": 2100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 22,
+          "text": "A",
+          "at_ms": 2200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 23,
+          "text": "A",
+          "at_ms": 2300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 24,
+          "text": "A",
+          "at_ms": 2400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 25,
+          "text": "A",
+          "at_ms": 2500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 26,
+          "text": "A",
+          "at_ms": 2600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 27,
+          "text": "A",
+          "at_ms": 2700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 28,
+          "text": "A",
+          "at_ms": 2800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 29,
+          "text": "A",
+          "at_ms": 2900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 30,
+          "text": "A",
+          "at_ms": 3000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 31,
+          "text": "A",
+          "at_ms": 3100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 32,
+          "text": "A",
+          "at_ms": 3200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 33,
+          "text": "A",
+          "at_ms": 3300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 34,
+          "text": "A",
+          "at_ms": 3400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 35,
+          "text": "A",
+          "at_ms": 3500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 36,
+          "text": "A",
+          "at_ms": 3600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 37,
+          "text": "A",
+          "at_ms": 3700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 38,
+          "text": "A",
+          "at_ms": 3800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 39,
+          "text": "A",
+          "at_ms": 3900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 40,
+          "text": "A",
+          "at_ms": 4000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 41,
+          "text": "A",
+          "at_ms": 4100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 42,
+          "text": "A",
+          "at_ms": 4200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 43,
+          "text": "A",
+          "at_ms": 4300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 44,
+          "text": "A",
+          "at_ms": 4400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 45,
+          "text": "A",
+          "at_ms": 4500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 46,
+          "text": "A",
+          "at_ms": 4600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 47,
+          "text": "A",
+          "at_ms": 4700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 48,
+          "text": "A",
+          "at_ms": 4800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 49,
+          "text": "A",
+          "at_ms": 4900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 50,
+          "text": "A",
+          "at_ms": 5000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 51,
+          "text": "A",
+          "at_ms": 5100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 52,
+          "text": "A",
+          "at_ms": 5200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 53,
+          "text": "A",
+          "at_ms": 5300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 54,
+          "text": "A",
+          "at_ms": 5400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 55,
+          "text": "A",
+          "at_ms": 5500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 56,
+          "text": "A",
+          "at_ms": 5600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 57,
+          "text": "A",
+          "at_ms": 5700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 58,
+          "text": "A",
+          "at_ms": 5800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 59,
+          "text": "A",
+          "at_ms": 5900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 60,
+          "text": "A",
+          "at_ms": 6000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 61,
+          "text": "A",
+          "at_ms": 6100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 62,
+          "text": "A",
+          "at_ms": 6200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 63,
+          "text": "A",
+          "at_ms": 6300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 64,
+          "text": "A",
+          "at_ms": 6400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 65,
+          "text": "A",
+          "at_ms": 6500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 66,
+          "text": "A",
+          "at_ms": 6600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 67,
+          "text": "A",
+          "at_ms": 6700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 68,
+          "text": "A",
+          "at_ms": 6800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 69,
+          "text": "A",
+          "at_ms": 6900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 70,
+          "text": "A",
+          "at_ms": 7000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 71,
+          "text": "A",
+          "at_ms": 7100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 72,
+          "text": "A",
+          "at_ms": 7200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 73,
+          "text": "A",
+          "at_ms": 7300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 74,
+          "text": "A",
+          "at_ms": 7400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 75,
+          "text": "A",
+          "at_ms": 7500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 76,
+          "text": "A",
+          "at_ms": 7600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 77,
+          "text": "A",
+          "at_ms": 7700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 78,
+          "text": "A",
+          "at_ms": 7800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 79,
+          "text": "A",
+          "at_ms": 7900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 80,
+          "text": "A",
+          "at_ms": 8000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 81,
+          "text": "A",
+          "at_ms": 8100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 82,
+          "text": "A",
+          "at_ms": 8200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 83,
+          "text": "A",
+          "at_ms": 8300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 84,
+          "text": "A",
+          "at_ms": 8400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 85,
+          "text": "A",
+          "at_ms": 8500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 86,
+          "text": "A",
+          "at_ms": 8600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 87,
+          "text": "A",
+          "at_ms": 8700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 88,
+          "text": "A",
+          "at_ms": 8800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 89,
+          "text": "A",
+          "at_ms": 8900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 90,
+          "text": "A",
+          "at_ms": 9000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 91,
+          "text": "A",
+          "at_ms": 9100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 92,
+          "text": "A",
+          "at_ms": 9200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 93,
+          "text": "A",
+          "at_ms": 9300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 94,
+          "text": "A",
+          "at_ms": 9400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 95,
+          "text": "A",
+          "at_ms": 9500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 96,
+          "text": "A",
+          "at_ms": 9600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 97,
+          "text": "A",
+          "at_ms": 9700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 98,
+          "text": "A",
+          "at_ms": 9800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 99,
+          "text": "A",
+          "at_ms": 9900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 100,
+          "text": "A",
+          "at_ms": 10000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 101,
+          "text": "A",
+          "at_ms": 10100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 102,
+          "text": "A",
+          "at_ms": 10200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 103,
+          "text": "A",
+          "at_ms": 10300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 104,
+          "text": "A",
+          "at_ms": 10400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 105,
+          "text": "A",
+          "at_ms": 10500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 106,
+          "text": "A",
+          "at_ms": 10600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 107,
+          "text": "A",
+          "at_ms": 10700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 108,
+          "text": "A",
+          "at_ms": 10800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 109,
+          "text": "A",
+          "at_ms": 10900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 110,
+          "text": "A",
+          "at_ms": 11000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 111,
+          "text": "A",
+          "at_ms": 11100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 112,
+          "text": "A",
+          "at_ms": 11200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 113,
+          "text": "A",
+          "at_ms": 11300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 114,
+          "text": "A",
+          "at_ms": 11400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 115,
+          "text": "A",
+          "at_ms": 11500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 116,
+          "text": "A",
+          "at_ms": 11600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 117,
+          "text": "A",
+          "at_ms": 11700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 118,
+          "text": "A",
+          "at_ms": 11800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 119,
+          "text": "A",
+          "at_ms": 11900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 120,
+          "text": "A",
+          "at_ms": 12000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 121,
+          "text": "A",
+          "at_ms": 12100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 122,
+          "text": "A",
+          "at_ms": 12200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 123,
+          "text": "A",
+          "at_ms": 12300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 124,
+          "text": "A",
+          "at_ms": 12400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 125,
+          "text": "A",
+          "at_ms": 12500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 126,
+          "text": "A",
+          "at_ms": 12600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 127,
+          "text": "A",
+          "at_ms": 12700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 128,
+          "text": "A",
+          "at_ms": 12800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 129,
+          "text": "A",
+          "at_ms": 12900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 130,
+          "text": "A",
+          "at_ms": 13000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 131,
+          "text": "A",
+          "at_ms": 13100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 132,
+          "text": "A",
+          "at_ms": 13200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 133,
+          "text": "A",
+          "at_ms": 13300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 134,
+          "text": "A",
+          "at_ms": 13400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 135,
+          "text": "A",
+          "at_ms": 13500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 136,
+          "text": "A",
+          "at_ms": 13600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 137,
+          "text": "A",
+          "at_ms": 13700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 138,
+          "text": "A",
+          "at_ms": 13800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 139,
+          "text": "A",
+          "at_ms": 13900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 140,
+          "text": "A",
+          "at_ms": 14000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 141,
+          "text": "A",
+          "at_ms": 14100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 142,
+          "text": "A",
+          "at_ms": 14200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 143,
+          "text": "A",
+          "at_ms": 14300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 144,
+          "text": "A",
+          "at_ms": 14400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 145,
+          "text": "A",
+          "at_ms": 14500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 146,
+          "text": "A",
+          "at_ms": 14600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 147,
+          "text": "A",
+          "at_ms": 14700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 148,
+          "text": "A",
+          "at_ms": 14800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 149,
+          "text": "A",
+          "at_ms": 14900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 150,
+          "text": "A",
+          "at_ms": 15000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 151,
+          "text": "A",
+          "at_ms": 15100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 152,
+          "text": "A",
+          "at_ms": 15200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 153,
+          "text": "A",
+          "at_ms": 15300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 154,
+          "text": "A",
+          "at_ms": 15400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 155,
+          "text": "A",
+          "at_ms": 15500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 156,
+          "text": "A",
+          "at_ms": 15600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 157,
+          "text": "A",
+          "at_ms": 15700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 158,
+          "text": "A",
+          "at_ms": 15800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 159,
+          "text": "A",
+          "at_ms": 15900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 160,
+          "text": "A",
+          "at_ms": 16000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 161,
+          "text": "A",
+          "at_ms": 16100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 162,
+          "text": "A",
+          "at_ms": 16200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 163,
+          "text": "A",
+          "at_ms": 16300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 164,
+          "text": "A",
+          "at_ms": 16400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 165,
+          "text": "A",
+          "at_ms": 16500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 166,
+          "text": "A",
+          "at_ms": 16600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 167,
+          "text": "A",
+          "at_ms": 16700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 168,
+          "text": "A",
+          "at_ms": 16800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 169,
+          "text": "A",
+          "at_ms": 16900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 170,
+          "text": "A",
+          "at_ms": 17000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 171,
+          "text": "A",
+          "at_ms": 17100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 172,
+          "text": "A",
+          "at_ms": 17200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 173,
+          "text": "A",
+          "at_ms": 17300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 174,
+          "text": "A",
+          "at_ms": 17400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 175,
+          "text": "A",
+          "at_ms": 17500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 176,
+          "text": "A",
+          "at_ms": 17600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 177,
+          "text": "A",
+          "at_ms": 17700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 178,
+          "text": "A",
+          "at_ms": 17800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 179,
+          "text": "A",
+          "at_ms": 17900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 180,
+          "text": "A",
+          "at_ms": 18000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 181,
+          "text": "A",
+          "at_ms": 18100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 182,
+          "text": "A",
+          "at_ms": 18200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 183,
+          "text": "A",
+          "at_ms": 18300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 184,
+          "text": "A",
+          "at_ms": 18400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 185,
+          "text": "A",
+          "at_ms": 18500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 186,
+          "text": "A",
+          "at_ms": 18600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 187,
+          "text": "A",
+          "at_ms": 18700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 188,
+          "text": "A",
+          "at_ms": 18800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 189,
+          "text": "A",
+          "at_ms": 18900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 190,
+          "text": "A",
+          "at_ms": 19000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 191,
+          "text": "A",
+          "at_ms": 19100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 192,
+          "text": "A",
+          "at_ms": 19200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 193,
+          "text": "A",
+          "at_ms": 19300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 194,
+          "text": "A",
+          "at_ms": 19400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 195,
+          "text": "A",
+          "at_ms": 19500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 196,
+          "text": "A",
+          "at_ms": 19600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 197,
+          "text": "A",
+          "at_ms": 19700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 198,
+          "text": "A",
+          "at_ms": 19800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 199,
+          "text": "A",
+          "at_ms": 19900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 200,
+          "text": "A",
+          "at_ms": 20000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 201,
+          "text": "A",
+          "at_ms": 20100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 202,
+          "text": "A",
+          "at_ms": 20200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 203,
+          "text": "A",
+          "at_ms": 20300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 204,
+          "text": "A",
+          "at_ms": 20400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 205,
+          "text": "A",
+          "at_ms": 20500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 206,
+          "text": "A",
+          "at_ms": 20600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 207,
+          "text": "A",
+          "at_ms": 20700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 208,
+          "text": "A",
+          "at_ms": 20800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 209,
+          "text": "A",
+          "at_ms": 20900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 210,
+          "text": "A",
+          "at_ms": 21000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 211,
+          "text": "A",
+          "at_ms": 21100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 212,
+          "text": "A",
+          "at_ms": 21200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 213,
+          "text": "A",
+          "at_ms": 21300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 214,
+          "text": "A",
+          "at_ms": 21400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 215,
+          "text": "A",
+          "at_ms": 21500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 216,
+          "text": "A",
+          "at_ms": 21600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 217,
+          "text": "A",
+          "at_ms": 21700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 218,
+          "text": "A",
+          "at_ms": 21800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 219,
+          "text": "A",
+          "at_ms": 21900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 220,
+          "text": "A",
+          "at_ms": 22000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 221,
+          "text": "A",
+          "at_ms": 22100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 222,
+          "text": "A",
+          "at_ms": 22200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 223,
+          "text": "A",
+          "at_ms": 22300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 224,
+          "text": "A",
+          "at_ms": 22400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 225,
+          "text": "A",
+          "at_ms": 22500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 226,
+          "text": "A",
+          "at_ms": 22600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 227,
+          "text": "A",
+          "at_ms": 22700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 228,
+          "text": "A",
+          "at_ms": 22800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 229,
+          "text": "A",
+          "at_ms": 22900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 230,
+          "text": "A",
+          "at_ms": 23000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 231,
+          "text": "A",
+          "at_ms": 23100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 232,
+          "text": "A",
+          "at_ms": 23200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 233,
+          "text": "A",
+          "at_ms": 23300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 234,
+          "text": "A",
+          "at_ms": 23400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 235,
+          "text": "A",
+          "at_ms": 23500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 236,
+          "text": "A",
+          "at_ms": 23600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 237,
+          "text": "A",
+          "at_ms": 23700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 238,
+          "text": "A",
+          "at_ms": 23800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 239,
+          "text": "A",
+          "at_ms": 23900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 240,
+          "text": "A",
+          "at_ms": 24000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 241,
+          "text": "A",
+          "at_ms": 24100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 242,
+          "text": "A",
+          "at_ms": 24200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 243,
+          "text": "A",
+          "at_ms": 24300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 244,
+          "text": "A",
+          "at_ms": 24400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 245,
+          "text": "A",
+          "at_ms": 24500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 246,
+          "text": "A",
+          "at_ms": 24600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 247,
+          "text": "A",
+          "at_ms": 24700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 248,
+          "text": "A",
+          "at_ms": 24800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 249,
+          "text": "A",
+          "at_ms": 24900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 250,
+          "text": "A",
+          "at_ms": 25000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 251,
+          "text": "A",
+          "at_ms": 25100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 252,
+          "text": "A",
+          "at_ms": 25200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 253,
+          "text": "A",
+          "at_ms": 25300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 254,
+          "text": "A",
+          "at_ms": 25400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 255,
+          "text": "A",
+          "at_ms": 25500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 256,
+          "text": "A",
+          "at_ms": 25600
+        }
+      ],
+      "expected": {
+        "results": [
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "reset_chunk_count"
+        ],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "active-output-cap",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:2",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:3",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:4",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:5",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:6",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:7",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:8",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:9",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:10",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:11",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:12",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:13",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:14",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:15",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:16",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": [
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "reset_active_outputs"
+        ],
+        "partials": 16,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:1\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:10\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:11\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:12\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:13\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:14\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:15\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:2\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:3\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:4\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:5\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:6\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:7\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:8\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ],
+          [
+            "[\"a\",\"output:9\"]",
+            "559aead08264d5795d3909718cdd05abd49572e84fe55590eef31a88a08fdffd"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "session-byte-cap",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 0
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:1",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:2",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:2",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 900
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:2",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1000
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:2",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1100
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:3",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1200
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:3",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1300
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:3",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1400
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:3",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1500
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:4",
+          "index": 0,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1600
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:4",
+          "index": 1,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1700
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:4",
+          "index": 2,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1800
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:4",
+          "index": 3,
+          "text": "a",
+          "repeat": 16384,
+          "at_ms": 1900
+        }
+      ],
+      "expected": {
+        "results": [
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "partial",
+          "reset_session_bytes",
+          "waiting_final",
+          "waiting_final",
+          "waiting_final"
+        ],
+        "partials": 4,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": [
+          [
+            "[\"a\",\"output:0\"]",
+            "bf718b6f653bebc184e1479f1935b8da974d701b893afcf49e701f3e2f9f9c5a"
+          ],
+          [
+            "[\"a\",\"output:1\"]",
+            "bf718b6f653bebc184e1479f1935b8da974d701b893afcf49e701f3e2f9f9c5a"
+          ],
+          [
+            "[\"a\",\"output:2\"]",
+            "bf718b6f653bebc184e1479f1935b8da974d701b893afcf49e701f3e2f9f9c5a"
+          ],
+          [
+            "[\"a\",\"output:3\"]",
+            "bf718b6f653bebc184e1479f1935b8da974d701b893afcf49e701f3e2f9f9c5a"
+          ]
+        ]
+      }
+    },
+    {
+      "id": "terminal-control-cap",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "terminal",
+          "execution": "0",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "1",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "2",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "3",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "4",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "5",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "6",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "7",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "8",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "9",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "10",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "11",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "12",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "13",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "14",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "15",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "16",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "17",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "18",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "19",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "20",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "21",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "22",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "23",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "24",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "25",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "26",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "27",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "28",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "29",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "30",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "31",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "32",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "33",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "34",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "35",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "36",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "37",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "38",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "39",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "40",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "41",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "42",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "43",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "44",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "45",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "46",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "47",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "48",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "49",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "50",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "51",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "52",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "53",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "54",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "55",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "56",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "57",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "58",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "59",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "60",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "61",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "62",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "63",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "64",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "65",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "66",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "67",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "68",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "69",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "70",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "71",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "72",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "73",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "74",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "75",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "76",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "77",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "78",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "79",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "80",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "81",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "82",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "83",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "84",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "85",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "86",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "87",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "88",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "89",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "90",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "91",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "92",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "93",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "94",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "95",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "96",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "97",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "98",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "99",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "100",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "101",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "102",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "103",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "104",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "105",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "106",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "107",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "108",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "109",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "110",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "111",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "112",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "113",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "114",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "115",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "116",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "117",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "118",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "119",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "120",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "121",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "122",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "123",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "124",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "125",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "126",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "127",
+          "status": "completed"
+        },
+        {
+          "op": "terminal",
+          "execution": "128",
+          "status": "completed"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": [
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "terminal",
+          "resync_required",
+          "resync_required"
+        ],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "9007199254740992",
+        "partial_hashes": []
+      }
+    },
+    {
+      "id": "scope-clear",
+      "capabilities": ["stream.delta", "executions.cancel"],
+      "steps": [
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 0,
+          "text": "A"
+        },
+        {
+          "op": "scope_clear"
+        },
+        {
+          "op": "delta",
+          "execution": "a",
+          "output": "output:0",
+          "index": 1,
+          "text": "A"
+        }
+      ],
+      "expected": {
+        "results": ["partial", "scope_cleared", "resync_required"],
+        "partials": 0,
+        "finals": 0,
+        "cursor": "0",
+        "partial_hashes": []
+      }
+    }
+  ]
+}

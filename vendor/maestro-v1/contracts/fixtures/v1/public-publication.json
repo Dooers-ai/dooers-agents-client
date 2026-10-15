@@ -1,0 +1,146 @@
+{
+  "protocol_version": 1,
+  "cases": [
+    {
+      "id": "public.publication.same-identity",
+      "schema": "Public.PublicationExchange",
+      "valid": true,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "publish-fixture-001"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      },
+      "description": "HTTP/WS preservam identidade; ACK não exige broker."
+    },
+    {
+      "id": "public.publication.conflicting-key",
+      "schema": "Public.PublicationExchange",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "different-key"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      },
+      "description": "Alterar transporte não autoriza trocar chave."
+    },
+    {
+      "id": "public.publication.conflicting-content",
+      "schema": "Public.PublicationExchange",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "auth0|human-fixture",
+        "operation": "message.publish",
+        "idempotency_key": "publish-fixture-001",
+        "http": {
+          "headers": {
+            "Idempotency-Key": "publish-fixture-001"
+          },
+          "body": {
+            "type": "message.create",
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "ws": {
+          "id": "00000000-0000-4000-8000-000000000011",
+          "type": "message.publish",
+          "payload": {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "content": [
+              {
+                "type": "text",
+                "text": "Outro conteúdo"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "expected_same_identity": true,
+        "ack_after": "postgres_transaction_commit",
+        "broker_required_for_ack": false
+      },
+      "description": "Mesmo namespace e chave com conteúdo diferente causa conflito."
+    }
+  ]
+}

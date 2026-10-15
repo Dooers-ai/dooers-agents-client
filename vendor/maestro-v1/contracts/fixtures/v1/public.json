@@ -1,0 +1,5037 @@
+{
+  "protocol_version": 1,
+  "cases": [
+    {
+      "id": "public.Empty.valid",
+      "schema": "Public.Empty",
+      "valid": true,
+      "data": {},
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Scope.valid",
+      "schema": "Public.Scope",
+      "valid": true,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Actor.valid",
+      "schema": "Public.Actor",
+      "valid": true,
+      "data": {
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "display_name": "Pessoa"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Capabilities.valid",
+      "schema": "Public.Capabilities",
+      "valid": true,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": ["feedback", "export", "messages.text"]
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Error.valid",
+      "schema": "Public.Error",
+      "valid": true,
+      "data": {
+        "error": {
+          "code": "CORE_UNAVAILABLE",
+          "message": "Serviço de identidade indisponível.",
+          "retryable": true,
+          "request_id": "00000000-0000-4000-8000-000000000011"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Thread.valid",
+      "schema": "Public.Thread",
+      "valid": true,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": true,
+          "write": true,
+          "manage": true,
+          "supervise": false,
+          "export": true,
+          "cancel": true,
+          "feedback": true
+        },
+        "capabilities": ["messages.text", "feedback", "export"],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Participant.valid",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ContentPart.valid",
+      "schema": "Public.ContentPart",
+      "valid": true,
+      "data": {
+        "type": "text",
+        "text": "Olá"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.valid",
+      "schema": "Public.Event",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Delivery.valid",
+      "schema": "Public.Delivery",
+      "valid": true,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+        "participant_id": "00000000-0000-4000-8000-000000000007",
+        "state": "waiting_broker",
+        "attempt_count": 0,
+        "execution_id": null,
+        "phase_id": "initial",
+        "reason_code": null,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "completed_at": null,
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Artifact.valid",
+      "schema": "Public.Artifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2026-10-13T15:00:00Z",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Interaction.valid",
+      "schema": "Public.Interaction",
+      "valid": true,
+      "data": {
+        "interaction_id": "00000000-0000-4000-8000-000000000010",
+        "origin_event_id": "00000000-0000-4000-8000-000000000005",
+        "agent_participant_id": "00000000-0000-4000-8000-000000000007",
+        "execution_id": "00000000-0000-4000-8000-000000000008",
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "definition": {
+          "kind": "form",
+          "schema_version": 1,
+          "expires_at": "2026-10-13T15:00:00Z",
+          "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+          "title": "Nome",
+          "fields": [
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            }
+          ],
+          "actions": ["submit", "cancel"]
+        },
+        "state": "pending"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.IdPath.valid",
+      "schema": "Public.IdPath",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ParticipantPath.valid",
+      "schema": "Public.ParticipantPath",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "participantId": "00000000-0000-4000-8000-000000000004"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.RootPath.valid",
+      "schema": "Public.RootPath",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "eventId": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.MutationHeaders.valid",
+      "schema": "Public.MutationHeaders",
+      "valid": true,
+      "data": {
+        "Idempotency-Key": "publish-fixture-001"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.VersionedHeaders.valid",
+      "schema": "Public.VersionedHeaders",
+      "valid": true,
+      "data": {
+        "Idempotency-Key": "publish-fixture-001",
+        "If-Match": "1"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ReadHeaders.valid",
+      "schema": "Public.ReadHeaders",
+      "valid": true,
+      "data": {},
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ThreadCreateRequest.valid",
+      "schema": "Public.ThreadCreateRequest",
+      "valid": true,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "participants": [
+          {
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000012"
+          }
+        ]
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ThreadListQuery.valid",
+      "schema": "Public.ThreadListQuery",
+      "valid": true,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "limit": 50
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ThreadPage.valid",
+      "schema": "Public.ThreadPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionListQuery.valid",
+      "schema": "Public.SupervisionListQuery",
+      "valid": true,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "access_reason": "Auditoria autorizada"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionThreadPage.valid",
+      "schema": "Public.SupervisionThreadPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "title": "Thread de contrato",
+            "state": "active",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ThreadPatchRequest.valid",
+      "schema": "Public.ThreadPatchRequest",
+      "valid": true,
+      "data": {
+        "title": "Novo título"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ReasonRequest.valid",
+      "schema": "Public.ReasonRequest",
+      "valid": true,
+      "data": {
+        "reason_code": "user_requested"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.DeleteResponse.valid",
+      "schema": "Public.DeleteResponse",
+      "valid": true,
+      "data": {
+        "deletion_job_id": "00000000-0000-4000-8000-000000000013",
+        "state": "deleting"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.PageQuery.valid",
+      "schema": "Public.PageQuery",
+      "valid": true,
+      "data": {
+        "limit": 50
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ParticipantPage.valid",
+      "schema": "Public.ParticipantPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ParticipantAddRequest.valid",
+      "schema": "Public.ParticipantAddRequest",
+      "valid": true,
+      "data": {
+        "kind": "human",
+        "principal_id": "user:not-a-uuid",
+        "role": "member"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.OwnershipRequest.valid",
+      "schema": "Public.OwnershipRequest",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.EventsQuery.valid",
+      "schema": "Public.EventsQuery",
+      "valid": true,
+      "data": {
+        "after": "fixture.cursor.opaque",
+        "limit": 100
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.EventPage.valid",
+      "schema": "Public.EventPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.MessageCreateRequest.valid",
+      "schema": "Public.MessageCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.PersistedResponse.valid",
+      "schema": "Public.PersistedResponse",
+      "valid": true,
+      "data": {
+        "status": "persisted",
+        "event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "display_name": "Pessoa"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "cursor": "fixture.cursor.opaque",
+        "duplicate": false
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.DeliveryListQuery.valid",
+      "schema": "Public.DeliveryListQuery",
+      "valid": true,
+      "data": {
+        "event": "00000000-0000-4000-8000-000000000005",
+        "limit": 50
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.DeliveryPage.valid",
+      "schema": "Public.DeliveryPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "state": "waiting_broker",
+            "attempt_count": 0,
+            "execution_id": null,
+            "phase_id": "initial",
+            "reason_code": null,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z",
+            "completed_at": null,
+            "expires_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.CancelResponse.valid",
+      "schema": "Public.CancelResponse",
+      "valid": true,
+      "data": {
+        "status": "cancel_requested",
+        "execution_id": "00000000-0000-4000-8000-000000000008"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.StopResponse.valid",
+      "schema": "Public.StopResponse",
+      "valid": true,
+      "data": {
+        "status": "stop_requested",
+        "root_event_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionRequest.valid",
+      "schema": "Public.SupervisionRequest",
+      "valid": true,
+      "data": {
+        "access_reason": "Revisão autorizada"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionGrant.valid",
+      "schema": "Public.SupervisionGrant",
+      "valid": true,
+      "data": {
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "access": "read_only",
+        "expires_at": "2026-10-13T15:00:00Z",
+        "policy_version": 1
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ExportQuery.valid",
+      "schema": "Public.ExportQuery",
+      "valid": true,
+      "data": {
+        "format": "json",
+        "watermark": "9007199254740993"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ExportResponse.valid",
+      "schema": "Public.ExportResponse",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "watermark": "9007199254740993",
+        "download_path": "/api/v1/artifacts/00000000-0000-4000-8000-000000000009/download",
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.InteractionResponseRequest.valid",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": true,
+      "data": {
+        "action": "submit",
+        "data": {
+          "name": "Ana"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.FeedbackRequest.valid",
+      "schema": "Public.FeedbackRequest",
+      "valid": true,
+      "data": {
+        "value": "positive",
+        "classification": null,
+        "reason": null,
+        "version": 1
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ArtifactCreateRequest.valid",
+      "schema": "Public.ArtifactCreateRequest",
+      "valid": true,
+      "data": {
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workspace_id": null
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.UploadSessionResponse.valid",
+      "schema": "Public.UploadSessionResponse",
+      "valid": true,
+      "data": {
+        "artifact": {
+          "artifact_id": "00000000-0000-4000-8000-000000000009",
+          "filename": "example.txt",
+          "mime_type": "text/plain",
+          "size_bytes": 3,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "ready_unbound",
+          "created_at": "2026-10-13T15:00:00Z",
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "upload_session_id": "00000000-0000-4000-8000-000000000015",
+        "upload_mode": "multipart_proxy",
+        "max_size_bytes": 1048576,
+        "expires_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ArtifactCompleteRequest.valid",
+      "schema": "Public.ArtifactCompleteRequest",
+      "valid": true,
+      "data": {
+        "upload_session_id": "00000000-0000-4000-8000-000000000015",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size_bytes": 3
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.DownloadMetadata.valid",
+      "schema": "Public.DownloadMetadata",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "filename": "example.txt",
+        "cache_control": "private, no-store",
+        "content_disposition": "attachment",
+        "x_content_type_options": "nosniff"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.ContextResponse.valid",
+      "schema": "Public.ContextResponse",
+      "valid": true,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "trigger_event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "display_name": "Pessoa"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "context_cursor": "fixture.cursor.opaque",
+        "history": {
+          "items": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "next_cursor": null,
+          "has_more": false,
+          "watermark": "9007199254740993"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.HeartbeatRequest.valid",
+      "schema": "Public.HeartbeatRequest",
+      "valid": true,
+      "data": {
+        "lease_fence": "1",
+        "progress_code": "processing"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.HeartbeatResponse.valid",
+      "schema": "Public.HeartbeatResponse",
+      "valid": true,
+      "data": {
+        "lease_until": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.OutputRequest.valid",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:message:1",
+        "type": "message.create",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "mentions": []
+        },
+        "lease_fence": "1"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.StreamRequest.valid",
+      "schema": "Public.StreamRequest",
+      "valid": true,
+      "data": {
+        "lease_fence": "1",
+        "output_id": "initial:message:1",
+        "chunk_index": 0,
+        "delta": "Olá"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.StreamResponse.valid",
+      "schema": "Public.StreamResponse",
+      "valid": true,
+      "data": {
+        "status": "accepted",
+        "ephemeral": true,
+        "output_id": "initial:message:1",
+        "chunk_index": 0
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.CompleteRequest.valid",
+      "schema": "Public.CompleteRequest",
+      "valid": true,
+      "data": {
+        "lease_fence": "1",
+        "outcome": "responded",
+        "outputs": [
+          {
+            "output_id": "initial:message:1",
+            "type": "message.create",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "mentions": []
+            }
+          }
+        ]
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.CallbackResponse.valid",
+      "schema": "Public.CallbackResponse",
+      "valid": true,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "execution_id": "00000000-0000-4000-8000-000000000008",
+        "state": "responded",
+        "result_event_ids": ["00000000-0000-4000-8000-000000000005"]
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SuspendRequest.valid",
+      "schema": "Public.SuspendRequest",
+      "valid": true,
+      "data": {
+        "lease_fence": "1",
+        "interaction": {
+          "kind": "form",
+          "schema_version": 1,
+          "expires_at": "2026-10-13T15:00:00Z",
+          "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+          "title": "Nome",
+          "fields": [
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            }
+          ],
+          "actions": ["submit", "cancel"]
+        },
+        "checkpoint_ref": "checkpoint:fixture-v1",
+        "output_id": "initial:form:1"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.BrokerEventRequest.valid",
+      "schema": "Public.BrokerEventRequest",
+      "valid": true,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "destination_kind": "deliveries",
+        "occurred_at": "2026-10-13T15:00:00Z"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.BrokerEventResponse.valid",
+      "schema": "Public.BrokerEventResponse",
+      "valid": true,
+      "data": {
+        "status": "persisted",
+        "duplicate": false
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.RetryRequest.valid",
+      "schema": "Public.RetryRequest",
+      "valid": true,
+      "data": {
+        "reason_code": "operator_retry",
+        "expected_execution_id": "00000000-0000-4000-8000-000000000008"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.RetryResponse.valid",
+      "schema": "Public.RetryResponse",
+      "valid": true,
+      "data": {
+        "delivery": {
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "state": "waiting_broker",
+          "attempt_count": 0,
+          "execution_id": null,
+          "phase_id": "initial",
+          "reason_code": null,
+          "created_at": "2026-10-13T15:00:00Z",
+          "updated_at": "2026-10-13T15:00:00Z",
+          "completed_at": null,
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "retry_scheduled": true
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsError.valid",
+      "schema": "Public.WsError",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "error",
+        "payload": {
+          "code": "CORE_UNAVAILABLE",
+          "message": "Serviço de identidade indisponível.",
+          "retryable": true,
+          "request_id": "00000000-0000-4000-8000-000000000011"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsPong.valid",
+      "schema": "Public.WsPong",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "pong",
+        "payload": {
+          "nonce": "fixture-nonce"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.thread.created.valid",
+      "schema": "Public.Event.thread.created",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.created",
+        "payload": {
+          "thread": {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.thread.updated.valid",
+      "schema": "Public.Event.thread.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.updated",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "title": "Novo título",
+          "state": "active",
+          "version": 2
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.thread.archived.valid",
+      "schema": "Public.Event.thread.archived",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.archived",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "version": 2
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.participant.added.valid",
+      "schema": "Public.Event.participant.added",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "participant.added",
+        "payload": {
+          "participant": {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          "history_policy": "full"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.participant.removed.valid",
+      "schema": "Public.Event.participant.removed",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "participant.removed",
+        "payload": {
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "left_sequence": "9007199254740993"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.message.created.valid",
+      "schema": "Public.Event.message.created",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.execution.started.valid",
+      "schema": "Public.Event.execution.started",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.started",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "running",
+          "outcome": null,
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": null
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.execution.completed.valid",
+      "schema": "Public.Event.execution.completed",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.completed",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "completed",
+          "outcome": "responded",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.execution.failed.valid",
+      "schema": "Public.Event.execution.failed",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.failed",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "failed",
+          "outcome": "failed",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.execution.canceled.valid",
+      "schema": "Public.Event.execution.canceled",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.canceled",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "canceled",
+          "outcome": "canceled",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.delivery.updated.valid",
+      "schema": "Public.Event.delivery.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "delivery.updated",
+        "payload": {
+          "delivery": {
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "state": "waiting_broker",
+            "attempt_count": 0,
+            "execution_id": null,
+            "phase_id": "initial",
+            "reason_code": null,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z",
+            "completed_at": null,
+            "expires_at": "2026-10-13T15:00:00Z"
+          }
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.root.stopped.valid",
+      "schema": "Public.Event.root.stopped",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "root.stopped",
+        "payload": {
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "reason_code": "user_requested"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.interaction.created.valid",
+      "schema": "Public.Event.interaction.created",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.created",
+        "payload": {
+          "interaction": {
+            "interaction_id": "00000000-0000-4000-8000-000000000010",
+            "origin_event_id": "00000000-0000-4000-8000-000000000005",
+            "agent_participant_id": "00000000-0000-4000-8000-000000000007",
+            "execution_id": "00000000-0000-4000-8000-000000000008",
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "definition": {
+              "kind": "form",
+              "schema_version": 1,
+              "expires_at": "2026-10-13T15:00:00Z",
+              "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+              "title": "Nome",
+              "fields": [
+                {
+                  "name": "name",
+                  "label": "Nome",
+                  "required": true,
+                  "share_response": false,
+                  "type": "text",
+                  "max_length": 100
+                }
+              ],
+              "actions": ["submit", "cancel"]
+            },
+            "state": "pending"
+          }
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.interaction.responded.valid",
+      "schema": "Public.Event.interaction.responded",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.responded",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "action": "submit",
+          "shared_data": {},
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "phase_id": "00000000-0000-4000-8000-000000000010"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.interaction.expired.valid",
+      "schema": "Public.Event.interaction.expired",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.expired",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "delivery_id": "00000000-0000-4000-8000-000000000006"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Event.feedback.updated.valid",
+      "schema": "Public.Event.feedback.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "feedback.updated",
+        "payload": {
+          "target_event_id": "00000000-0000-4000-8000-000000000005",
+          "principal_id": "auth0|human-fixture",
+          "feedback": {
+            "value": "positive",
+            "classification": null,
+            "reason": null,
+            "version": 1
+          }
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.connect.valid",
+      "schema": "Public.WsCommand.connect",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 1,
+          "client_capabilities": ["messages.text", "feedback", "export"]
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.auth.refresh.valid",
+      "schema": "Public.WsCommand.auth.refresh",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "auth.refresh",
+        "payload": {
+          "auth_token": "fixture-only-renewed-token"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.ping.valid",
+      "schema": "Public.WsCommand.ping",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ping",
+        "payload": {
+          "nonce": "fixture-nonce"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.thread.subscribe.valid",
+      "schema": "Public.WsCommand.thread.subscribe",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "thread.subscribe",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "cursor": "fixture.cursor.opaque"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.thread.unsubscribe.valid",
+      "schema": "Public.WsCommand.thread.unsubscribe",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "thread.unsubscribe",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.message.publish.valid",
+      "schema": "Public.WsCommand.message.publish",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "message.publish",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.execution.cancel.valid",
+      "schema": "Public.WsCommand.execution.cancel",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "execution.cancel",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "idempotency_key": "publish-fixture-001"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.root.stop.valid",
+      "schema": "Public.WsCommand.root.stop",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "root.stop",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "idempotency_key": "publish-fixture-001"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsCommand.interaction.respond.valid",
+      "schema": "Public.WsCommand.interaction.respond",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "interaction.respond",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "idempotency_key": "publish-fixture-001",
+          "action": "submit",
+          "data": {
+            "name": "Ana"
+          }
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.connect.valid",
+      "schema": "Public.WsAck.connect",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "connected",
+          "connection_id": "00000000-0000-4000-8000-000000000017",
+          "server_version": "0.0.0-contract",
+          "protocol_version": 1,
+          "history_authority": "maestro",
+          "capabilities": ["messages.text", "feedback", "export"],
+          "expires_at": "2026-10-13T15:00:00Z"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.auth.refresh.valid",
+      "schema": "Public.WsAck.auth.refresh",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "authenticated",
+          "expires_at": "2026-10-13T15:00:00Z"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.thread.subscribe.valid",
+      "schema": "Public.WsAck.thread.subscribe",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "subscribed",
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "replay_watermark": "9007199254740993",
+          "replay_mode": "replay"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.thread.unsubscribe.valid",
+      "schema": "Public.WsAck.thread.unsubscribe",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "unsubscribed",
+          "subscription_id": "00000000-0000-4000-8000-000000000016"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.message.publish.valid",
+      "schema": "Public.WsAck.message.publish",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "persisted",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque",
+          "duplicate": false
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.execution.cancel.valid",
+      "schema": "Public.WsAck.execution.cancel",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "cancel_requested",
+          "execution_id": "00000000-0000-4000-8000-000000000008"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.root.stop.valid",
+      "schema": "Public.WsAck.root.stop",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "stop_requested",
+          "root_event_id": "00000000-0000-4000-8000-000000000005"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsAck.interaction.respond.valid",
+      "schema": "Public.WsAck.interaction.respond",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "persisted",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque",
+          "duplicate": false
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.thread.snapshot.valid",
+      "schema": "Public.WsFrame.thread.snapshot",
+      "valid": true,
+      "data": {
+        "type": "thread.snapshot",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "thread": {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          },
+          "events": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "watermark": "9007199254740993",
+          "next_cursor": null,
+          "has_more": false
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.thread.replay.valid",
+      "schema": "Public.WsFrame.thread.replay",
+      "valid": true,
+      "data": {
+        "type": "thread.replay",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "events": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "watermark": "9007199254740993",
+          "next_cursor": null,
+          "has_more": false
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.thread.caught_up.valid",
+      "schema": "Public.WsFrame.thread.caught_up",
+      "valid": true,
+      "data": {
+        "type": "thread.caught_up",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "cursor": "fixture.cursor.opaque",
+          "watermark": "9007199254740993"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.event.append.valid",
+      "schema": "Public.WsFrame.event.append",
+      "valid": true,
+      "data": {
+        "type": "event.append",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.stream.delta.valid",
+      "schema": "Public.WsFrame.stream.delta",
+      "valid": true,
+      "data": {
+        "type": "stream.delta",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "chunk_index": 0,
+          "delta": "Olá",
+          "ephemeral": true
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.stream.reset.valid",
+      "schema": "Public.WsFrame.stream.reset",
+      "valid": true,
+      "data": {
+        "type": "stream.reset",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "reason_code": "completed"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.subscription.revoked.valid",
+      "schema": "Public.WsFrame.subscription.revoked",
+      "valid": true,
+      "data": {
+        "type": "subscription.revoked",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "reason_code": "membership_removed"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.session.expiring.valid",
+      "schema": "Public.WsFrame.session.expiring",
+      "valid": true,
+      "data": {
+        "type": "session.expiring",
+        "payload": {
+          "expires_at": "2026-10-13T15:00:00Z",
+          "reason_code": "token_expiring"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.session.expired.valid",
+      "schema": "Public.WsFrame.session.expired",
+      "valid": true,
+      "data": {
+        "type": "session.expired",
+        "payload": {
+          "expires_at": "2026-10-13T15:00:00Z",
+          "reason_code": "token_expired"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.WsFrame.resync.required.valid",
+      "schema": "Public.WsFrame.resync.required",
+      "valid": true,
+      "data": {
+        "type": "resync.required",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "reason_code": "slow_consumer",
+          "action": "snapshot"
+        }
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.Empty.unknown-field",
+      "schema": "Public.Empty",
+      "valid": false,
+      "data": {
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Scope.unknown-field",
+      "schema": "Public.Scope",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Actor.unknown-field",
+      "schema": "Public.Actor",
+      "valid": false,
+      "data": {
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "display_name": "Pessoa",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Capabilities.unknown-field",
+      "schema": "Public.Capabilities",
+      "valid": false,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": ["feedback", "export", "messages.text"],
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Error.unknown-field",
+      "schema": "Public.Error",
+      "valid": false,
+      "data": {
+        "error": {
+          "code": "CORE_UNAVAILABLE",
+          "message": "Serviço de identidade indisponível.",
+          "retryable": true,
+          "request_id": "00000000-0000-4000-8000-000000000011"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Thread.unknown-field",
+      "schema": "Public.Thread",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": true,
+          "write": true,
+          "manage": true,
+          "supervise": false,
+          "export": true,
+          "cancel": true,
+          "feedback": true
+        },
+        "capabilities": ["messages.text", "feedback", "export"],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Participant.unknown-field",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ContentPart.unknown-field",
+      "schema": "Public.ContentPart",
+      "valid": false,
+      "data": {
+        "type": "text",
+        "text": "Olá",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.unknown-field",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Delivery.unknown-field",
+      "schema": "Public.Delivery",
+      "valid": false,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+        "participant_id": "00000000-0000-4000-8000-000000000007",
+        "state": "waiting_broker",
+        "attempt_count": 0,
+        "execution_id": null,
+        "phase_id": "initial",
+        "reason_code": null,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "completed_at": null,
+        "expires_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Artifact.unknown-field",
+      "schema": "Public.Artifact",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "state": "ready_unbound",
+        "created_at": "2026-10-13T15:00:00Z",
+        "expires_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Interaction.unknown-field",
+      "schema": "Public.Interaction",
+      "valid": false,
+      "data": {
+        "interaction_id": "00000000-0000-4000-8000-000000000010",
+        "origin_event_id": "00000000-0000-4000-8000-000000000005",
+        "agent_participant_id": "00000000-0000-4000-8000-000000000007",
+        "execution_id": "00000000-0000-4000-8000-000000000008",
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "definition": {
+          "kind": "form",
+          "schema_version": 1,
+          "expires_at": "2026-10-13T15:00:00Z",
+          "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+          "title": "Nome",
+          "fields": [
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            }
+          ],
+          "actions": ["submit", "cancel"]
+        },
+        "state": "pending",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.IdPath.unknown-field",
+      "schema": "Public.IdPath",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ParticipantPath.unknown-field",
+      "schema": "Public.ParticipantPath",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "participantId": "00000000-0000-4000-8000-000000000004",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.RootPath.unknown-field",
+      "schema": "Public.RootPath",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "eventId": "00000000-0000-4000-8000-000000000005",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.MutationHeaders.unknown-field",
+      "schema": "Public.MutationHeaders",
+      "valid": false,
+      "data": {
+        "Idempotency-Key": "publish-fixture-001",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.VersionedHeaders.unknown-field",
+      "schema": "Public.VersionedHeaders",
+      "valid": false,
+      "data": {
+        "Idempotency-Key": "publish-fixture-001",
+        "If-Match": "1",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ReadHeaders.unknown-field",
+      "schema": "Public.ReadHeaders",
+      "valid": false,
+      "data": {
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ThreadCreateRequest.unknown-field",
+      "schema": "Public.ThreadCreateRequest",
+      "valid": false,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "participants": [
+          {
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000012"
+          }
+        ],
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ThreadListQuery.unknown-field",
+      "schema": "Public.ThreadListQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "limit": 50,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ThreadPage.unknown-field",
+      "schema": "Public.ThreadPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionListQuery.unknown-field",
+      "schema": "Public.SupervisionListQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "access_reason": "Auditoria autorizada",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionThreadPage.unknown-field",
+      "schema": "Public.SupervisionThreadPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "title": "Thread de contrato",
+            "state": "active",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ThreadPatchRequest.unknown-field",
+      "schema": "Public.ThreadPatchRequest",
+      "valid": false,
+      "data": {
+        "title": "Novo título",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ReasonRequest.unknown-field",
+      "schema": "Public.ReasonRequest",
+      "valid": false,
+      "data": {
+        "reason_code": "user_requested",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.DeleteResponse.unknown-field",
+      "schema": "Public.DeleteResponse",
+      "valid": false,
+      "data": {
+        "deletion_job_id": "00000000-0000-4000-8000-000000000013",
+        "state": "deleting",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.PageQuery.unknown-field",
+      "schema": "Public.PageQuery",
+      "valid": false,
+      "data": {
+        "limit": 50,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ParticipantPage.unknown-field",
+      "schema": "Public.ParticipantPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ParticipantAddRequest.unknown-field",
+      "schema": "Public.ParticipantAddRequest",
+      "valid": false,
+      "data": {
+        "kind": "human",
+        "principal_id": "user:not-a-uuid",
+        "role": "member",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.OwnershipRequest.unknown-field",
+      "schema": "Public.OwnershipRequest",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.EventsQuery.unknown-field",
+      "schema": "Public.EventsQuery",
+      "valid": false,
+      "data": {
+        "after": "fixture.cursor.opaque",
+        "limit": 100,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.EventPage.unknown-field",
+      "schema": "Public.EventPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.MessageCreateRequest.unknown-field",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": [],
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.PersistedResponse.unknown-field",
+      "schema": "Public.PersistedResponse",
+      "valid": false,
+      "data": {
+        "status": "persisted",
+        "event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "display_name": "Pessoa"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "cursor": "fixture.cursor.opaque",
+        "duplicate": false,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.DeliveryListQuery.unknown-field",
+      "schema": "Public.DeliveryListQuery",
+      "valid": false,
+      "data": {
+        "event": "00000000-0000-4000-8000-000000000005",
+        "limit": 50,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.DeliveryPage.unknown-field",
+      "schema": "Public.DeliveryPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "state": "waiting_broker",
+            "attempt_count": 0,
+            "execution_id": null,
+            "phase_id": "initial",
+            "reason_code": null,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z",
+            "completed_at": null,
+            "expires_at": "2026-10-13T15:00:00Z"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.CancelResponse.unknown-field",
+      "schema": "Public.CancelResponse",
+      "valid": false,
+      "data": {
+        "status": "cancel_requested",
+        "execution_id": "00000000-0000-4000-8000-000000000008",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.StopResponse.unknown-field",
+      "schema": "Public.StopResponse",
+      "valid": false,
+      "data": {
+        "status": "stop_requested",
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionRequest.unknown-field",
+      "schema": "Public.SupervisionRequest",
+      "valid": false,
+      "data": {
+        "access_reason": "Revisão autorizada",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionGrant.unknown-field",
+      "schema": "Public.SupervisionGrant",
+      "valid": false,
+      "data": {
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "access": "read_only",
+        "expires_at": "2026-10-13T15:00:00Z",
+        "policy_version": 1,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ExportQuery.unknown-field",
+      "schema": "Public.ExportQuery",
+      "valid": false,
+      "data": {
+        "format": "json",
+        "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ExportResponse.unknown-field",
+      "schema": "Public.ExportResponse",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "watermark": "9007199254740993",
+        "download_path": "/api/v1/artifacts/00000000-0000-4000-8000-000000000009/download",
+        "expires_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.InteractionResponseRequest.unknown-field",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": false,
+      "data": {
+        "action": "submit",
+        "data": {
+          "name": "Ana"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.FeedbackRequest.unknown-field",
+      "schema": "Public.FeedbackRequest",
+      "valid": false,
+      "data": {
+        "value": "positive",
+        "classification": null,
+        "reason": null,
+        "version": 1,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ArtifactCreateRequest.unknown-field",
+      "schema": "Public.ArtifactCreateRequest",
+      "valid": false,
+      "data": {
+        "filename": "example.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "workspace_id": null,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.UploadSessionResponse.unknown-field",
+      "schema": "Public.UploadSessionResponse",
+      "valid": false,
+      "data": {
+        "artifact": {
+          "artifact_id": "00000000-0000-4000-8000-000000000009",
+          "filename": "example.txt",
+          "mime_type": "text/plain",
+          "size_bytes": 3,
+          "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "state": "ready_unbound",
+          "created_at": "2026-10-13T15:00:00Z",
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "upload_session_id": "00000000-0000-4000-8000-000000000015",
+        "upload_mode": "multipart_proxy",
+        "max_size_bytes": 1048576,
+        "expires_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ArtifactCompleteRequest.unknown-field",
+      "schema": "Public.ArtifactCompleteRequest",
+      "valid": false,
+      "data": {
+        "upload_session_id": "00000000-0000-4000-8000-000000000015",
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "size_bytes": 3,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.DownloadMetadata.unknown-field",
+      "schema": "Public.DownloadMetadata",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "mime_type": "text/plain",
+        "size_bytes": 3,
+        "filename": "example.txt",
+        "cache_control": "private, no-store",
+        "content_disposition": "attachment",
+        "x_content_type_options": "nosniff",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ContextResponse.unknown-field",
+      "schema": "Public.ContextResponse",
+      "valid": false,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "trigger_event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "display_name": "Pessoa"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Olá"
+              }
+            ],
+            "client_event_id": "publish-fixture-001",
+            "mentions": []
+          }
+        },
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "context_cursor": "fixture.cursor.opaque",
+        "history": {
+          "items": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "next_cursor": null,
+          "has_more": false,
+          "watermark": "9007199254740993"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.HeartbeatRequest.unknown-field",
+      "schema": "Public.HeartbeatRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "progress_code": "processing",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.HeartbeatResponse.unknown-field",
+      "schema": "Public.HeartbeatResponse",
+      "valid": false,
+      "data": {
+        "lease_until": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.OutputRequest.unknown-field",
+      "schema": "Public.OutputRequest",
+      "valid": false,
+      "data": {
+        "output_id": "initial:message:1",
+        "type": "message.create",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "mentions": []
+        },
+        "lease_fence": "1",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.StreamRequest.unknown-field",
+      "schema": "Public.StreamRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "output_id": "initial:message:1",
+        "chunk_index": 0,
+        "delta": "Olá",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.StreamResponse.unknown-field",
+      "schema": "Public.StreamResponse",
+      "valid": false,
+      "data": {
+        "status": "accepted",
+        "ephemeral": true,
+        "output_id": "initial:message:1",
+        "chunk_index": 0,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.CompleteRequest.unknown-field",
+      "schema": "Public.CompleteRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "outcome": "responded",
+        "outputs": [
+          {
+            "output_id": "initial:message:1",
+            "type": "message.create",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "mentions": []
+            }
+          }
+        ],
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.CallbackResponse.unknown-field",
+      "schema": "Public.CallbackResponse",
+      "valid": false,
+      "data": {
+        "delivery_id": "00000000-0000-4000-8000-000000000006",
+        "execution_id": "00000000-0000-4000-8000-000000000008",
+        "state": "responded",
+        "result_event_ids": ["00000000-0000-4000-8000-000000000005"],
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SuspendRequest.unknown-field",
+      "schema": "Public.SuspendRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "interaction": {
+          "kind": "form",
+          "schema_version": 1,
+          "expires_at": "2026-10-13T15:00:00Z",
+          "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+          "title": "Nome",
+          "fields": [
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            }
+          ],
+          "actions": ["submit", "cancel"]
+        },
+        "checkpoint_ref": "checkpoint:fixture-v1",
+        "output_id": "initial:form:1",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.BrokerEventRequest.unknown-field",
+      "schema": "Public.BrokerEventRequest",
+      "valid": false,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "destination_kind": "deliveries",
+        "occurred_at": "2026-10-13T15:00:00Z",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.BrokerEventResponse.unknown-field",
+      "schema": "Public.BrokerEventResponse",
+      "valid": false,
+      "data": {
+        "status": "persisted",
+        "duplicate": false,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.RetryRequest.unknown-field",
+      "schema": "Public.RetryRequest",
+      "valid": false,
+      "data": {
+        "reason_code": "operator_retry",
+        "expected_execution_id": "00000000-0000-4000-8000-000000000008",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.RetryResponse.unknown-field",
+      "schema": "Public.RetryResponse",
+      "valid": false,
+      "data": {
+        "delivery": {
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "state": "waiting_broker",
+          "attempt_count": 0,
+          "execution_id": null,
+          "phase_id": "initial",
+          "reason_code": null,
+          "created_at": "2026-10-13T15:00:00Z",
+          "updated_at": "2026-10-13T15:00:00Z",
+          "completed_at": null,
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "retry_scheduled": true,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsError.unknown-field",
+      "schema": "Public.WsError",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "error",
+        "payload": {
+          "code": "CORE_UNAVAILABLE",
+          "message": "Serviço de identidade indisponível.",
+          "retryable": true,
+          "request_id": "00000000-0000-4000-8000-000000000011"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsPong.unknown-field",
+      "schema": "Public.WsPong",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "pong",
+        "payload": {
+          "nonce": "fixture-nonce"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.thread.created.unknown-field",
+      "schema": "Public.Event.thread.created",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.created",
+        "payload": {
+          "thread": {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.thread.updated.unknown-field",
+      "schema": "Public.Event.thread.updated",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.updated",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "title": "Novo título",
+          "state": "active",
+          "version": 2
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.thread.archived.unknown-field",
+      "schema": "Public.Event.thread.archived",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.archived",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "version": 2
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.participant.added.unknown-field",
+      "schema": "Public.Event.participant.added",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "participant.added",
+        "payload": {
+          "participant": {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          "history_policy": "full"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.participant.removed.unknown-field",
+      "schema": "Public.Event.participant.removed",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "participant.removed",
+        "payload": {
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "left_sequence": "9007199254740993"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.message.created.unknown-field",
+      "schema": "Public.Event.message.created",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.execution.started.unknown-field",
+      "schema": "Public.Event.execution.started",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.started",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "running",
+          "outcome": null,
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": null
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.execution.completed.unknown-field",
+      "schema": "Public.Event.execution.completed",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.completed",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "completed",
+          "outcome": "responded",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.execution.failed.unknown-field",
+      "schema": "Public.Event.execution.failed",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.failed",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "failed",
+          "outcome": "failed",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.execution.canceled.unknown-field",
+      "schema": "Public.Event.execution.canceled",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "execution.canceled",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "phase_id": "initial",
+          "state": "canceled",
+          "outcome": "canceled",
+          "reason_code": null,
+          "deadline_at": "2026-10-13T15:00:00Z",
+          "completed_at": "2026-10-13T15:00:00Z"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.delivery.updated.unknown-field",
+      "schema": "Public.Event.delivery.updated",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "delivery.updated",
+        "payload": {
+          "delivery": {
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005",
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "state": "waiting_broker",
+            "attempt_count": 0,
+            "execution_id": null,
+            "phase_id": "initial",
+            "reason_code": null,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z",
+            "completed_at": null,
+            "expires_at": "2026-10-13T15:00:00Z"
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.root.stopped.unknown-field",
+      "schema": "Public.Event.root.stopped",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "root.stopped",
+        "payload": {
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "reason_code": "user_requested"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.interaction.created.unknown-field",
+      "schema": "Public.Event.interaction.created",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.created",
+        "payload": {
+          "interaction": {
+            "interaction_id": "00000000-0000-4000-8000-000000000010",
+            "origin_event_id": "00000000-0000-4000-8000-000000000005",
+            "agent_participant_id": "00000000-0000-4000-8000-000000000007",
+            "execution_id": "00000000-0000-4000-8000-000000000008",
+            "delivery_id": "00000000-0000-4000-8000-000000000006",
+            "definition": {
+              "kind": "form",
+              "schema_version": 1,
+              "expires_at": "2026-10-13T15:00:00Z",
+              "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+              "title": "Nome",
+              "fields": [
+                {
+                  "name": "name",
+                  "label": "Nome",
+                  "required": true,
+                  "share_response": false,
+                  "type": "text",
+                  "max_length": 100
+                }
+              ],
+              "actions": ["submit", "cancel"]
+            },
+            "state": "pending"
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.interaction.responded.unknown-field",
+      "schema": "Public.Event.interaction.responded",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.responded",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "action": "submit",
+          "shared_data": {},
+          "delivery_id": "00000000-0000-4000-8000-000000000006",
+          "phase_id": "00000000-0000-4000-8000-000000000010"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.interaction.expired.unknown-field",
+      "schema": "Public.Event.interaction.expired",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "interaction.expired",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "delivery_id": "00000000-0000-4000-8000-000000000006"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.feedback.updated.unknown-field",
+      "schema": "Public.Event.feedback.updated",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "feedback.updated",
+        "payload": {
+          "target_event_id": "00000000-0000-4000-8000-000000000005",
+          "principal_id": "auth0|human-fixture",
+          "feedback": {
+            "value": "positive",
+            "classification": null,
+            "reason": null,
+            "version": 1
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.connect.unknown-field",
+      "schema": "Public.WsCommand.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "connect",
+        "payload": {
+          "auth_token": "fixture-only-token-not-credential",
+          "protocol_version": 1,
+          "client_capabilities": ["messages.text", "feedback", "export"]
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.auth.refresh.unknown-field",
+      "schema": "Public.WsCommand.auth.refresh",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "auth.refresh",
+        "payload": {
+          "auth_token": "fixture-only-renewed-token"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.ping.unknown-field",
+      "schema": "Public.WsCommand.ping",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ping",
+        "payload": {
+          "nonce": "fixture-nonce"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.thread.subscribe.unknown-field",
+      "schema": "Public.WsCommand.thread.subscribe",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "thread.subscribe",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "cursor": "fixture.cursor.opaque"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.thread.unsubscribe.unknown-field",
+      "schema": "Public.WsCommand.thread.unsubscribe",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "thread.unsubscribe",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.message.publish.unknown-field",
+      "schema": "Public.WsCommand.message.publish",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "message.publish",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.execution.cancel.unknown-field",
+      "schema": "Public.WsCommand.execution.cancel",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "execution.cancel",
+        "payload": {
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "idempotency_key": "publish-fixture-001"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.root.stop.unknown-field",
+      "schema": "Public.WsCommand.root.stop",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "root.stop",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "idempotency_key": "publish-fixture-001"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsCommand.interaction.respond.unknown-field",
+      "schema": "Public.WsCommand.interaction.respond",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "interaction.respond",
+        "payload": {
+          "interaction_id": "00000000-0000-4000-8000-000000000010",
+          "idempotency_key": "publish-fixture-001",
+          "action": "submit",
+          "data": {
+            "name": "Ana"
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.connect.unknown-field",
+      "schema": "Public.WsAck.connect",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "connected",
+          "connection_id": "00000000-0000-4000-8000-000000000017",
+          "server_version": "0.0.0-contract",
+          "protocol_version": 1,
+          "history_authority": "maestro",
+          "capabilities": ["messages.text", "feedback", "export"],
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.auth.refresh.unknown-field",
+      "schema": "Public.WsAck.auth.refresh",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "authenticated",
+          "expires_at": "2026-10-13T15:00:00Z"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.thread.subscribe.unknown-field",
+      "schema": "Public.WsAck.thread.subscribe",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "subscribed",
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "replay_watermark": "9007199254740993",
+          "replay_mode": "replay"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.thread.unsubscribe.unknown-field",
+      "schema": "Public.WsAck.thread.unsubscribe",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "unsubscribed",
+          "subscription_id": "00000000-0000-4000-8000-000000000016"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.message.publish.unknown-field",
+      "schema": "Public.WsAck.message.publish",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "persisted",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque",
+          "duplicate": false
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.execution.cancel.unknown-field",
+      "schema": "Public.WsAck.execution.cancel",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "cancel_requested",
+          "execution_id": "00000000-0000-4000-8000-000000000008"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.root.stop.unknown-field",
+      "schema": "Public.WsAck.root.stop",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "stop_requested",
+          "root_event_id": "00000000-0000-4000-8000-000000000005"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsAck.interaction.respond.unknown-field",
+      "schema": "Public.WsAck.interaction.respond",
+      "valid": false,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "ack",
+        "payload": {
+          "status": "persisted",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque",
+          "duplicate": false
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.thread.snapshot.unknown-field",
+      "schema": "Public.WsFrame.thread.snapshot",
+      "valid": false,
+      "data": {
+        "type": "thread.snapshot",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "thread": {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": true,
+              "write": true,
+              "manage": true,
+              "supervise": false,
+              "export": true,
+              "cancel": true,
+              "feedback": true
+            },
+            "capabilities": ["messages.text", "feedback", "export"],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z"
+          },
+          "events": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "watermark": "9007199254740993",
+          "next_cursor": null,
+          "has_more": false
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.thread.replay.unknown-field",
+      "schema": "Public.WsFrame.thread.replay",
+      "valid": false,
+      "data": {
+        "type": "thread.replay",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "events": [
+            {
+              "event_id": "00000000-0000-4000-8000-000000000005",
+              "thread_id": "00000000-0000-4000-8000-000000000003",
+              "sequence": "9007199254740993",
+              "schema_version": 1,
+              "actor": {
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "display_name": "Pessoa"
+              },
+              "created_at": "2026-10-13T15:00:00Z",
+              "causation_event_id": null,
+              "root_event_id": "00000000-0000-4000-8000-000000000005",
+              "type": "message.created",
+              "payload": {
+                "content": [
+                  {
+                    "type": "text",
+                    "text": "Olá"
+                  }
+                ],
+                "client_event_id": "publish-fixture-001",
+                "mentions": []
+              }
+            }
+          ],
+          "watermark": "9007199254740993",
+          "next_cursor": null,
+          "has_more": false
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.thread.caught_up.unknown-field",
+      "schema": "Public.WsFrame.thread.caught_up",
+      "valid": false,
+      "data": {
+        "type": "thread.caught_up",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "cursor": "fixture.cursor.opaque",
+          "watermark": "9007199254740993"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.event.append.unknown-field",
+      "schema": "Public.WsFrame.event.append",
+      "valid": false,
+      "data": {
+        "type": "event.append",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "event": {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "auth0|human-fixture",
+              "participant_id": "00000000-0000-4000-8000-000000000004",
+              "display_name": "Pessoa"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "client_event_id": "publish-fixture-001",
+              "mentions": []
+            }
+          },
+          "cursor": "fixture.cursor.opaque"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.stream.delta.unknown-field",
+      "schema": "Public.WsFrame.stream.delta",
+      "valid": false,
+      "data": {
+        "type": "stream.delta",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "chunk_index": 0,
+          "delta": "Olá",
+          "ephemeral": true
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.stream.reset.unknown-field",
+      "schema": "Public.WsFrame.stream.reset",
+      "valid": false,
+      "data": {
+        "type": "stream.reset",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "reason_code": "completed"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.subscription.revoked.unknown-field",
+      "schema": "Public.WsFrame.subscription.revoked",
+      "valid": false,
+      "data": {
+        "type": "subscription.revoked",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "reason_code": "membership_removed"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.session.expiring.unknown-field",
+      "schema": "Public.WsFrame.session.expiring",
+      "valid": false,
+      "data": {
+        "type": "session.expiring",
+        "payload": {
+          "expires_at": "2026-10-13T15:00:00Z",
+          "reason_code": "token_expiring"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.session.expired.unknown-field",
+      "schema": "Public.WsFrame.session.expired",
+      "valid": false,
+      "data": {
+        "type": "session.expired",
+        "payload": {
+          "expires_at": "2026-10-13T15:00:00Z",
+          "reason_code": "token_expired"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.WsFrame.resync.required.unknown-field",
+      "schema": "Public.WsFrame.resync.required",
+      "valid": false,
+      "data": {
+        "type": "resync.required",
+        "payload": {
+          "subscription_id": "00000000-0000-4000-8000-000000000016",
+          "reason_code": "slow_consumer",
+          "action": "snapshot"
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.scope.personal-with-workspace",
+      "schema": "Public.Scope",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.scope.workspace-null",
+      "schema": "Public.Scope",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "workspace",
+        "workspace_id": null
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.principal.opaque-human",
+      "schema": "Public.Actor",
+      "valid": true,
+      "data": {
+        "kind": "human",
+        "principal_id": "user:external|opaque",
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "display_name": "Pessoa"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.principal.agent-not-uuid",
+      "schema": "Public.Actor",
+      "valid": false,
+      "data": {
+        "kind": "agent",
+        "principal_id": "auth0|human-fixture",
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "display_name": "Pessoa",
+        "instance_agent_id": "00000000-0000-4000-8000-000000000012"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.sequence.number-loses-precision",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": 9007199254740993,
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.sequence.negative",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "-1",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.empty-content",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.blank-text",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "   "
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.no-impersonation",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": [],
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.no-private-recipient",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": [],
+        "send_to_all": false
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.no-url",
+      "schema": "Public.ContentPart",
+      "valid": false,
+      "data": {
+        "type": "attachment",
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "url": "http://127.0.0.1/private"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.attachment",
+      "schema": "Public.ContentPart",
+      "valid": true,
+      "data": {
+        "type": "attachment",
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "example.txt"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.capabilities.duplicate",
+      "schema": "Public.Capabilities",
+      "valid": false,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": ["feedback", "feedback"]
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.capabilities.unknown-future",
+      "schema": "Public.Capabilities",
+      "valid": true,
+      "data": {
+        "protocol_version": 1,
+        "schema_version": 1,
+        "server_version": "0.0.0-contract",
+        "history_authority": "maestro",
+        "capabilities": ["future.capability"]
+      },
+      "description": "Desconhecida é transportável; nunca habilita suporte ou permissão sozinha."
+    },
+    {
+      "id": "public.events.after-and-before",
+      "schema": "Public.EventsQuery",
+      "valid": false,
+      "data": {
+        "after": "fixture.cursor.opaque",
+        "before": "fixture.cursor.opaque"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.headers.invalid-idempotency",
+      "schema": "Public.MutationHeaders",
+      "valid": false,
+      "data": {
+        "Idempotency-Key": "a\nb"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.headers.too-long",
+      "schema": "Public.MutationHeaders",
+      "valid": false,
+      "data": {
+        "Idempotency-Key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.thread.workspace-required",
+      "schema": "Public.ThreadCreateRequest",
+      "valid": false,
+      "data": {
+        "scope_kind": "workspace",
+        "participants": []
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.thread.empty-patch",
+      "schema": "Public.ThreadPatchRequest",
+      "valid": false,
+      "data": {},
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.participant.agent-owner",
+      "schema": "Public.ParticipantAddRequest",
+      "valid": false,
+      "data": {
+        "kind": "agent",
+        "principal_id": "00000000-0000-4000-8000-000000000012",
+        "role": "owner"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.complete.silence-with-output",
+      "schema": "Public.CompleteRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "outcome": "silent",
+        "outputs": [
+          {
+            "output_id": "initial:message:1",
+            "type": "message.create",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "mentions": []
+            }
+          }
+        ]
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.complete.silence",
+      "schema": "Public.CompleteRequest",
+      "valid": true,
+      "data": {
+        "lease_fence": "1",
+        "outcome": "silent",
+        "reason_code": "not_relevant"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.stream.no-sequence",
+      "schema": "Public.WsFrame.stream.delta",
+      "valid": false,
+      "data": {
+        "type": "stream.delta",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "chunk_index": 0,
+          "delta": "Olá",
+          "ephemeral": true,
+          "sequence": "9"
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.stream.non-ephemeral",
+      "schema": "Public.WsFrame.stream.delta",
+      "valid": false,
+      "data": {
+        "type": "stream.delta",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "participant_id": "00000000-0000-4000-8000-000000000007",
+          "execution_id": "00000000-0000-4000-8000-000000000008",
+          "output_id": "initial:message:1",
+          "chunk_index": 0,
+          "delta": "Olá",
+          "ephemeral": false
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.interaction.cancel-data",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": false,
+      "data": {
+        "action": "cancel",
+        "data": {
+          "secret": "value"
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.form.duplicate-field",
+      "schema": "Public.SuspendRequest",
+      "valid": false,
+      "data": {
+        "lease_fence": "1",
+        "interaction": {
+          "kind": "form",
+          "schema_version": 1,
+          "expires_at": "2026-10-13T15:00:00Z",
+          "eligible_participant_ids": ["00000000-0000-4000-8000-000000000004"],
+          "title": "Nome",
+          "fields": [
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            },
+            {
+              "name": "name",
+              "label": "Nome",
+              "required": true,
+              "share_response": false,
+              "type": "text",
+              "max_length": 100
+            }
+          ],
+          "actions": ["submit", "cancel"]
+        },
+        "checkpoint_ref": "checkpoint:fixture-v1",
+        "output_id": "initial:form:1"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.options.duplicate-agent",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": [],
+        "agent_options": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "model": "fixture-model"
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000007",
+            "model": "fixture-model"
+          }
+        ]
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.interaction.approve",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": true,
+      "data": {
+        "action": "approve",
+        "data": {
+          "arguments_hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.interaction.cancel",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": true,
+      "data": {
+        "action": "cancel",
+        "data": {}
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.interaction.reject",
+      "schema": "Public.InteractionResponseRequest",
+      "valid": true,
+      "data": {
+        "action": "reject",
+        "data": {}
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.message.same-key-http",
+      "schema": "Public.MessageCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Mesmos client_event_id, content, mentions e agent_options do caso message.same-key-ws."
+    },
+    {
+      "id": "public.message.same-key-ws",
+      "schema": "Public.WsCommand.message.publish",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000011",
+        "type": "message.publish",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        }
+      },
+      "description": "Mesmo comando semântico do HTTP; request_id de transporte não participa da chave."
+    },
+    {
+      "id": "public.message.unicode-bom-blank",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": "﻿"
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Equivalência exata do conjunto ECMAScript trim na validação TS/Python."
+    },
+    {
+      "id": "public.message.unicode-next-line-content",
+      "schema": "Public.MessageCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": ""
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      },
+      "description": "Equivalência exata do conjunto ECMAScript trim na validação TS/Python."
+    },
+    {
+      "id": "public.participant.avatar-https-valid",
+      "schema": "Public.Participant",
+      "valid": true,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "https://avatars.example.test/person.png"
+      },
+      "description": "Avatar público exige HTTPS em Zod e JSON Schema exportado."
+    },
+    {
+      "id": "public.participant.avatar-http-invalid",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000004",
+        "kind": "human",
+        "principal_id": "auth0|human-fixture",
+        "display_name": "Pessoa",
+        "role": "owner",
+        "state": "active",
+        "joined_sequence": "1",
+        "left_sequence": null,
+        "avatar_url": "http://avatars.example.test/person.png"
+      },
+      "description": "Avatar público exige HTTPS em Zod e JSON Schema exportado."
+    }
+  ]
+}
