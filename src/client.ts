@@ -11,10 +11,10 @@ import type {
   ThreadEvent,
 } from './types'
 import {
+  publicSchemaFromResultPayload,
   toAnalyticsEvent,
   toRun,
   toSettingsItem,
-  publicSchemaFromResultPayload,
   toThread,
   toThreadArtifact,
   toThreadEvent,
@@ -287,7 +287,13 @@ export class AgentClient {
 
   // Pagination
   private lastThreadListCursor: string | null = null
+  private threadListQueue: string | null = null
   private isLoadingMore = false
+  /** One full ``thread.list`` at a time. A second call waits and replaces it. */
+  private fullListInFlight = false
+  private fullListSentAt = 0
+  private fullListSentQueue: string | null = null
+  private fullListPending: { queue: string | null; limit?: number } | null = null
 
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
@@ -410,6 +416,8 @@ export class AgentClient {
     this.uploadAgentId = agentId.trim()
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
+    this.fullListInFlight = false
+    this.fullListPending = null
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
     if (this.httpBaseUrlOverride) {
@@ -477,6 +485,8 @@ export class AgentClient {
     this.abortPendingMessages('Disconnected')
     this.abortPendingArtifacts('Disconnected')
     this.abortPendingPublicSchema('Disconnected')
+    this.fullListInFlight = false
+    this.fullListPending = null
     if (this.ws) {
       this.ws.onopen = null
       this.ws.onmessage = null
@@ -497,8 +507,41 @@ export class AgentClient {
 
   // --- Thread operations ---
 
-  requestThreadList(cursor?: string | null, limit?: number) {
-    this.send('thread.list', { cursor, limit })
+  requestThreadList(cursor?: string | null, limit?: number, queue?: string | null) {
+    if (cursor) {
+      this.send('thread.list', {
+        cursor,
+        limit,
+        ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+      })
+      return
+    }
+    const nextQueue = queue ?? null
+    this.threadListQueue = nextQueue
+    if (this.fullListInFlight) {
+      if (nextQueue !== this.fullListSentQueue) {
+        this.fullListPending = { queue: nextQueue, limit }
+      }
+      return
+    }
+    this.dispatchFullList(nextQueue, limit)
+  }
+
+  /** Full list (no cursor). The result applies this queue, not a later one. */
+  private dispatchFullList(queue: string | null, limit?: number) {
+    this.fullListInFlight = true
+    this.fullListPending = null
+    this.fullListSentQueue = queue
+    this.threadListQueue = queue
+    this.fullListSentAt = Date.now()
+    this.send('thread.list', {
+      limit,
+      ...(queue ? { queue } : {}),
+    })
+  }
+
+  updateThread(threadId: string, patch: { queue?: string | null }) {
+    this.send('thread.update', { thread_id: threadId, queue: patch.queue ?? null })
   }
 
   subscribe(threadId: string, options?: { accessReason?: string }) {
@@ -524,7 +567,8 @@ export class AgentClient {
     if (refs <= 1) {
       this.subscriptionRefs.delete(threadId)
       this.subscriptionAccessReasons.delete(threadId)
-      this.lastEventIds.delete(threadId)
+      // Keep the cursor. A queue move can drop and resubscribe the open thread;
+      // wiping it makes the next subscribe pull a full snapshot and race the tail.
       this.eventPaginationCursors.delete(threadId)
       this.send('thread.unsubscribe', { thread_id: threadId })
       this.callbacks.removeSubscription(threadId)
@@ -564,7 +608,11 @@ export class AgentClient {
     const cursor = this.lastThreadListCursor
     if (!cursor || this.isLoadingMore) return
     this.isLoadingMore = true
-    this.send('thread.list', { cursor, limit })
+    this.send('thread.list', {
+      cursor,
+      limit,
+      ...(this.threadListQueue ? { queue: this.threadListQueue } : {}),
+    })
   }
 
   loadOlderEvents(threadId: string, limit?: number) {
@@ -714,6 +762,8 @@ export class AgentClient {
     content?: SendContentPart[]
     metadata?: Record<string, unknown>
     chatContext?: ChatContext
+    /** New-thread queue slug. Ignored when ``threadId`` is set. */
+    queue?: string | null
   }): Promise<{ threadId: string }> {
     this.callbacks.setSendError(null)
     const clientEventId = crypto.randomUUID()
@@ -800,6 +850,9 @@ export class AgentClient {
     const chatContext = this.toWireChatContext(params.chatContext)
     if (chatContext) {
       payload.chat_context = chatContext
+    }
+    if (!params.threadId && params.queue) {
+      payload.queue = params.queue
     }
 
     this.sendRaw({
@@ -1000,10 +1053,25 @@ export class AgentClient {
         this.lastThreadListCursor = cursor
         if (this.isLoadingMore) {
           this.callbacks.onThreadListAppend(threads, cursor, totalCount)
-        } else {
-          this.callbacks.onThreadList(threads, cursor, totalCount)
+          this.isLoadingMore = false
+          break
         }
-        this.isLoadingMore = false
+        const sentAt = this.fullListSentAt
+        const sentQueue = this.fullListSentQueue
+        const pending = this.fullListPending
+        this.fullListInFlight = false
+        this.fullListPending = null
+        if (pending && pending.queue !== sentQueue) {
+          this.dispatchFullList(pending.queue, pending.limit)
+          break
+        }
+        this.callbacks.onThreadList(
+          threads,
+          cursor,
+          totalCount,
+          sentQueue,
+          sentAt > 0 ? sentAt : null
+        )
         break
       }
 

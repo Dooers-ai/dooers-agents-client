@@ -110,6 +110,49 @@ describe("createAgentStore", () => {
     expect(store.getState().events.t1).toHaveLength(2);
   });
 
+  it("onEventAppend inserts an older event before the live tail", () => {
+    const store = createAgentStore();
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:02.000Z" },
+    ]);
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("e1", "t1"), createdAt: "2026-01-01T00:00:01.000Z" },
+    ]);
+    expect((store.getState().events.t1 ?? []).map((item) => item.id)).toEqual(["e1", "queue"]);
+  });
+
+  it("onThreadSnapshot places history before events that arrived first", () => {
+    const store = createAgentStore();
+    store.getState().actions.onEventAppend("t1", [
+      { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:03.000Z" },
+    ]);
+    store.getState().actions.onThreadSnapshot(
+      thread("t1"),
+      [
+        { ...event("e1", "t1"), createdAt: "2026-01-01T00:00:01.000Z" },
+        { ...event("e2", "t1"), createdAt: "2026-01-01T00:00:02.000Z" },
+        { ...event("queue", "t1"), createdAt: "2026-01-01T00:00:03.000Z" },
+      ],
+      [],
+    );
+    expect((store.getState().events.t1 ?? []).map((item) => item.id)).toEqual(["e1", "e2", "queue"]);
+  });
+
+  it("onThreadUpsert keeps access when a later frame omits it", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({
+      ...thread("t1"),
+      access: { read: true, write: false, manage: true },
+    });
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), queue: "agent", access: null });
+    expect(store.getState().threads.t1?.access).toEqual({
+      read: true,
+      write: false,
+      manage: true,
+    });
+    expect(store.getState().threads.t1?.queue).toBe("agent");
+  });
+
   it("onEventAppend merge keeps image url when update adds runId only", () => {
     const store = createAgentStore();
     const imgNoRun: ThreadEvent = {
@@ -348,6 +391,88 @@ describe("createAgentStore", () => {
     expect(store.getState().analytics.counters.feedbackLikes).toBe(1);
     expect(store.getState().analytics.counters.feedbackDislikes).toBe(1);
     expect(store.getState().analytics.counters.totalRequests).toBe(0);
+  });
+
+  it("onThreadSnapshot of the open thread does not enter a mismatched queue filter", () => {
+    const store = createAgentStore();
+    const listed = { ...thread("human-1"), queue: "human" };
+    const open = { ...thread("agent-1"), queue: "agent" };
+    store.getState().actions.addSubscription("agent-1");
+    store.getState().actions.onThreadList([listed], null, 1, "human");
+    store.getState().actions.onThreadSnapshot(open, [event("e1", "agent-1")], []);
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+    expect(store.getState().threads["agent-1"]).toBeDefined();
+  });
+
+  it("onThreadUpsert does not insert a thread that misses the active queue filter", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([{ ...thread("human-1"), queue: "human" }], null, 1, "human");
+    store.getState().actions.onThreadUpsert({ ...thread("agent-1"), queue: "agent" });
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+    expect(store.getState().threads["agent-1"]).toBeDefined();
+  });
+
+  it("onThreadUpsert drops a thread from the list when its queue no longer matches", () => {
+    const store = createAgentStore();
+    const t = { ...thread("t1"), queue: "human" };
+    store.getState().actions.onThreadList([t], null, 1, "human");
+    store.getState().actions.onThreadUpsert({ ...t, queue: "agent" });
+    expect(store.getState().threadOrder).toEqual([]);
+    expect(store.getState().threads.t1?.queue).toBe("agent");
+  });
+
+  it("onThreadUpsert of an unqueued thread appears in the none filter", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([], null, 0, "__none__");
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), queue: null });
+    expect(store.getState().threadOrder).toEqual(["t1"]);
+    store.getState().actions.onThreadUpsert({ ...thread("t2"), queue: "agent" });
+    expect(store.getState().threadOrder).toEqual(["t1"]);
+  });
+
+  it("onThreadList keeps a subscribed thread in the map without listing it", () => {
+    const store = createAgentStore();
+    const open = { ...thread("agent-1"), queue: "agent" };
+    store.getState().actions.onThreadUpsert(open);
+    store.getState().actions.addSubscription("agent-1");
+    store.getState().actions.onThreadList([], null, 0, "human");
+    expect(store.getState().threadOrder).toEqual([]);
+    expect(store.getState().threads["agent-1"]).toEqual(open);
+  });
+
+  it("onThreadList keeps a thread upserted after the list was requested", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({ ...thread("live"), queue: null });
+    store.getState().actions.onThreadList([thread("old")], null, 1, null, Date.now() - 1_000);
+    expect(store.getState().threadOrder[0]).toBe("live");
+    expect(store.getState().threadOrder).toContain("old");
+  });
+
+  it("onThreadList drops a live thread that misses the requested queue", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadList([], null, 0, "human");
+    store.getState().actions.onThreadUpsert({ ...thread("agent-1"), queue: "agent" });
+    store.getState().actions.onThreadList(
+      [{ ...thread("human-1"), queue: "human" }],
+      null,
+      1,
+      "human",
+      Date.now() - 1_000,
+    );
+    expect(store.getState().threadOrder).toEqual(["human-1"]);
+  });
+
+  it("onThreadList prefers the live thread over a stale snapshot row", () => {
+    const store = createAgentStore();
+    store.getState().actions.onThreadUpsert({ ...thread("t1"), title: "Live title" });
+    store.getState().actions.onThreadList(
+      [{ ...thread("t1"), title: "Stale title" }],
+      null,
+      1,
+      null,
+      Date.now() - 1_000,
+    );
+    expect(store.getState().threads.t1?.title).toBe("Live title");
   });
 
   it("onThreadList stores cursor and hasMore", () => {

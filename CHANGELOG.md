@@ -11,6 +11,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.2] — 2026-10-13
+
+### Fixed
+
+- A `thread.list` snapshot no longer erases a thread that arrived via
+  `thread.upsert` after that request was sent. The sidebar keeps new threads
+  while the page stays open.
+- Only one full list is in flight. A later queue filter replaces the in-flight
+  snapshot instead of letting the slower response relabel the menu.
+
+## [0.18.1] — 2026-10-13
+
+### Fixed
+
+- Live events and snapshot merges are placed by `createdAt` (then id). A queue
+  move no longer leaves the timeline out of order until refresh.
+- Unsubscribing keeps the last event cursor, so a resubscribe fills the gap
+  instead of replaying the whole snapshot onto the tail.
+- A `thread.upsert` that omits `access` no longer clears flags already received
+  from list or snapshot.
+
+## [0.18.0] — 2026-10-08
+
+### Added
+
+- Workspace **thread queues** (agents-server `>= 0.24.0`): optional `Thread.queue` slug.
+- `requestThreadList(..., queue)` / `useThreadsActions().requestThreadList` — filter by slug.
+- `UNQUEUED_QUEUE_FILTER` (`__none__`) lists threads with no queue.
+- `updateThread(threadId, { queue })` / `useThreadsActions().updateThread` — `thread.update`.
+- `sendMessage({ queue })` / `useMessage().send({ queue })` on new threads (`event.create`).
+- `supportsThreadQueues(serverVersion)` — true for agents-server `>= 0.24.0`.
+
+### Fixed
+
+- Snapshot/upsert of the open thread no longer inserts it into the sidebar list when it does not match the active `thread.list` queue filter.
+
 ## [0.17.0] — 2026-09-11
 
 ### Added

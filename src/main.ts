@@ -9,6 +9,7 @@ export type {
 } from './client'
 export { AgentServerClient } from './client'
 export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
+export { isUnqueuedQueueFilter, UNQUEUED_QUEUE_FILTER } from './helpers/thread-queue'
 export {
   CHAT_CONTEXT_MIN_SERVER_VERSION,
   compareSemver,
@@ -16,8 +17,10 @@ export {
   supportsChatContext,
   supportsThreadAccess,
   supportsThreadArtifactsList,
+  supportsThreadQueues,
   THREAD_ACCESS_MIN_SERVER_VERSION,
   THREAD_ARTIFACTS_MIN_SERVER_VERSION,
+  THREAD_QUEUES_MIN_SERVER_VERSION,
 } from './helpers/server-version'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'

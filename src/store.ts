@@ -1,4 +1,5 @@
 import { createStore } from 'zustand/vanilla'
+import { isUnqueuedQueueFilter } from './helpers/thread-queue'
 import type {
   AnalyticsEvent,
   DisplayContentPart,
@@ -60,6 +61,87 @@ function mergeThreadEventById(prev: ThreadEvent, next: ThreadEvent): ThreadEvent
   }
 }
 
+function eventTime(event: ThreadEvent): number {
+  const time = Date.parse(event.createdAt)
+  return Number.isFinite(time) ? time : 0
+}
+
+/** Index where ``event`` belongs so the list stays ordered by ``createdAt``, then id. */
+function insertionIndex(events: ThreadEvent[], event: ThreadEvent): number {
+  const time = eventTime(event)
+  for (let i = 0; i < events.length; i++) {
+    const current = events[i]
+    if (!current) continue
+    const other = eventTime(current)
+    if (other > time) return i
+    if (other === time && current.id > event.id) return i
+  }
+  return events.length
+}
+
+/**
+ * Merge by id, then place events the buffer did not have yet at their
+ * timestamp. In-place updates stay put. A queue-change marker (or a snapshot
+ * that arrives after live appends) must not sit after older history.
+ */
+function insertEventsChronologically(
+  existing: ThreadEvent[],
+  incoming: ThreadEvent[]
+): ThreadEvent[] {
+  if (incoming.length === 0) return existing
+  const byId = new Map(existing.map((event) => [event.id, event]))
+  let next = existing
+  let mutated = false
+  const fresh: ThreadEvent[] = []
+
+  for (const event of incoming) {
+    const prev = byId.get(event.id)
+    if (prev) {
+      const merged = mergeThreadEventById(prev, event)
+      if (merged !== prev) {
+        if (!mutated) {
+          next = existing.slice()
+          mutated = true
+        }
+        const index = next.findIndex((item) => item.id === event.id)
+        if (index >= 0) next[index] = merged
+        byId.set(event.id, merged)
+      }
+      continue
+    }
+    fresh.push(event)
+    byId.set(event.id, event)
+  }
+
+  if (fresh.length === 0) return mutated ? next : existing
+  const base = mutated ? next : existing.slice()
+  for (const event of fresh) {
+    base.splice(insertionIndex(base, event), 0, event)
+  }
+  return base
+}
+
+function withPreservedAccess(previous: Thread | undefined, next: Thread): Thread {
+  if (next.access == null && previous?.access) {
+    return { ...next, access: previous.access }
+  }
+  return next
+}
+
+function threadMatchesListQueue(thread: Thread, queue: string | null): boolean {
+  if (!queue) return true
+  if (isUnqueuedQueueFilter(queue)) return !thread.queue
+  return thread.queue === queue
+}
+
+/** Keep the thread in the sidebar only when it matches the active list filter. */
+function listOrderAfterUpsert(order: string[], thread: Thread, queue: string | null): string[] {
+  const matches = threadMatchesListQueue(thread, queue)
+  const inOrder = order.includes(thread.id)
+  if (matches) return inOrder ? order : [thread.id, ...order]
+  return inOrder ? order.filter((id) => id !== thread.id) : order
+}
+
 function extractFormStates(
   events: ThreadEvent[],
   existing: Record<string, FormState>
@@ -87,16 +169,18 @@ export interface AgentActions {
   setSendError: (message: string | null) => void
   setReconnectFailed: () => void
   resetReconnect: () => void
-  onThreadList: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
+  onThreadList: (
+    threads: Thread[],
+    cursor?: string | null,
+    totalCount?: number,
+    queue?: string | null,
+    /** Keep live upserts newer than this (ms). Omit to replace the list as-is. */
+    upsertedAfter?: number | null
+  ) => void
   onThreadListAppend: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
   onThreadUpsert: (thread: Thread) => void
   onThreadDeleted: (threadId: string) => void
-  onThreadSnapshot: (
-    thread: Thread,
-    events: ThreadEvent[],
-    runs: Run[],
-    hasMore?: boolean
-  ) => void
+  onThreadSnapshot: (thread: Thread, events: ThreadEvent[], runs: Run[], hasMore?: boolean) => void
   onEventAppend: (threadId: string, events: ThreadEvent[]) => void
   reconcileEvents: (
     threadId: string,
@@ -142,6 +226,10 @@ export interface AgentState {
   threadListCursor: string | null
   threadListHasMore: boolean
   threadListTotalCount: number
+  /** Active ``thread.list`` queue filter (null = all). */
+  threadListQueue: string | null
+  /** When each thread last arrived via ``thread.upsert`` (ms). */
+  threadUpsertedAt: Record<string, number>
   events: Record<string, ThreadEvent[]>
   eventPagination: Record<string, { cursor: string | null; hasMore: boolean }>
   optimistic: Record<string, ThreadEvent[]>
@@ -184,6 +272,8 @@ export function createAgentStore() {
     threadListCursor: null,
     threadListHasMore: false,
     threadListTotalCount: 0,
+    threadListQueue: null,
+    threadUpsertedAt: {},
     events: {},
     eventPagination: {},
     optimistic: {},
@@ -235,13 +325,40 @@ export function createAgentStore() {
           connection: { ...s.connection, reconnectAttempts: 0, reconnectFailed: false },
         })),
 
-      onThreadList: (threads, cursor, totalCount) =>
-        set(() => {
+      onThreadList: (threads, cursor, totalCount, queue, upsertedAfter) =>
+        set((s) => {
+          const activeQueue = queue ?? null
+          const cutoff = upsertedAfter ?? null
           const map: Record<string, Thread> = {}
           const order: string[] = []
-          for (const t of threads) {
-            map[t.id] = t
-            order.push(t.id)
+          const seen = new Set<string>()
+          for (const incoming of threads) {
+            const upsertedAt = s.threadUpsertedAt[incoming.id] ?? 0
+            const live = s.threads[incoming.id]
+            const next = cutoff != null && live && upsertedAt > cutoff ? live : incoming
+            if (!threadMatchesListQueue(next, activeQueue)) continue
+            map[next.id] = next
+            order.push(next.id)
+            seen.add(next.id)
+          }
+          if (cutoff != null) {
+            const fresh = Object.values(s.threads)
+              .filter((thread) => {
+                const upsertedAt = s.threadUpsertedAt[thread.id] ?? 0
+                return (
+                  upsertedAt > cutoff &&
+                  !seen.has(thread.id) &&
+                  threadMatchesListQueue(thread, activeQueue)
+                )
+              })
+              .sort((a, b) => (s.threadUpsertedAt[b.id] ?? 0) - (s.threadUpsertedAt[a.id] ?? 0))
+            for (const thread of fresh) map[thread.id] = thread
+            order.unshift(...fresh.map((thread) => thread.id))
+          }
+          for (const id of s.subscriptions) {
+            if (!map[id] && s.threads[id]) {
+              map[id] = s.threads[id]
+            }
           }
           return {
             threads: map,
@@ -249,6 +366,7 @@ export function createAgentStore() {
             threadListCursor: cursor ?? null,
             threadListHasMore: cursor != null,
             threadListTotalCount: totalCount ?? 0,
+            threadListQueue: activeQueue,
           }
         }),
 
@@ -272,16 +390,20 @@ export function createAgentStore() {
 
       onThreadUpsert: (thread) =>
         set((s) => {
-          const threads = { ...s.threads, [thread.id]: thread }
-          const threadOrder = s.threadOrder.includes(thread.id)
-            ? s.threadOrder
-            : [thread.id, ...s.threadOrder]
-          return { threads, threadOrder }
+          const next = withPreservedAccess(s.threads[thread.id], thread)
+          const threads = { ...s.threads, [thread.id]: next }
+          const threadOrder = listOrderAfterUpsert(s.threadOrder, next, s.threadListQueue)
+          return {
+            threads,
+            threadOrder,
+            threadUpsertedAt: { ...s.threadUpsertedAt, [thread.id]: Date.now() },
+          }
         }),
 
       onThreadDeleted: (threadId) =>
         set((s) => {
           const { [threadId]: _, ...threads } = s.threads
+          const { [threadId]: _upserted, ...threadUpsertedAt } = s.threadUpsertedAt
           const { [threadId]: _e, ...events } = s.events
           const { [threadId]: _r, ...runs } = s.runs
           const { [threadId]: _o, ...optimistic } = s.optimistic
@@ -304,6 +426,7 @@ export function createAgentStore() {
           return {
             threads,
             threadOrder,
+            threadUpsertedAt,
             events,
             runs,
             optimistic,
@@ -318,31 +441,15 @@ export function createAgentStore() {
       onThreadSnapshot: (thread, snapshotEvents, runs, hasMore = false) =>
         set((s) => {
           const threads = { ...s.threads, [thread.id]: thread }
-          const threadOrder = s.threadOrder.includes(thread.id)
-            ? s.threadOrder
-            : [thread.id, ...s.threadOrder]
+          const threadOrder = listOrderAfterUpsert(s.threadOrder, thread, s.threadListQueue)
           const loadingThreads = new Set(s.loadingThreads)
           loadingThreads.delete(thread.id)
 
-          // Events may already exist from event.append arriving before the
-          // snapshot (race between the two data paths). Existing array is
-          // already in chronological order. Append only snapshot events we
-          // don't have yet — never reorder what's already in place.
+          // Live appends can arrive before the snapshot (or a queue move can
+          // resubscribe). Place snapshot rows by createdAt instead of appending
+          // history after the tail the socket already has.
           const existing = s.events[thread.id] ?? []
-          let mergedEvents: ThreadEvent[]
-          if (existing.length === 0) {
-            mergedEvents = snapshotEvents
-          } else {
-            const existingIds = new Set(existing.map((e) => e.id))
-            const snapById = new Map(snapshotEvents.map((e) => [e.id, e]))
-            const mergedExisting = existing.map((e) => {
-              const snap = snapById.get(e.id)
-              return snap ? mergeThreadEventById(e, snap) : e
-            })
-            const newFromSnapshot = snapshotEvents.filter((e) => !existingIds.has(e.id))
-            mergedEvents =
-              newFromSnapshot.length > 0 ? [...mergedExisting, ...newFromSnapshot] : mergedExisting
-          }
+          const mergedEvents = insertEventsChronologically(existing, snapshotEvents)
 
           // Snapshot is authoritative — clear optimistic state for this thread.
           const optimistic = { ...s.optimistic }
@@ -372,39 +479,16 @@ export function createAgentStore() {
       onEventAppend: (threadId, newEvents) =>
         set((s) => {
           const existing = s.events[threadId] ?? []
-          const existingIds = new Set(existing.map((e) => e.id))
-          // Separate new events from updates to existing events
-          const updates = new Map<string, ThreadEvent>()
-          const appends: ThreadEvent[] = []
-          for (const e of newEvents) {
-            if (existingIds.has(e.id)) {
-              const prev = existing.find((x) => x.id === e.id)!
-              updates.set(e.id, mergeThreadEventById(prev, e))
-            } else {
-              appends.push(e)
-            }
-          }
-          // Apply in-place updates then append new events
-          const merged = updates.size > 0 ? existing.map((e) => updates.get(e.id) ?? e) : existing
           return {
-            events: { ...s.events, [threadId]: [...merged, ...appends] },
-            formStates: extractFormStates(appends, s.formStates),
+            events: { ...s.events, [threadId]: insertEventsChronologically(existing, newEvents) },
+            formStates: extractFormStates(newEvents, s.formStates),
           }
         }),
 
       reconcileEvents: (threadId, newEvents, resolvedClientEventIds) =>
         set((s) => {
-          // Append confirmed events
           const existing = s.events[threadId] ?? []
-          const existingIds = new Set(existing.map((e) => e.id))
-          const mergedExisting =
-            newEvents.length > 0
-              ? existing.map((e) => {
-                  const up = newEvents.find((n) => n.id === e.id)
-                  return up ? mergeThreadEventById(e, up) : e
-                })
-              : existing
-          const unique = newEvents.filter((e) => !existingIds.has(e.id))
+          const merged = insertEventsChronologically(existing, newEvents)
 
           // Remove reconciled optimistic events
           let optEvents = s.optimistic[threadId] ?? []
@@ -420,7 +504,7 @@ export function createAgentStore() {
           }
 
           return {
-            events: { ...s.events, [threadId]: [...mergedExisting, ...unique] },
+            events: { ...s.events, [threadId]: merged },
             optimistic: { ...s.optimistic, [threadId]: optEvents },
             optimisticKeys: { ...s.optimisticKeys, [threadId]: optKeys },
           }
@@ -429,10 +513,11 @@ export function createAgentStore() {
       onEventListResult: (threadId, olderEvents, cursor, hasMore) =>
         set((s) => {
           const existing = s.events[threadId] ?? []
-          const existingIds = new Set(existing.map((e) => e.id))
-          const unique = olderEvents.filter((e) => !existingIds.has(e.id))
           return {
-            events: { ...s.events, [threadId]: [...unique, ...existing] },
+            events: {
+              ...s.events,
+              [threadId]: insertEventsChronologically(existing, olderEvents),
+            },
             eventPagination: {
               ...s.eventPagination,
               [threadId]: { cursor, hasMore },
