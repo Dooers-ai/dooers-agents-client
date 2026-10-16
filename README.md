@@ -82,7 +82,7 @@ function Chat({ threadId }: { threadId: string }) {
 </AgentProvider>
 ```
 
-All props except `children`, `onError` and `getAuthToken` are primitive strings, so React can diff them cheaply. `getAuthToken` may return a cached token, but not one about to expire: reconnects and the planned renewal send whatever it returns.
+All props except `children`, `onError` and `getAuthToken` are primitive strings, so React can diff them cheaply. `getAuthToken` may return a cached token, but not one about to expire: reconnects and the planned renewal send whatever it returns. A call that has not settled within 15s counts as a failed attempt.
 
 ## Hooks
 
@@ -96,9 +96,9 @@ const { status, error, reconnectFailed, reconnect } = useConnection()
 // status: "idle" | "connecting" | "connected" | "disconnected" | "error"
 ```
 
-Auto-reconnects up to 5 times in a row with exponential backoff (1s, 2s, 4s, 8s, 16s, each ±20%). A successful connect resets the count. When all attempts fail, `reconnectFailed` becomes `true` and you can offer a manual retry button calling `reconnect()`. A tab becoming visible again or the browser coming back `online` reconnects at once.
+Auto-reconnects up to 5 times in a row with exponential backoff (1s, 2s, 4s, 8s, 16s, each ±20%). A connection that stays up for 30s resets the count; one dropped sooner counts as a failed attempt. When all attempts fail, `reconnectFailed` becomes `true` and you can offer a manual retry button calling `reconnect()`. A tab becoming visible again or the browser coming back `online` reconnects at once.
 
-The client pings every 30s and treats a socket silent for 90s as dropped. It also renews the connection before the hosting cuts it: after 30 minutes with nothing pending and no run in progress (55 minutes at the latest), it opens a second socket and switches over once that one is accepted. `status` stays `connected` during the renewal and pending requests are kept.
+The client pings every 30s and treats a socket silent for 90s as dropped (5 minutes while a run is in progress or a request is pending, since the agent server does not answer pings while it runs a turn). It also renews the connection before the hosting cuts it: after 30 minutes with nothing pending and no run in progress (55 minutes at the latest), it opens a second socket and switches over once that one is accepted. When the renewal succeeds, `status` stays `connected` and pending requests are not aborted; a reply still in transit on the old socket at the swap can time out. A renewal that keeps failing falls back to a normal reconnect when the hosting cuts the socket.
 
 ### useThreadDetails
 
@@ -260,7 +260,7 @@ The client handles:
 - **Refcounted subscriptions** — multiple `useThreadDetails(id)` calls share one WebSocket subscription
 - **Gap recovery** — on reconnect, sends `afterEventId` to resume from where the client left off
 - **Exponential backoff** — reconnects at 1s, 2s, 4s, 8s, 16s intervals (±20%) before giving up
-- **Planned renewal** — swaps to a fresh socket every 30–55 minutes, make-before-break, without a status change
+- **Planned renewal** — swaps to a fresh socket every 30–55 minutes, make-before-break, without a status change when it succeeds
 
 ## See Also
 

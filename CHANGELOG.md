@@ -11,28 +11,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `getAuthToken` on `AgentProvider` (and `AgentConnectionConfig`). It is called
   before every socket and every `upload()`, so a reconnect never reuses an
-  expired handshake token. `authToken` still works when it is not set.
+  expired handshake token. A call that has not settled within 15 s fails like
+  a throw. `authToken` still works when it is not set.
 - Planned renewal of the connection. After 30 minutes with nothing pending and
   no run in progress (55 minutes at the latest, even while busy), the client
   opens a second socket with a fresh token and switches over only once its
-  `connect` is acked. The old socket closes with code 1000. The status stays
-  `connected` and pending requests are kept, so the hosting cut at 60 minutes
-  never shows as a drop, and a redeployed agent is picked up within the hour.
-  Thread list, thread and settings subscriptions and the analytics subscription
-  are restored on the new socket.
+  `connect` is acked. The old socket closes with code 1000. When the renewal
+  succeeds the app sees no drop: the status stays `connected` and pending
+  requests are not aborted, though a reply sent only to the old socket and
+  still in transit at the swap can time out. A renewal that keeps failing
+  falls back to a normal reconnect when the hosting cuts the socket at
+  60 minutes. A redeployed agent is picked up within the hour. Thread list,
+  thread and settings subscriptions and the analytics subscription are
+  restored on the new socket.
 - Resume on focus or network return. When the tab becomes visible again or the
   browser goes back `online`, a live socket is pinged and a lost one reconnects
   at once, without waiting for the backoff.
 - Dead socket detection. A `ping` goes out every 30 s; a socket with no frame
-  for 90 s is treated as dropped and reconnected.
+  for 90 s is treated as dropped and reconnected. While a run is in progress or
+  a request is pending the limit is 5 minutes, since the agent server does not
+  answer pings while it runs a turn.
 
 ### Fixed
 
-- The reconnect failure counter resets on every successful connect. Long
-  sessions with many hosting cuts no longer end in `reconnectFailed`. Backoff
-  waits (1, 2, 4, 8, 16 s) now carry ±20% jitter.
+- The reconnect failure counter resets once a connection has stayed up for
+  30 s. Long sessions with many hosting cuts no longer end in
+  `reconnectFailed`, while a server that accepts the handshake and drops the
+  socket at once still ends there after 5 tries. Backoff waits (1, 2, 4, 8,
+  16 s) now carry ±20% jitter.
+- `connect()` starts with a fresh retry budget, so switching to another
+  runtime after giving up gets 5 attempts again.
 - A rejected `connect` calls `onError` and tries again with a fresh token
-  instead of stopping at status `error`.
+  instead of stopping at status `error`, even when `onError` throws.
 - A page request (`loadMore`) lost with a dropped socket no longer blocks the
   next one after reconnecting.
 
