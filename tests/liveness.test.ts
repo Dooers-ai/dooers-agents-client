@@ -18,6 +18,24 @@ function last(): MockWebSocket {
   return MockWebSocket.instances[MockWebSocket.instances.length - 1] as MockWebSocket;
 }
 
+function runningRun() {
+  return {
+    id: "s-run",
+    type: "run.upsert",
+    payload: {
+      run: {
+        id: "r-1",
+        thread_id: "t-1",
+        agent_id: "agent-1",
+        status: "running",
+        started_at: "2026-10-16T00:00:00Z",
+        ended_at: null,
+        error: null,
+      },
+    },
+  };
+}
+
 async function openAndAck(autoPong = false) {
   await vi.advanceTimersByTimeAsync(1);
   const ws = last();
@@ -48,6 +66,32 @@ describe("AgentClient liveness and resume", () => {
     const first = await openAndAck();
 
     await vi.advanceTimersByTimeAsync(121_000);
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    expect(first.closedWith).not.toBeNull();
+    expect(MockWebSocket.instances.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps a socket silent for 150s while a run is in progress", async () => {
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    const first = await openAndAck();
+    first.receive(runningRun());
+
+    await vi.advanceTimersByTimeAsync(150_000);
+
+    expect(first.closedWith).toBeNull();
+    expect(MockWebSocket.instances).toHaveLength(1);
+  });
+
+  it("drops a busy socket after 5 minutes without frames", async () => {
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    const first = await openAndAck();
+    first.receive(runningRun());
+
+    await vi.advanceTimersByTimeAsync(5 * 60_000);
+    expect(first.closedWith).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(31_000);
     await vi.advanceTimersByTimeAsync(2_000);
 
     expect(first.closedWith).not.toBeNull();

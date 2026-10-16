@@ -270,6 +270,27 @@ describe("AgentClient planned renewal", () => {
     expect(pages).toHaveLength(1);
   });
 
+  it("a renewed socket lost at once does not inherit failures from before the renewal", async () => {
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(1);
+      socket(MockWebSocket.instances.length - 1).drop();
+      await vi.advanceTimersByTimeAsync(20_000);
+    }
+    const primary = socket(MockWebSocket.instances.length - 1);
+    primary.autoPong = true;
+    ackConnect(primary, true);
+
+    await vi.advanceTimersByTimeAsync(30 * 60_000 + 1_000);
+    const renewed = socket(MockWebSocket.instances.length - 1);
+    expect(renewed).not.toBe(primary);
+    ackConnect(renewed, true);
+    renewed.drop();
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(callbacks.setReconnectFailed).not.toHaveBeenCalled();
+  });
+
   it("renewal restores the analytics subscription", async () => {
     await connectPrimary();
     client.subscribeAnalytics();

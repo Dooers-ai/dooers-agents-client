@@ -43,15 +43,33 @@ describe("AgentClient reconnect", () => {
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
 
-    // Cloud Run cuts every socket at 300s. Each cut is followed by a good reconnect.
+    // The hosting cuts every socket. Each cut is followed by a good reconnect that stays up.
     for (let cut = 0; cut < 8; cut++) {
       const ws = await openAndAck(true);
+      await vi.advanceTimersByTimeAsync(30_000);
       ws.drop();
       await vi.advanceTimersByTimeAsync(1_500);
     }
 
     expect(callbacks.setReconnectFailed).not.toHaveBeenCalled();
     expect(MockWebSocket.instances).toHaveLength(9);
+  });
+
+  it("gives up when the server acks and drops five times", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const ws = await openAndAck(true);
+      ws.drop();
+      await vi.advanceTimersByTimeAsync(20_000);
+    }
+    const count = MockWebSocket.instances.length;
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+    expect(callbacks.setConnectionStatus).toHaveBeenLastCalledWith("error", "connection dropped");
+    expect(MockWebSocket.instances).toHaveLength(count);
   });
 
   it("reports a rejected connect through onError", async () => {
@@ -86,7 +104,7 @@ describe("AgentClient reconnect", () => {
 
     const ws = await openAndAck(true);
     ws.drop();
-    await vi.advanceTimersByTimeAsync(1_500);
+    await vi.advanceTimersByTimeAsync(3_000);
 
     const tokens = MockWebSocket.instances.map((w) => w.connectFrame()?.payload.auth_token);
     expect(tokens).toEqual(["t1", "t2"]);

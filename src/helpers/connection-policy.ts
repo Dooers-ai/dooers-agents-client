@@ -2,6 +2,10 @@ export const MAX_CONSECUTIVE_FAILURES = 5
 export const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000] as const
 export const PING_INTERVAL_MS = 30_000
 export const LIVENESS_TIMEOUT_MS = 90_000
+/** Silence allowed while a run or request is in progress: the server may not answer pings then. */
+export const LIVENESS_BUSY_TIMEOUT_MS = 300_000
+/** A connected socket that stays up this long resets the failure count; one lost sooner counts. */
+export const STABLE_CONNECTION_MS = 30_000
 export const ROTATE_AFTER_MS = 30 * 60_000
 export const ROTATE_DEADLINE_MS = 55 * 60_000
 

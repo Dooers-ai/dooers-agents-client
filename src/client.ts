@@ -1,10 +1,12 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import {
+  LIVENESS_BUSY_TIMEOUT_MS,
   LIVENESS_TIMEOUT_MS,
   MAX_CONSECUTIVE_FAILURES,
   PING_INTERVAL_MS,
   reconnectDelayMs,
   rotationDue,
+  STABLE_CONNECTION_MS,
 } from './helpers/connection-policy'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
@@ -1317,20 +1319,32 @@ export class AgentClient {
     })
   }
 
-  /** A connected socket was lost: not a failed attempt, so retry soon without counting it. */
+  /**
+   * A connected socket was lost. One that stayed up is not a failed attempt: reset the count and
+   * retry soon. One lost right after its ack counts, so accept-then-drop ends in a give-up.
+   */
   private handleConnectedDrop() {
+    const stable = Date.now() - this.connectedAt >= STABLE_CONNECTION_MS
     this.discardCandidate()
     this.connected = false
     this.abortPendingMessages('Connection lost; reconnecting')
     this.abortPendingArtifacts('Connection lost; reconnecting')
     this.abortPendingPublicSchema('Connection lost; reconnecting')
+    if (!stable) {
+      this.onAttemptFailed('connection dropped')
+      return
+    }
+    this.consecutiveFailures = 0
     this.callbacks.setConnectionStatus('disconnected')
     this.scheduleReconnect(reconnectDelayMs(0))
   }
 
   /** Treat a connected socket that went silent as dropped. Returns true when it was dead. */
   private dropIfDead(): boolean {
-    if (!this.connected || Date.now() - this.lastFrameAt <= LIVENESS_TIMEOUT_MS) return false
+    if (!this.connected) return false
+    // The server runs a turn inline and does not answer pings meanwhile; allow a long silence then.
+    const timeout = this.isIdle() ? LIVENESS_TIMEOUT_MS : LIVENESS_BUSY_TIMEOUT_MS
+    if (Date.now() - this.lastFrameAt <= timeout) return false
     if (this.ws) detachAndClose(this.ws)
     this.attemptInFlight = false
     this.handleConnectedDrop()
@@ -1411,6 +1425,8 @@ export class AgentClient {
     serverVersion: string | null
   ) {
     this.candidate = null
+    // The replaced socket was up for ROTATE_AFTER_MS, well past STABLE_CONNECTION_MS.
+    this.consecutiveFailures = 0
     // Pending requests keep their own timeouts: aborting them would report a drop that never was.
     if (this.ws) detachAndClose(this.ws, 1000)
     this.ws = candidate.ws
@@ -1480,7 +1496,7 @@ export class AgentClient {
     this.connected = true
     this.connectedAt = this.lastFrameAt = Date.now()
     this.attemptInFlight = false
-    this.consecutiveFailures = 0
+    // consecutiveFailures is reset only once this socket proves stable (handleConnectedDrop).
     const sv = serverVersion?.trim()
     this.callbacks.setServerVersion(sv || null)
     this.callbacks.setConnectionStatus('connected')
