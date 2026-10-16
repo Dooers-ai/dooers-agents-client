@@ -1,4 +1,6 @@
 export const MAX_CONSECUTIVE_FAILURES = 5
+/** A `getAuthToken` call that has not settled by then counts as failed. */
+export const AUTH_TOKEN_TIMEOUT_MS = 15_000
 export const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000] as const
 export const PING_INTERVAL_MS = 30_000
 export const LIVENESS_TIMEOUT_MS = 90_000

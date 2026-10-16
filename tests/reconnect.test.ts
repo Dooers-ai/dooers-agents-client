@@ -184,6 +184,65 @@ describe("AgentClient reconnect", () => {
     expect(MockWebSocket.instances).toHaveLength(count);
   });
 
+  it("connect to another url after giving up gets five new attempts", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://old.test/ws", "agent-1", { userId: "u1", authToken: "t" });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await vi.advanceTimersByTimeAsync(1);
+      last().drop();
+      await vi.advanceTimersByTimeAsync(20_000);
+    }
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+    vi.mocked(callbacks.resetReconnect).mockClear();
+
+    client.connect("wss://new.test/ws", "agent-1", { userId: "u1", authToken: "t" });
+    expect(callbacks.resetReconnect).toHaveBeenCalled();
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await vi.advanceTimersByTimeAsync(1);
+      last().drop();
+      await vi.advanceTimersByTimeAsync(20_000);
+    }
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    last().drop();
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(2);
+  });
+
+  it("a getAuthToken that never settles counts as a failed attempt after 15s", async () => {
+    const client = new AgentClient(callbacks);
+    const getAuthToken = vi.fn(() => new Promise<string>(() => {}));
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
+
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(callbacks.setConnectionStatus).toHaveBeenLastCalledWith("connecting");
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(callbacks.setConnectionStatus).toHaveBeenLastCalledWith("disconnected");
+
+    await vi.advanceTimersByTimeAsync(2_500);
+    expect(getAuthToken).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+    expect(callbacks.setConnectionStatus).toHaveBeenLastCalledWith("error", "auth token unavailable");
+  });
+
+  it("a throwing onError still closes and counts the rejected attempt", async () => {
+    const client = new AgentClient(callbacks);
+    client.setOnError(() => {
+      throw new Error("consumer bug");
+    });
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "expired" });
+
+    const ws = await openAndAck(false, { code: "CONNECTION_REJECTED", message: "invalid_token" });
+    expect(ws.closedWith).not.toBeNull();
+    await vi.advanceTimersByTimeAsync(2_500);
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
   it("retry while a reconnect is pending opens one socket", async () => {
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });

@@ -1,5 +1,6 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import {
+  AUTH_TOKEN_TIMEOUT_MS,
   LIVENESS_BUSY_TIMEOUT_MS,
   LIVENESS_TIMEOUT_MS,
   MAX_CONSECUTIVE_FAILURES,
@@ -448,6 +449,8 @@ export class AgentClient {
     this.uploadAgentId = agentId.trim()
     this.config = config ?? { organizationId: '', workspaceId: '', userId: '' }
     this.isIntentionallyClosed = false
+    // A new target (e.g. another runtime after a give-up) starts with a full retry budget.
+    this.consecutiveFailures = 0
     this.fullListInFlight = false
     this.fullListPending = null
 
@@ -469,6 +472,7 @@ export class AgentClient {
       }
     }
 
+    this.callbacks.resetReconnect()
     this.callbacks.setConnectionStatus('connecting')
     this.addResumeListeners()
     void this.openConnection()
@@ -959,9 +963,18 @@ export class AgentClient {
     })
   }
 
+  /** Rejects when `getAuthToken` throws or has not settled within AUTH_TOKEN_TIMEOUT_MS. */
   private async resolveAuthToken(): Promise<string | undefined> {
-    if (this.config.getAuthToken) return await this.config.getAuthToken()
-    return this.config.authToken
+    if (!this.config.getAuthToken) return this.config.authToken
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('auth token timeout')), AUTH_TOKEN_TIMEOUT_MS)
+    })
+    try {
+      return await Promise.race([this.config.getAuthToken(), timeout])
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   private async openConnection(): Promise<void> {
@@ -1073,11 +1086,15 @@ export class AgentClient {
           } else {
             const err = frame.payload.error
             const message = err?.message ?? 'connection rejected'
-            this.onError?.({
-              code: err?.code ?? 'CONNECTION_REJECTED',
-              message,
-              frameType: 'connect',
-            })
+            try {
+              this.onError?.({
+                code: err?.code ?? 'CONNECTION_REJECTED',
+                message,
+                frameType: 'connect',
+              })
+            } catch {
+              // A throwing app callback must not keep this attempt open and uncounted.
+            }
             // Detach first: older servers keep the socket open, newer ones close it (1008).
             // Either way this attempt counts once.
             if (this.ws) detachAndClose(this.ws)
@@ -1383,7 +1400,7 @@ export class AgentClient {
     try {
       token = await this.resolveAuthToken()
     } catch {
-      return // the next heartbeat tries again
+      return // failed or timed out: the next heartbeat tries again
     }
     // The primary dropped, was replaced or renewed, or another rotation won while the token loaded.
     if (this.ws !== primary || !this.connected || this.candidate) return
