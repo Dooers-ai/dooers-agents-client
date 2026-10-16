@@ -110,4 +110,16 @@ describe("AgentClient reconnect", () => {
 
     expect(MockWebSocket.instances).toHaveLength(2);
   });
+  it("retry after disconnect mid-attempt opens a socket", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    await vi.advanceTimersByTimeAsync(1);
+    client.disconnect();
+
+    client.retry();
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+    expect(last().connectFrame().type).toBe("connect");
+  });
 });

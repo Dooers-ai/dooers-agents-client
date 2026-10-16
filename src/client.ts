@@ -481,6 +481,8 @@ export class AgentClient {
 
   disconnect() {
     this.isIntentionallyClosed = true
+    this.attemptInFlight = false
+    this.connected = false
     this.stopHeartbeat()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
