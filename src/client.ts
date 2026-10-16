@@ -1,4 +1,9 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
+import {
+  MAX_CONSECUTIVE_FAILURES,
+  PING_INTERVAL_MS,
+  reconnectDelayMs,
+} from './helpers/connection-policy'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
@@ -22,11 +27,8 @@ import {
 } from './types'
 import { PACKAGE_VERSION } from './version'
 
-const MAX_RECONNECT_ATTEMPTS = 5
-const RECONNECT_DELAYS = [1000, 2000, 4000, 8000, 16000]
 const SEND_MESSAGE_TIMEOUT = 30_000
 const ARTIFACTS_LIST_TIMEOUT = 5_000
-const PING_INTERVAL_MS = 30_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
 function blobPartFilename(blob: Blob, override?: string): string {
@@ -238,7 +240,9 @@ export class AgentClient {
 
   private connectFrameId = ''
   private isIntentionallyClosed = false
-  private reconnectAttempts = 0
+  private consecutiveFailures = 0
+  private connected = false
+  private attemptInFlight = false
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   // Refcounted subscriptions
@@ -499,9 +503,16 @@ export class AgentClient {
   }
 
   retry() {
-    this.reconnectAttempts = 0
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    this.consecutiveFailures = 0
     this.isIntentionallyClosed = false
+    this.callbacks.resetReconnect()
     this.callbacks.setConnectionStatus('connecting')
+    // An attempt already in flight is the retry; opening another would race it.
+    if (this.attemptInFlight) return
     this.createConnection()
   }
 
@@ -918,6 +929,8 @@ export class AgentClient {
 
   private createConnection() {
     this.stopHeartbeat()
+    this.connected = false
+    this.attemptInFlight = true
     if (this.ws) {
       this.abortPendingMessages('Connection lost; reconnecting')
       this.abortPendingArtifacts('Connection lost; reconnecting')
@@ -945,8 +958,18 @@ export class AgentClient {
     }
 
     this.ws.onclose = () => {
-      if (!this.isIntentionallyClosed) {
-        this.scheduleReconnect()
+      if (this.isIntentionallyClosed) return
+      this.stopHeartbeat()
+      this.attemptInFlight = false
+      if (this.connected) {
+        this.connected = false
+        this.abortPendingMessages('Connection lost; reconnecting')
+        this.abortPendingArtifacts('Connection lost; reconnecting')
+        this.abortPendingPublicSchema('Connection lost; reconnecting')
+        this.callbacks.setConnectionStatus('disconnected')
+        this.scheduleReconnect(reconnectDelayMs(0))
+      } else {
+        this.onAttemptFailed('connection closed')
       }
     }
 
@@ -986,23 +1009,7 @@ export class AgentClient {
       case 'ack': {
         if (frame.payload.ack_id === this.connectFrameId) {
           if (frame.payload.ok) {
-            const sv = frame.payload.server?.version?.trim()
-            this.callbacks.setServerVersion(sv || null)
-            this.callbacks.setConnectionStatus('connected')
-            this.callbacks.resetReconnect()
-            this.requestThreadList()
-            // Re-subscribe to previously tracked threads
-            for (const threadId of this.subscriptionRefs.keys()) {
-              const afterEventId = this.lastEventIds.get(threadId) ?? null
-              const accessReason = this.subscriptionAccessReasons.get(threadId)
-              this.send('thread.subscribe', {
-                thread_id: threadId,
-                after_event_id: afterEventId,
-                ...(accessReason ? { access_reason: accessReason } : {}),
-              })
-            }
-            this.resubscribeSettings()
-            this.startHeartbeat()
+            this.handleConnected(frame.payload.server?.version ?? null)
           } else {
             this.callbacks.setConnectionStatus('error', frame.payload.error?.message)
           }
@@ -1251,23 +1258,56 @@ export class AgentClient {
     }
   }
 
-  private scheduleReconnect() {
-    this.stopHeartbeat()
-    if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      this.abortPendingMessages('Connection lost after maximum retries')
-      this.abortPendingArtifacts('Connection lost after maximum retries')
-      this.abortPendingPublicSchema('Connection lost after maximum retries')
-      this.callbacks.setReconnectFailed()
-      this.callbacks.setConnectionStatus('error', 'Connection lost after maximum retries')
+  private handleConnected(serverVersion: string | null) {
+    this.connected = true
+    this.attemptInFlight = false
+    this.consecutiveFailures = 0
+    const sv = serverVersion?.trim()
+    this.callbacks.setServerVersion(sv || null)
+    this.callbacks.setConnectionStatus('connected')
+    this.callbacks.resetReconnect()
+    this.requestThreadList()
+    // Re-subscribe to previously tracked threads
+    for (const threadId of this.subscriptionRefs.keys()) {
+      const afterEventId = this.lastEventIds.get(threadId) ?? null
+      const accessReason = this.subscriptionAccessReasons.get(threadId)
+      this.send('thread.subscribe', {
+        thread_id: threadId,
+        after_event_id: afterEventId,
+        ...(accessReason ? { access_reason: accessReason } : {}),
+      })
+    }
+    this.resubscribeSettings()
+    this.startHeartbeat()
+  }
+
+  private onAttemptFailed(reason: string) {
+    this.consecutiveFailures++
+    if (this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      this.giveUp(reason)
       return
     }
     this.callbacks.setConnectionStatus('disconnected')
-    const delay = RECONNECT_DELAYS[this.reconnectAttempts] ?? 16000
-    this.reconnectAttempts++
+    this.scheduleReconnect(reconnectDelayMs(this.consecutiveFailures))
+  }
+
+  private giveUp(reason: string) {
+    this.stopHeartbeat()
+    this.abortPendingMessages(reason)
+    this.abortPendingArtifacts(reason)
+    this.abortPendingPublicSchema(reason)
+    this.callbacks.setReconnectFailed()
+    this.callbacks.setConnectionStatus('error', reason)
+  }
+
+  private scheduleReconnect(delayMs: number) {
+    this.stopHeartbeat()
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null
       this.callbacks.setConnectionStatus('connecting')
       this.createConnection()
-    }, delay)
+    }, delayMs)
   }
 
   private send(type: string, payload: unknown) {
