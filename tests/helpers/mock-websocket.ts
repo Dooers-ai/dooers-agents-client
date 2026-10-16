@@ -9,6 +9,8 @@ export class MockWebSocket {
   onerror: (() => void) | null = null;
   sent: string[] = [];
   closedWith: number | null = null;
+  /** Answer every `ping` sent with a `pong` frame. */
+  autoPong = false;
 
   constructor(_url: string) {
     MockWebSocket.instances.push(this);
@@ -17,6 +19,7 @@ export class MockWebSocket {
 
   send(data: string) {
     this.sent.push(data);
+    if (this.autoPong && JSON.parse(data).type === "ping") this.receive({ type: "pong" });
   }
 
   close(code?: number) {

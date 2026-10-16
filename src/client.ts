@@ -1,5 +1,6 @@
 import { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 import {
+  LIVENESS_TIMEOUT_MS,
   MAX_CONSECUTIVE_FAILURES,
   PING_INTERVAL_MS,
   reconnectDelayMs,
@@ -242,6 +243,8 @@ export class AgentClient {
 
   private connectFrameId = ''
   private isIntentionallyClosed = false
+  private lastFrameAt = 0
+  private resumeListenersAttached = false
   private consecutiveFailures = 0
   private connected = false
   private attemptInFlight = false
@@ -446,6 +449,7 @@ export class AgentClient {
     }
 
     this.callbacks.setConnectionStatus('connecting')
+    this.addResumeListeners()
     void this.openConnection()
   }
 
@@ -489,6 +493,7 @@ export class AgentClient {
     this.attemptInFlight = false
     this.connected = false
     this.stopHeartbeat()
+    this.removeResumeListeners()
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer)
       this.reconnectTimer = null
@@ -983,6 +988,7 @@ export class AgentClient {
 
     ws.onmessage = (e: MessageEvent) => {
       if (this.ws !== ws) return
+      this.lastFrameAt = Date.now()
       try {
         const frame = JSON.parse(e.data as string) as ServerToClient
         this.route(frame)
@@ -996,12 +1002,7 @@ export class AgentClient {
       this.stopHeartbeat()
       this.attemptInFlight = false
       if (this.connected) {
-        this.connected = false
-        this.abortPendingMessages('Connection lost; reconnecting')
-        this.abortPendingArtifacts('Connection lost; reconnecting')
-        this.abortPendingPublicSchema('Connection lost; reconnecting')
-        this.callbacks.setConnectionStatus('disconnected')
-        this.scheduleReconnect(reconnectDelayMs(0))
+        this.handleConnectedDrop()
       } else {
         this.onAttemptFailed('connection closed')
       }
@@ -1296,11 +1297,74 @@ export class AgentClient {
     })
   }
 
+  /** A connected socket was lost: not a failed attempt, so retry soon without counting it. */
+  private handleConnectedDrop() {
+    this.connected = false
+    this.abortPendingMessages('Connection lost; reconnecting')
+    this.abortPendingArtifacts('Connection lost; reconnecting')
+    this.abortPendingPublicSchema('Connection lost; reconnecting')
+    this.callbacks.setConnectionStatus('disconnected')
+    this.scheduleReconnect(reconnectDelayMs(0))
+  }
+
+  /** Treat a connected socket that went silent as dropped. Returns true when it was dead. */
+  private dropIfDead(): boolean {
+    if (!this.connected || Date.now() - this.lastFrameAt <= LIVENESS_TIMEOUT_MS) return false
+    const ws = this.ws
+    if (ws) {
+      ws.onopen = null
+      ws.onmessage = null
+      ws.onclose = null
+      ws.onerror = null
+      ws.close()
+    }
+    this.attemptInFlight = false
+    this.handleConnectedDrop()
+    return true
+  }
+
+  private heartbeatTick() {
+    if (this.dropIfDead()) return
+    this.send('ping', {})
+  }
+
+  private handleResume() {
+    if (this.isIntentionallyClosed) return
+    if (!this.connected) {
+      this.retry()
+      return
+    }
+    if (this.dropIfDead()) return
+    this.send('ping', {})
+  }
+
+  private readonly onOnline = () => this.handleResume()
+  private readonly onVisibilityChange = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+    this.handleResume()
+  }
+
+  private addResumeListeners() {
+    if (this.resumeListenersAttached || typeof window === 'undefined') return
+    this.resumeListenersAttached = true
+    window.addEventListener('online', this.onOnline)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibilityChange)
+    }
+  }
+
+  private removeResumeListeners() {
+    if (!this.resumeListenersAttached) return
+    this.resumeListenersAttached = false
+    if (typeof window !== 'undefined') window.removeEventListener('online', this.onOnline)
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.onVisibilityChange)
+    }
+  }
+
   private startHeartbeat() {
     this.stopHeartbeat()
-    this.pingTimer = setInterval(() => {
-      this.send('ping', {})
-    }, PING_INTERVAL_MS)
+    this.pingTimer = setInterval(() => this.heartbeatTick(), PING_INTERVAL_MS)
   }
 
   private stopHeartbeat() {
@@ -1312,6 +1376,7 @@ export class AgentClient {
 
   private handleConnected(serverVersion: string | null) {
     this.connected = true
+    this.lastFrameAt = Date.now()
     this.attemptInFlight = false
     this.consecutiveFailures = 0
     const sv = serverVersion?.trim()
