@@ -75,13 +75,14 @@ function Chat({ threadId }: { threadId: string }) {
   organizationRole="member"      // "owner" | "manager" | "member" (default: "member")
   workspaceRole="member"         // "manager" | "member" (default: "member")
   authToken="sk-..."             // Optional authentication
+  getAuthToken={fetchToken}      // Optional: called before every socket and upload (wins over authToken)
   onError={(err) => console.error(err.code, err.message)}
 >
   {children}
 </AgentProvider>
 ```
 
-All props except `children` and `onError` are primitive strings, so React can diff them cheaply.
+All props except `children`, `onError` and `getAuthToken` are primitive strings, so React can diff them cheaply. `getAuthToken` may return a cached token, but not one about to expire: reconnects and the planned renewal send whatever it returns.
 
 ## Hooks
 
@@ -95,7 +96,9 @@ const { status, error, reconnectFailed, reconnect } = useConnection()
 // status: "idle" | "connecting" | "connected" | "disconnected" | "error"
 ```
 
-Auto-reconnects up to 5 times with exponential backoff (1s, 2s, 4s, 8s, 16s). When all attempts fail, `reconnectFailed` becomes `true` and you can offer a manual retry button calling `reconnect()`.
+Auto-reconnects up to 5 times in a row with exponential backoff (1s, 2s, 4s, 8s, 16s, each ±20%). A successful connect resets the count. When all attempts fail, `reconnectFailed` becomes `true` and you can offer a manual retry button calling `reconnect()`. A tab becoming visible again or the browser coming back `online` reconnects at once.
+
+The client pings every 30s and treats a socket silent for 90s as dropped. It also renews the connection before the hosting cuts it: after 30 minutes with nothing pending and no run in progress (55 minutes at the latest), it opens a second socket and switches over once that one is accepted. `status` stays `connected` during the renewal and pending requests are kept.
 
 ### useThreadDetails
 
@@ -256,7 +259,8 @@ The client handles:
 - **Optimistic messages** — shown immediately on send, reconciled when the server confirms via `clientEventId`
 - **Refcounted subscriptions** — multiple `useThreadDetails(id)` calls share one WebSocket subscription
 - **Gap recovery** — on reconnect, sends `afterEventId` to resume from where the client left off
-- **Exponential backoff** — reconnects at 1s, 2s, 4s, 8s, 16s intervals before giving up
+- **Exponential backoff** — reconnects at 1s, 2s, 4s, 8s, 16s intervals (±20%) before giving up
+- **Planned renewal** — swaps to a fresh socket every 30–55 minutes, make-before-break, without a status change
 
 ## See Also
 

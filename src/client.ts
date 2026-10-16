@@ -4,6 +4,7 @@ import {
   MAX_CONSECUTIVE_FAILURES,
   PING_INTERVAL_MS,
   reconnectDelayMs,
+  rotationDue,
 } from './helpers/connection-policy'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
@@ -42,6 +43,15 @@ function blobPartFilename(blob: Blob, override?: string): string {
   if (t.includes('mp4') || t.includes('m4a') || t.includes('aac')) return 'recording.m4a'
   if (t.startsWith('audio/')) return `recording.${t.split('/')[1]?.split('+')[0] || 'bin'}`
   return 'recording.bin'
+}
+
+/** Silence a socket's handlers, then close it, so its late events never reach the client. */
+function detachAndClose(ws: WebSocket, code?: number) {
+  ws.onopen = null
+  ws.onmessage = null
+  ws.onclose = null
+  ws.onerror = null
+  ws.close(code)
 }
 
 async function readHttpErrorMessage(response: Response): Promise<string> {
@@ -250,6 +260,15 @@ export class AgentClient {
   private attemptInFlight = false
   private attemptGeneration = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
+
+  /** When the current primary socket was acked (or promoted). Drives the planned renewal. */
+  private connectedAt = 0
+  /** Runs reported as `running`; renewal waits for them until the hard deadline. */
+  private activeRuns = new Set<string>()
+  /** Renewal socket waiting for its connect ack. Never carries traffic before promotion. */
+  private candidate: { ws: WebSocket; frameId: string } | null = null
+  /** Restored on a renewed socket, where the status never changes for the app to resubscribe. */
+  private analyticsSubscribed = false
 
   // Refcounted subscriptions
   private subscriptionRefs = new Map<string, number>()
@@ -491,6 +510,7 @@ export class AgentClient {
     this.isIntentionallyClosed = true
     this.attemptGeneration++
     this.attemptInFlight = false
+    this.discardCandidate()
     this.connected = false
     this.stopHeartbeat()
     this.removeResumeListeners()
@@ -504,11 +524,7 @@ export class AgentClient {
     this.fullListInFlight = false
     this.fullListPending = null
     if (this.ws) {
-      this.ws.onopen = null
-      this.ws.onmessage = null
-      this.ws.onclose = null
-      this.ws.onerror = null
-      this.ws.close()
+      detachAndClose(this.ws)
       this.ws = null
     }
     this.callbacks.setConnectionStatus('disconnected')
@@ -770,10 +786,12 @@ export class AgentClient {
   // --- Analytics ---
 
   subscribeAnalytics() {
+    this.analyticsSubscribed = true
     this.send('analytics.subscribe', { agent_id: this.agentId })
   }
 
   unsubscribeAnalytics() {
+    this.analyticsSubscribed = false
     this.send('analytics.unsubscribe', { agent_id: this.agentId })
   }
 
@@ -947,6 +965,7 @@ export class AgentClient {
   private async openConnection(): Promise<void> {
     const gen = ++this.attemptGeneration
     this.stopHeartbeat()
+    this.discardCandidate()
     this.connected = false
     this.attemptInFlight = true
 
@@ -971,21 +990,23 @@ export class AgentClient {
       this.abortPendingMessages('Connection lost; reconnecting')
       this.abortPendingArtifacts('Connection lost; reconnecting')
       this.abortPendingPublicSchema('Connection lost; reconnecting')
-      this.ws.onopen = null
-      this.ws.onmessage = null
-      this.ws.onclose = null
-      this.ws.onerror = null
-      this.ws.close()
+      detachAndClose(this.ws)
     }
 
     const ws = new WebSocket(this.url)
     this.ws = ws
+    this.activeRuns.clear()
 
     ws.onopen = () => {
       if (this.ws !== ws) return
-      this.authenticate(ws, token)
+      this.connectFrameId = crypto.randomUUID()
+      this.authenticate(ws, token, this.connectFrameId)
     }
+    this.bindPrimary(ws)
+  }
 
+  /** Route frames from the primary socket and react when it closes. */
+  private bindPrimary(ws: WebSocket) {
     ws.onmessage = (e: MessageEvent) => {
       if (this.ws !== ws) return
       this.lastFrameAt = Date.now()
@@ -1013,10 +1034,11 @@ export class AgentClient {
     }
   }
 
-  private authenticate(_ws: WebSocket, token: string | undefined) {
-    this.connectFrameId = crypto.randomUUID()
-    this.sendRaw({
-      id: this.connectFrameId,
+  /** Send the `connect` frame on this socket (the primary or a renewal candidate). */
+  private authenticate(ws: WebSocket, token: string | undefined, frameId: string) {
+    if (ws.readyState !== WebSocket.OPEN) return
+    const frame = {
+      id: frameId,
       type: 'connect',
       payload: {
         agent_id: this.agentId,
@@ -1036,7 +1058,8 @@ export class AgentClient {
         auth_token: token,
         client: { name: 'dooers-agents-client', version: PACKAGE_VERSION },
       },
-    })
+    }
+    ws.send(JSON.stringify(frame))
   }
 
   private route(frame: ServerToClient) {
@@ -1055,14 +1078,7 @@ export class AgentClient {
             })
             // Detach first: older servers keep the socket open, newer ones close it (1008).
             // Either way this attempt counts once.
-            const ws = this.ws
-            if (ws) {
-              ws.onopen = null
-              ws.onmessage = null
-              ws.onclose = null
-              ws.onerror = null
-              ws.close()
-            }
+            if (this.ws) detachAndClose(this.ws)
             this.attemptInFlight = false
             this.onAttemptFailed(message)
           }
@@ -1233,9 +1249,13 @@ export class AgentClient {
         this.lastEventIds.delete(frame.payload.thread_id)
         break
 
-      case 'run.upsert':
-        this.callbacks.onRunUpsert(toRun(frame.payload.run))
+      case 'run.upsert': {
+        const run = toRun(frame.payload.run)
+        if (run.status === 'running') this.activeRuns.add(run.id)
+        else this.activeRuns.delete(run.id)
+        this.callbacks.onRunUpsert(run)
         break
+      }
 
       case 'settings.snapshot': {
         const fields = frame.payload.fields.map(toSettingsItem)
@@ -1299,6 +1319,7 @@ export class AgentClient {
 
   /** A connected socket was lost: not a failed attempt, so retry soon without counting it. */
   private handleConnectedDrop() {
+    this.discardCandidate()
     this.connected = false
     this.abortPendingMessages('Connection lost; reconnecting')
     this.abortPendingArtifacts('Connection lost; reconnecting')
@@ -1310,14 +1331,7 @@ export class AgentClient {
   /** Treat a connected socket that went silent as dropped. Returns true when it was dead. */
   private dropIfDead(): boolean {
     if (!this.connected || Date.now() - this.lastFrameAt <= LIVENESS_TIMEOUT_MS) return false
-    const ws = this.ws
-    if (ws) {
-      ws.onopen = null
-      ws.onmessage = null
-      ws.onclose = null
-      ws.onerror = null
-      ws.close()
-    }
+    if (this.ws) detachAndClose(this.ws)
     this.attemptInFlight = false
     this.handleConnectedDrop()
     return true
@@ -1326,6 +1340,94 @@ export class AgentClient {
   private heartbeatTick() {
     if (this.dropIfDead()) return
     this.send('ping', {})
+    if (
+      this.connected &&
+      !this.candidate &&
+      rotationDue(Date.now() - this.connectedAt, this.isIdle())
+    ) {
+      void this.rotate()
+    }
+  }
+
+  /** Nothing waits on the server and no run is in progress. */
+  private isIdle(): boolean {
+    return (
+      this.pendingMessages.size === 0 &&
+      this.pendingArtifactsRequests.size === 0 &&
+      this.pendingPublicSchema.size === 0 &&
+      this.activeRuns.size === 0
+    )
+  }
+
+  /**
+   * Make-before-break renewal ahead of the hosting cut (and onto a new revision after a
+   * redeploy): open a second socket and swap only once its connect is acked.
+   */
+  private async rotate(): Promise<void> {
+    const primary = this.ws
+    let token: string | undefined
+    try {
+      token = await this.resolveAuthToken()
+    } catch {
+      return // the next heartbeat tries again
+    }
+    // The primary dropped, was replaced or renewed, or another rotation won while the token loaded.
+    if (this.ws !== primary || !this.connected || this.candidate) return
+
+    const ws = new WebSocket(this.url)
+    const candidate = { ws, frameId: crypto.randomUUID() }
+    this.candidate = candidate
+
+    ws.onopen = () => {
+      if (this.candidate !== candidate) return
+      this.authenticate(ws, token, candidate.frameId)
+    }
+    ws.onmessage = (e: MessageEvent) => {
+      if (this.candidate !== candidate) return
+      let frame: ServerToClient
+      try {
+        frame = JSON.parse(e.data as string) as ServerToClient
+      } catch {
+        return
+      }
+      if (frame.type !== 'ack' || frame.payload.ack_id !== candidate.frameId) return
+      if (frame.payload.ok) {
+        this.promoteCandidate(candidate, frame.payload.server?.version ?? null)
+      } else {
+        this.discardCandidate()
+      }
+    }
+    ws.onclose = () => {
+      if (this.candidate === candidate) this.discardCandidate()
+    }
+    ws.onerror = () => {
+      if (this.candidate === candidate) this.discardCandidate()
+    }
+  }
+
+  /** The renewal socket becomes the primary. The app never sees a status change. */
+  private promoteCandidate(
+    candidate: { ws: WebSocket; frameId: string },
+    serverVersion: string | null
+  ) {
+    this.candidate = null
+    // Pending requests keep their own timeouts: aborting them would report a drop that never was.
+    if (this.ws) detachAndClose(this.ws, 1000)
+    this.ws = candidate.ws
+    this.connectFrameId = candidate.frameId
+    candidate.ws.onopen = null
+    this.bindPrimary(candidate.ws)
+    this.connectedAt = this.lastFrameAt = Date.now()
+    this.callbacks.setServerVersion(serverVersion?.trim() || null)
+    this.restoreSession(this.threadListQueue)
+  }
+
+  /** Drop a renewal socket that was not promoted; the primary is untouched. */
+  private discardCandidate() {
+    const candidate = this.candidate
+    if (!candidate) return
+    this.candidate = null
+    detachAndClose(candidate.ws)
   }
 
   private handleResume() {
@@ -1376,14 +1478,25 @@ export class AgentClient {
 
   private handleConnected(serverVersion: string | null) {
     this.connected = true
-    this.lastFrameAt = Date.now()
+    this.connectedAt = this.lastFrameAt = Date.now()
     this.attemptInFlight = false
     this.consecutiveFailures = 0
     const sv = serverVersion?.trim()
     this.callbacks.setServerVersion(sv || null)
     this.callbacks.setConnectionStatus('connected')
     this.callbacks.resetReconnect()
-    this.requestThreadList()
+    // The app re-requests its own queue filter when the status turns `connected`.
+    this.restoreSession(null)
+  }
+
+  /**
+   * Ask a fresh socket for everything the previous one carried: thread list, thread and
+   * settings subscriptions, analytics, heartbeat.
+   */
+  private restoreSession(listQueue: string | null) {
+    // Lists sent on the previous socket are never answered; do not wait for them.
+    this.isLoadingMore = false
+    this.dispatchFullList(listQueue)
     // Re-subscribe to previously tracked threads
     for (const threadId of this.subscriptionRefs.keys()) {
       const afterEventId = this.lastEventIds.get(threadId) ?? null
@@ -1395,6 +1508,7 @@ export class AgentClient {
       })
     }
     this.resubscribeSettings()
+    if (this.analyticsSubscribed) this.send('analytics.subscribe', { agent_id: this.agentId })
     this.startHeartbeat()
   }
 

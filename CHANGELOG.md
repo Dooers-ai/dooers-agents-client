@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] — 2026-10-16
+
+### Added
+
+- `getAuthToken` on `AgentProvider` (and `AgentConnectionConfig`). It is called
+  before every socket and every `upload()`, so a reconnect never reuses an
+  expired handshake token. `authToken` still works when it is not set.
+- Planned renewal of the connection. After 30 minutes with nothing pending and
+  no run in progress (55 minutes at the latest, even while busy), the client
+  opens a second socket with a fresh token and switches over only once its
+  `connect` is acked. The old socket closes with code 1000. The status stays
+  `connected` and pending requests are kept, so the hosting cut at 60 minutes
+  never shows as a drop, and a redeployed agent is picked up within the hour.
+  Thread list, thread and settings subscriptions and the analytics subscription
+  are restored on the new socket.
+- Resume on focus or network return. When the tab becomes visible again or the
+  browser goes back `online`, a live socket is pinged and a lost one reconnects
+  at once, without waiting for the backoff.
+- Dead socket detection. A `ping` goes out every 30 s; a socket with no frame
+  for 90 s is treated as dropped and reconnected.
+
+### Fixed
+
+- The reconnect failure counter resets on every successful connect. Long
+  sessions with many hosting cuts no longer end in `reconnectFailed`. Backoff
+  waits (1, 2, 4, 8, 16 s) now carry ±20% jitter.
+- A rejected `connect` calls `onError` and tries again with a fresh token
+  instead of stopping at status `error`.
+- A page request (`loadMore`) lost with a dropped socket no longer blocks the
+  next one after reconnecting.
+
 ## [0.18.2] — 2026-10-13
 
 ### Fixed
