@@ -69,15 +69,84 @@ describe("AgentClient reconnect", () => {
 
   it("retries a rejected connect with the refreshed token", async () => {
     const client = new AgentClient(callbacks);
-    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "expired" });
+    const getAuthToken = vi.fn().mockResolvedValueOnce("expired").mockResolvedValueOnce("fresh");
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
 
     await openAndAck(false, { code: "CONNECTION_REJECTED", message: "invalid_token" });
-    // The app fetched a new handshake token and hot-updated the config.
-    client.updateConnectionConfig({ authToken: "fresh" });
-    await vi.advanceTimersByTimeAsync(20_000);
+    await vi.advanceTimersByTimeAsync(3_000);
 
     const tokens = MockWebSocket.instances.map((ws) => ws.connectFrame()?.payload.auth_token);
-    expect(tokens).toContain("fresh");
+    expect(tokens).toEqual(["expired", "fresh"]);
+  });
+
+  it("calls getAuthToken before every socket", async () => {
+    const client = new AgentClient(callbacks);
+    const getAuthToken = vi.fn().mockResolvedValueOnce("t1").mockResolvedValueOnce("t2");
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
+
+    const ws = await openAndAck(true);
+    ws.drop();
+    await vi.advanceTimersByTimeAsync(1_500);
+
+    const tokens = MockWebSocket.instances.map((w) => w.connectFrame()?.payload.auth_token);
+    expect(tokens).toEqual(["t1", "t2"]);
+  });
+
+  it("a throwing getAuthToken counts as a failed attempt", async () => {
+    const client = new AgentClient(callbacks);
+    const getAuthToken = vi.fn().mockRejectedValue(new Error("boom"));
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
+
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(MockWebSocket.instances).toHaveLength(0);
+    expect(callbacks.setReconnectFailed).toHaveBeenCalled();
+    expect(callbacks.setConnectionStatus).toHaveBeenLastCalledWith("error", "auth token unavailable");
+  });
+
+  it("drops an attempt that went stale while the token was loading", async () => {
+    const client = new AgentClient(callbacks);
+    let resolveToken: (t: string) => void = () => {};
+    const getAuthToken = vi.fn(
+      () => new Promise<string>((resolve) => {
+        resolveToken = resolve;
+      })
+    );
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
+    client.disconnect();
+    resolveToken("late");
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(MockWebSocket.instances).toHaveLength(0);
+  });
+
+  it("counts one failure per rejected attempt", async () => {
+    const client = new AgentClient(callbacks);
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "expired" });
+
+    const ws = await openAndAck(false, { code: "CONNECTION_REJECTED", message: "invalid_token" });
+    ws.drop();
+    await vi.advanceTimersByTimeAsync(2_500);
+
+    expect(MockWebSocket.instances).toHaveLength(2);
+  });
+
+  it("upload sends the fresh token", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ref_id: "r", mime_type: "text/plain", filename: "a.txt", size_bytes: 1 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new AgentClient(callbacks);
+    client.setUploadUrl("https://test.com/uploads");
+    client.connect("wss://test.com/ws", "agent-1", {
+      userId: "u1",
+      getAuthToken: () => "fresh",
+    });
+
+    await client.upload(new File(["x"], "a.txt"));
+
+    expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer fresh");
   });
 
   it("gives up after five consecutive failed attempts", async () => {

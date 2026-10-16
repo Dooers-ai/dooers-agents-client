@@ -26,6 +26,8 @@ export interface AgentProviderProps {
   organizationRole?: string
   workspaceRole?: string
   authToken?: string
+  /** Resolved before every socket so reconnects use a fresh handshake token. */
+  getAuthToken?: () => string | undefined | Promise<string | undefined>
   channel?: string
   channelMeta?: Record<string, unknown>
   uploadUrl?: string
@@ -54,6 +56,7 @@ export function AgentProvider({
   organizationRole,
   workspaceRole,
   authToken,
+  getAuthToken,
   channel,
   channelMeta,
   uploadUrl,
@@ -115,6 +118,7 @@ export function AgentProvider({
       organizationRole,
       workspaceRole,
       authToken,
+      getAuthToken,
       channel,
       channelMeta: parsedChannelMeta,
     }
@@ -131,6 +135,7 @@ export function AgentProvider({
     organizationRole,
     workspaceRole,
     authToken,
+    getAuthToken,
     channel,
     channelMetaKey,
     channelMeta,

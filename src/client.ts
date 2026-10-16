@@ -76,6 +76,8 @@ export interface AgentConnectionConfig {
   organizationRole?: string
   workspaceRole?: string
   authToken?: string
+  /** Called before every socket (and upload) so a reconnect never reuses a stale handshake token. */
+  getAuthToken?: () => string | undefined | Promise<string | undefined>
   channel?: string
   channelMeta?: Record<string, unknown>
 }
@@ -243,6 +245,7 @@ export class AgentClient {
   private consecutiveFailures = 0
   private connected = false
   private attemptInFlight = false
+  private attemptGeneration = 0
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
   // Refcounted subscriptions
@@ -389,8 +392,9 @@ export class AgentClient {
     }
 
     const headers: Record<string, string> = {}
-    if (this.config.authToken) {
-      headers.Authorization = `Bearer ${this.config.authToken}`
+    const token = await this.resolveAuthToken()
+    if (token) {
+      headers.Authorization = `Bearer ${token}`
     }
 
     const response = await fetch(this.uploadUrl, {
@@ -442,7 +446,7 @@ export class AgentClient {
     }
 
     this.callbacks.setConnectionStatus('connecting')
-    this.createConnection()
+    void this.openConnection()
   }
 
   /** Clear the last in-chat send error banner (see ``connection.sendError``). */
@@ -481,6 +485,7 @@ export class AgentClient {
 
   disconnect() {
     this.isIntentionallyClosed = true
+    this.attemptGeneration++
     this.attemptInFlight = false
     this.connected = false
     this.stopHeartbeat()
@@ -515,7 +520,7 @@ export class AgentClient {
     this.callbacks.setConnectionStatus('connecting')
     // An attempt already in flight is the retry; opening another would race it.
     if (this.attemptInFlight) return
-    this.createConnection()
+    void this.openConnection()
   }
 
   // --- Thread operations ---
@@ -929,10 +934,34 @@ export class AgentClient {
     })
   }
 
-  private createConnection() {
+  private async resolveAuthToken(): Promise<string | undefined> {
+    if (this.config.getAuthToken) return await this.config.getAuthToken()
+    return this.config.authToken
+  }
+
+  private async openConnection(): Promise<void> {
+    const gen = ++this.attemptGeneration
     this.stopHeartbeat()
     this.connected = false
     this.attemptInFlight = true
+
+    let token: string | undefined
+    try {
+      token = await this.resolveAuthToken()
+    } catch {
+      if (gen !== this.attemptGeneration || this.isIntentionallyClosed) {
+        if (gen === this.attemptGeneration) this.attemptInFlight = false
+        return
+      }
+      this.attemptInFlight = false
+      this.onAttemptFailed('auth token unavailable')
+      return
+    }
+    if (gen !== this.attemptGeneration || this.isIntentionallyClosed) {
+      // A newer attempt (or disconnect) owns attemptInFlight now.
+      return
+    }
+
     if (this.ws) {
       this.abortPendingMessages('Connection lost; reconnecting')
       this.abortPendingArtifacts('Connection lost; reconnecting')
@@ -944,13 +973,16 @@ export class AgentClient {
       this.ws.close()
     }
 
-    this.ws = new WebSocket(this.url)
+    const ws = new WebSocket(this.url)
+    this.ws = ws
 
-    this.ws.onopen = () => {
-      this.authenticate()
+    ws.onopen = () => {
+      if (this.ws !== ws) return
+      this.authenticate(ws, token)
     }
 
-    this.ws.onmessage = (e: MessageEvent) => {
+    ws.onmessage = (e: MessageEvent) => {
+      if (this.ws !== ws) return
       try {
         const frame = JSON.parse(e.data as string) as ServerToClient
         this.route(frame)
@@ -959,8 +991,8 @@ export class AgentClient {
       }
     }
 
-    this.ws.onclose = () => {
-      if (this.isIntentionallyClosed) return
+    ws.onclose = () => {
+      if (this.ws !== ws || this.isIntentionallyClosed) return
       this.stopHeartbeat()
       this.attemptInFlight = false
       if (this.connected) {
@@ -975,12 +1007,12 @@ export class AgentClient {
       }
     }
 
-    this.ws.onerror = () => {
+    ws.onerror = () => {
       // onclose will fire after onerror
     }
   }
 
-  private authenticate() {
+  private authenticate(_ws: WebSocket, token: string | undefined) {
     this.connectFrameId = crypto.randomUUID()
     this.sendRaw({
       id: this.connectFrameId,
@@ -1000,7 +1032,7 @@ export class AgentClient {
           organization_role: this.config.organizationRole ?? 'member',
           workspace_role: this.config.workspaceRole ?? 'member',
         },
-        auth_token: this.config.authToken,
+        auth_token: token,
         client: { name: 'dooers-agents-client', version: PACKAGE_VERSION },
       },
     })
@@ -1013,7 +1045,25 @@ export class AgentClient {
           if (frame.payload.ok) {
             this.handleConnected(frame.payload.server?.version ?? null)
           } else {
-            this.callbacks.setConnectionStatus('error', frame.payload.error?.message)
+            const err = frame.payload.error
+            const message = err?.message ?? 'connection rejected'
+            this.onError?.({
+              code: err?.code ?? 'CONNECTION_REJECTED',
+              message,
+              frameType: 'connect',
+            })
+            // Detach first: older servers keep the socket open, newer ones close it (1008).
+            // Either way this attempt counts once.
+            const ws = this.ws
+            if (ws) {
+              ws.onopen = null
+              ws.onmessage = null
+              ws.onclose = null
+              ws.onerror = null
+              ws.close()
+            }
+            this.attemptInFlight = false
+            this.onAttemptFailed(message)
           }
         } else if (!frame.payload.ok && frame.payload.error) {
           const ackId = frame.payload.ack_id
@@ -1308,7 +1358,7 @@ export class AgentClient {
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
       this.callbacks.setConnectionStatus('connecting')
-      this.createConnection()
+      void this.openConnection()
     }, delayMs)
   }
 
