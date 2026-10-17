@@ -126,6 +126,68 @@ describe("AgentClient liveness and resume", () => {
     expect(callbacks.resetReconnect).toHaveBeenCalled();
   });
 
+  it("coming back after giving up makes a single attempt", async () => {
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    for (let i = 0; i < 5; i++) {
+      await vi.advanceTimersByTimeAsync(1);
+      last().drop();
+      await vi.advanceTimersByTimeAsync(20_000);
+    }
+    const before = MockWebSocket.instances.length;
+    vi.mocked(callbacks.setReconnectFailed).mockClear();
+
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(1);
+    last().drop();
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(MockWebSocket.instances).toHaveLength(before + 1);
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("coming back while waiting to reconnect keeps the failure count", async () => {
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
+    for (let i = 0; i < 3; i++) {
+      await vi.advanceTimersByTimeAsync(1);
+      last().drop();
+      if (i < 2) await vi.advanceTimersByTimeAsync(5_000);
+    }
+    // Three failures: the fourth attempt is waiting.
+    const before = MockWebSocket.instances.length;
+
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(1);
+    last().drop(); // failure 4
+    await vi.advanceTimersByTimeAsync(20_000);
+    last().drop(); // failure 5: gives up
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    expect(MockWebSocket.instances).toHaveLength(before + 2);
+    expect(callbacks.setReconnectFailed).toHaveBeenCalledTimes(1);
+  });
+
+  it("coming back while an attempt is opening does not start another", async () => {
+    let resolveToken: (token: string) => void = () => {};
+    const getAuthToken = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveToken = resolve;
+        })
+    );
+    client.connect("wss://test.com/ws", "agent-1", { userId: "u1", getAuthToken });
+
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("online"));
+    resolveToken("t1");
+    await vi.advanceTimersByTimeAsync(10);
+
+    expect(getAuthToken).toHaveBeenCalledTimes(1);
+    expect(MockWebSocket.instances).toHaveLength(1);
+  });
+
   it("online while waiting to reconnect skips the backoff", async () => {
     client.connect("wss://test.com/ws", "agent-1", { userId: "u1", authToken: "t" });
     await vi.advanceTimersByTimeAsync(1);

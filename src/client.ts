@@ -1465,12 +1465,31 @@ export class AgentClient {
 
   private handleResume() {
     if (this.isIntentionallyClosed) return
-    if (!this.connected) {
-      this.retry()
+    if (this.connected) {
+      if (this.dropIfDead()) return
+      this.send('ping', {})
       return
     }
-    if (this.dropIfDead()) return
-    this.send('ping', {})
+    // An attempt is already opening a socket: let it finish.
+    if (this.attemptInFlight) return
+    this.attemptNow()
+  }
+
+  /**
+   * Try once right away without restarting the cycle: while waiting, the failure count is kept;
+   * after giving up, a single failure gives up again. Only `retry()` grants a fresh budget.
+   */
+  private attemptNow() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = null
+    }
+    if (this.consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+      this.consecutiveFailures = MAX_CONSECUTIVE_FAILURES - 1
+      this.callbacks.resetReconnect()
+    }
+    this.callbacks.setConnectionStatus('connecting')
+    void this.openConnection()
   }
 
   private readonly onOnline = () => this.handleResume()

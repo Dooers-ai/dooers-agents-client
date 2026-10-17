@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.1] — 2026-10-17
+
+### Fixed
+
+- Returning to the tab or regaining the network no longer restarts the whole
+  reconnect cycle. While waiting to reconnect it tries at once and keeps the
+  failure count; after giving up it makes one attempt and, if that fails, shows
+  the failure again. Switching tabs while the agent is down no longer keeps the
+  client "Reconnecting..." indefinitely. `reconnect()` still grants a fresh set
+  of attempts.
+
 ## [0.19.0] — 2026-10-16
 
 ### Added
