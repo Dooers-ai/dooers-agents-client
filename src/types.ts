@@ -257,6 +257,7 @@ export interface User {
   systemRole: string
   organizationRole: string
   workspaceRole: string
+  metadata?: Record<string, unknown>
 }
 
 export interface ThreadAccess {
@@ -435,6 +436,7 @@ export function toUser(w?: WireUser): User | undefined {
     systemRole: w.system_role,
     organizationRole: w.organization_role,
     workspaceRole: w.workspace_role,
+    metadata: w.metadata,
   }
 }
 
