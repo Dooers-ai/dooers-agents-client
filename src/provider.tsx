@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef }
 import { useStore as useZustandStore } from 'zustand'
 import { useShallow } from 'zustand/shallow'
 import { AgentClient, type AgentConnectionConfig, type OnErrorCallback } from './client'
+import { type AgentMaestroOptions, MaestroAgentClient } from './maestro-agent-client'
 import { type AgentState, type AgentStore, createAgentStore } from './store'
 
 interface AgentContextValue {
@@ -35,8 +36,27 @@ export interface AgentProviderProps {
    * is derived from `url` — which cannot preserve the Load Balancer path prefix.
    */
   httpBaseUrl?: string
+  /**
+   * When set, the selected agent is served by Maestro: the same hooks talk to the
+   * Maestro API (HTTP/WS) instead of the agent runtime WebSocket, and ``url`` is ignored.
+   */
+  maestro?: AgentMaestroOptions
   onError?: OnErrorCallback
   children: ReactNode
+}
+
+/** Session identity of the Maestro transport; a change creates a fresh client and store. */
+function maestroKey(maestro: AgentMaestroOptions | undefined): string {
+  if (!maestro) return ''
+  return JSON.stringify([
+    maestro.endpoint,
+    maestro.apiPrefix ?? null,
+    maestro.allowInsecureLocalhost === true,
+    maestro.forms === true,
+    maestro.scope.principalId,
+    maestro.scope.organizationId,
+    maestro.scope.workspaceId,
+  ])
 }
 
 export function AgentProvider({
@@ -58,36 +78,55 @@ export function AgentProvider({
   channelMeta,
   uploadUrl,
   httpBaseUrl,
+  maestro,
   onError,
   children,
 }: AgentProviderProps) {
-  const storeRef = useRef<AgentStore | undefined>(undefined)
-  const clientRef = useRef<AgentClient | undefined>(undefined)
+  const maestroRef = useRef(maestro)
+  maestroRef.current = maestro
+  const transportKey = maestroKey(maestro)
 
-  if (!storeRef.current) {
-    storeRef.current = createAgentStore()
-    clientRef.current = new AgentClient(storeRef.current.getState().actions)
-  }
+  // Legacy and Maestro transports never share a store: switching agents between
+  // authorities starts from an empty, isolated state.
+  const { store, client } = useMemo(() => {
+    const store = createAgentStore()
+    const actions = store.getState().actions
+    const options = maestroRef.current
+    const client =
+      transportKey && options
+        ? new MaestroAgentClient(actions, {
+            ...options,
+            authToken:
+              typeof options.authToken === 'function'
+                ? (context) => {
+                    const current = maestroRef.current?.authToken ?? options.authToken
+                    return typeof current === 'function' ? current(context) : current
+                  }
+                : options.authToken,
+          })
+        : new AgentClient(actions)
+    return { store, client }
+  }, [transportKey])
 
   // Update onError callback
   useEffect(() => {
-    clientRef.current?.setOnError(onError ?? null)
-  }, [onError])
+    client.setOnError(onError ?? null)
+  }, [client, onError])
 
   // Update upload URL
   useEffect(() => {
-    clientRef.current?.setUploadUrl(uploadUrl)
-  }, [uploadUrl])
+    client.setUploadUrl(uploadUrl)
+  }, [client, uploadUrl])
 
   // Set the explicit HTTP base (hostUrl) before connect derives one from the WS URL.
   useEffect(() => {
-    clientRef.current?.setHttpBaseUrl(httpBaseUrl)
-  }, [httpBaseUrl])
+    client.setHttpBaseUrl(httpBaseUrl)
+  }, [client, httpBaseUrl])
 
   // HTTP uploads require agent_id before WS connect completes
   useEffect(() => {
-    clientRef.current?.setUploadAgentId(agentId)
-  }, [agentId])
+    client.setUploadAgentId(agentId)
+  }, [client, agentId])
 
   // Stable key for identityIds to avoid reference-equality churn
   const identityIdsKey = identityIds?.join(',') ?? ''
@@ -140,26 +179,25 @@ export function AgentProvider({
   connectionConfigRef.current = connectionConfig
 
   // Hard reconnect only when endpoint or agent identity changes.
+  // Maestro connects to its configured endpoint; the agent runtime URL is not used.
+  const target = transportKey ? (maestroRef.current?.endpoint ?? '') : (url ?? '')
   useEffect(() => {
-    if (!url || !agentId) {
-      clientRef.current?.disconnect()
+    if (!target || !agentId) {
+      client.disconnect()
       return
     }
-    clientRef.current?.connect(url, agentId, connectionConfigRef.current)
-    return () => clientRef.current?.disconnect()
-  }, [url, agentId])
+    client.connect(target, agentId, connectionConfigRef.current)
+    return () => client.disconnect()
+  }, [client, target, agentId])
 
   // Hot-update metadata (handshake token refresh, roles, user fields) without reconnecting.
   useEffect(() => {
-    if (!url || !agentId) return
-    clientRef.current?.updateConnectionConfig(connectionConfig)
-  }, [url, agentId, connectionConfig])
+    if (!target || !agentId) return
+    client.updateConnectionConfig(connectionConfig)
+  }, [client, target, agentId, connectionConfig])
 
-  // Stable context value — refs never change after initial creation
-  const contextValue = useMemo<AgentContextValue>(
-    () => ({ store: storeRef.current!, client: clientRef.current! }),
-    []
-  )
+  // Stable per transport: a new value only when the client/store pair is recreated.
+  const contextValue = useMemo<AgentContextValue>(() => ({ store, client }), [store, client])
 
   return <AgentContext.Provider value={contextValue}>{children}</AgentContext.Provider>
 }

@@ -1356,6 +1356,38 @@ export class MaestroClient {
   async getThread(threadId: string) {
     return this.readThread(threadId, () => true)
   }
+  /**
+   * Cria uma thread no escopo desta sessão. O recibo 201 traz permissões neutras
+   * (todas false); a projeção do leitor é relida antes de devolver a thread.
+   */
+  async createThread(
+    request: Omit<
+      z.infer<(typeof publicSchemas)['Public.ThreadCreateRequest']>,
+      'scope_kind' | 'workspace_id'
+    >,
+    key: string
+  ) {
+    this.requireCapability('threads.shared')
+    const headers = publicSchemas['Public.MutationHeaders'].parse({ 'Idempotency-Key': key })
+    const body = publicSchemas['Public.ThreadCreateRequest'].parse(
+      this.scope.workspaceId
+        ? { ...request, scope_kind: 'workspace', workspace_id: this.scope.workspaceId }
+        : { ...request, scope_kind: 'personal' }
+    )
+    const receipt = toMaestroThread(
+      parseMaestroNetwork(
+        publicSchemas['Public.Thread'],
+        await this.http(
+          '/threads',
+          { method: 'POST', headers, body: JSON.stringify(body) },
+          this.token,
+          [200, 201]
+        )
+      )
+    )
+    this.checkThreadScope(receipt)
+    return this.getThread(receipt.threadId)
+  }
   /** @internal Atualização consultiva; respostas de uma subscription antiga são descartadas. */
   refreshThreadPermissions(threadId: string, current: () => boolean) {
     return this.readThread(threadId, current)

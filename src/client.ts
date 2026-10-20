@@ -209,8 +209,8 @@ export class AgentServerClient {
 
 export class AgentClient {
   private ws: WebSocket | null = null
-  private callbacks: AgentActions
-  private onError: OnErrorCallback | null = null
+  protected callbacks: AgentActions
+  protected onError: OnErrorCallback | null = null
 
   private url = ''
   private httpBaseUrl = ''
@@ -588,8 +588,18 @@ export class AgentClient {
       userName?: string | null
       userEmail?: string | null
       identityIds?: string[]
+      /** Legacy runtimes only accept people; agents are added through Maestro. */
+      kind?: 'human' | 'agent'
     }
-  ) {
+  ): Promise<boolean> {
+    if (user.kind === 'agent') {
+      this.onError?.({
+        code: 'UNSUPPORTED',
+        message: 'This runtime does not accept agent participants',
+        frameType: 'thread.participants.add',
+      })
+      return Promise.resolve(false)
+    }
     this.send('thread.participants.add', {
       thread_id: threadId,
       user: {
@@ -602,6 +612,7 @@ export class AgentClient {
         workspace_role: 'member',
       },
     })
+    return Promise.resolve(true)
   }
 
   loadMoreThreads(limit?: number) {

@@ -9,7 +9,6 @@ export type {
 } from './client'
 export { AgentServerClient } from './client'
 export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
-export { isUnqueuedQueueFilter, UNQUEUED_QUEUE_FILTER } from './helpers/thread-queue'
 export {
   CHAT_CONTEXT_MIN_SERVER_VERSION,
   compareSemver,
@@ -22,6 +21,7 @@ export {
   THREAD_ARTIFACTS_MIN_SERVER_VERSION,
   THREAD_QUEUES_MIN_SERVER_VERSION,
 } from './helpers/server-version'
+export { isUnqueuedQueueFilter, UNQUEUED_QUEUE_FILTER } from './helpers/thread-queue'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
 // Hooks
@@ -39,6 +39,9 @@ export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadArtifacts } from './hooks/use-thread-artifacts'
 export { useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
+export type { AgentMaestroOptions } from './maestro-agent-client'
+export { MaestroAgentClient } from './maestro-agent-client'
+export { MAESTRO_AGENT_ROLE } from './maestro-legacy'
 export type { AgentProviderProps } from './provider'
 export { AgentProvider, useAgentContext } from './provider'
 // Types
@@ -91,8 +94,8 @@ export type {
   TextDisplayPart,
   TextPart,
   TextSendPart,
-  ThreadAccess,
   Thread,
+  ThreadAccess,
   ThreadArtifact,
   ThreadEvent,
   ThreadState,

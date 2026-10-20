@@ -1,4 +1,5 @@
 import { useCallback } from 'react'
+import { MaestroAgentClient } from '../maestro-agent-client'
 import { useAgentContext, useStore } from '../provider'
 
 export function useConnection() {
@@ -15,7 +16,12 @@ export function useConnection() {
     client.clearSendError()
   }, [client])
 
+  /** ``maestro`` when the selected agent is served through Maestro (multi-participant threads). */
+  const transport: 'legacy' | 'maestro' =
+    client instanceof MaestroAgentClient ? 'maestro' : 'legacy'
+
   return {
+    transport,
     status,
     error,
     serverVersion,
