@@ -1,6 +1,6 @@
 {
   "name": "dooers-agents-client",
-  "version": "0.19.1",
+  "version": "0.19.2",
   "description": "agents-client — react sdk for agents-server",
   "repository": {
     "type": "git",

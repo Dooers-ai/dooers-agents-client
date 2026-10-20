@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.2] — 2026-10-20
+
+### Fixed
+
+- Agents on agents-server older than 0.10.3 close the socket when they receive a
+  `ping`. Since 0.19.0 the drop came about 30 s after connecting, counted as a
+  stable connection, and the client reconnected in an endless cycle. The client
+  now pings, and judges a silent socket dead, only when the server announced its
+  version on connect (agents-server 0.17.1+). Older servers are no longer pinged;
+  reconnection and planned renewal are unchanged.
+
 ## [0.19.1] — 2026-10-17
 
 ### Fixed
