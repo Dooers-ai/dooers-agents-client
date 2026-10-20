@@ -24,10 +24,27 @@ export function maestroLegacyServerVersion(serverVersion: string | null | undefi
   return `0.22.0+maestro.${suffix}`
 }
 
-export function maestroParticipantToUser(participant: MaestroParticipant): User {
+/**
+ * O Maestro guarda nomes genéricos ("Humano", "Agente"). A aplicação pode resolver o nome
+ * real pelo id (pessoa: principal; agente: instância); sem resolução fica o nome do Maestro.
+ */
+export type MaestroNameResolver = (kind: 'human' | 'agent', id: string) => string | null | undefined
+
+const named = (
+  resolve: MaestroNameResolver | undefined,
+  kind: 'human' | 'agent',
+  id: string,
+  fallback: string
+) => resolve?.(kind, id)?.trim() || fallback
+
+export function maestroParticipantToUser(
+  participant: MaestroParticipant,
+  resolve?: MaestroNameResolver
+): User {
+  const id = participant.kind === 'agent' ? participant.instanceAgentId : participant.principalId
   return {
-    userId: participant.kind === 'agent' ? participant.instanceAgentId : participant.principalId,
-    userName: participant.displayName,
+    userId: id,
+    userName: named(resolve, participant.kind, id, participant.displayName),
     userEmail: null,
     identityIds: [participant.principalId],
     systemRole: participant.kind === 'agent' ? MAESTRO_AGENT_ROLE : 'user',
@@ -51,7 +68,7 @@ export function maestroThreadHasAgent(thread: MaestroThread, agentId: string): b
 export function maestroThreadToLegacy(
   thread: MaestroThread,
   agentId: string,
-  lastEventAt?: string
+  resolve?: MaestroNameResolver
 ): Thread {
   const active = thread.participants.filter((p) => p.state !== 'removed')
   const owner =
@@ -64,9 +81,9 @@ export function maestroThreadToLegacy(
     organizationId: thread.organizationId,
     workspaceId: thread.workspaceId ?? '',
     owner: owner
-      ? maestroParticipantToUser(owner)
+      ? maestroParticipantToUser(owner, resolve)
       : { userId: '', systemRole: 'user', organizationRole: 'member', workspaceRole: 'member' },
-    users: active.map(maestroParticipantToUser),
+    users: active.map((p) => maestroParticipantToUser(p, resolve)),
     title: thread.title || null,
     metadata: {
       authority: 'maestro',
@@ -74,14 +91,19 @@ export function maestroThreadToLegacy(
         kind: p.kind,
         participantId: p.participantId,
         principalId: p.principalId,
-        displayName: p.displayName,
+        displayName: named(
+          resolve,
+          p.kind,
+          p.kind === 'agent' ? p.instanceAgentId : p.principalId,
+          p.displayName
+        ),
         ...(p.kind === 'agent' ? { instanceAgentId: p.instanceAgentId } : {}),
       })),
     },
     queue: null,
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
-    lastEventAt: lastEventAt ?? thread.updatedAt,
+    lastEventAt: thread.updatedAt,
     access: {
       read: thread.permissions.read,
       write: thread.permissions.write,
@@ -92,11 +114,18 @@ export function maestroThreadToLegacy(
 
 type Actor = MaestroNetworkEvent['event']['actor']
 
-function actorUser(actor: Actor): User | undefined {
+function actorName(actor: Actor, resolve: MaestroNameResolver | undefined): string {
+  if (actor.kind === 'agent')
+    return named(resolve, 'agent', actor.instanceAgentId, actor.displayName)
+  if (actor.kind === 'human') return named(resolve, 'human', actor.principalId, actor.displayName)
+  return actor.displayName
+}
+
+function actorUser(actor: Actor, resolve: MaestroNameResolver | undefined): User | undefined {
   if (actor.kind !== 'human') return undefined
   return {
     userId: actor.principalId,
-    userName: actor.displayName,
+    userName: actorName(actor, resolve),
     userEmail: null,
     identityIds: [actor.principalId],
     systemRole: 'user',
@@ -226,17 +255,20 @@ export function legacyFormValuesToMaestro(
 }
 
 /** Evento Maestro → evento legado exibível; ``null`` para eventos sem equivalente no chat. */
-export function maestroEventToLegacy(item: MaestroNetworkEvent): ThreadEvent | null {
+export function maestroEventToLegacy(
+  item: MaestroNetworkEvent,
+  resolve?: MaestroNameResolver
+): ThreadEvent | null {
   if (!item.known) return null
   const e = item.event
   const base = {
     threadId: e.threadId,
     runId: e.executionId ?? null,
     actor: legacyActor(e.actor),
-    author: e.actor.kind === 'human' ? null : e.actor.displayName,
+    author: e.actor.kind === 'human' ? null : actorName(e.actor, resolve),
     createdAt: e.createdAt,
   }
-  const user = actorUser(e.actor)
+  const user = actorUser(e.actor, resolve)
   switch (e.type) {
     case 'message.created':
       return {

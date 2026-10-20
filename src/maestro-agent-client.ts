@@ -9,6 +9,7 @@ import { MaestroClientError } from './maestro/types'
 import {
   legacyContentToMaestro,
   legacyFormValuesToMaestro,
+  type MaestroNameResolver,
   maestroEventToLegacy,
   maestroExecutionToRun,
   maestroLegacyServerVersion,
@@ -35,6 +36,8 @@ export interface AgentMaestroOptions {
   scope: MaestroScope
   /** Credencial humana emitida pelo core; uma função é chamada a cada (re)autenticação. */
   authToken: MaestroCredential
+  /** Nome real de pessoas/agentes pelo id (o Maestro só guarda "Humano"/"Agente"). */
+  resolveName?: MaestroNameResolver
   /** Liga formulários duráveis (interaction.respond). Desligado por padrão. */
   forms?: boolean
   /** Intervalo de releitura da lista de threads do agente (ms). 0 desliga. Padrão 15 s. */
@@ -53,6 +56,24 @@ type Retained = { count: number; release: () => void }
 function errorMessage(cause: unknown): string {
   if (cause instanceof Error && cause.message) return cause.message
   return 'Maestro request failed'
+}
+
+/**
+ * Repete uma vez, com a mesma chave de idempotência, quando o Maestro devolve uma falha
+ * transitória (ex.: CORE_UNAVAILABLE na autorização). A chave impede efeito duplicado.
+ */
+async function onceMore<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (cause) {
+    if (
+      !(cause instanceof MaestroClientError) ||
+      !(cause.retryable || cause.code === 'CORE_UNAVAILABLE')
+    )
+      throw cause
+    await new Promise((resolve) => setTimeout(resolve, 750))
+    return operation()
+  }
 }
 
 function titleFrom(params: { text?: string; content?: SendContentPart[] }): string {
@@ -93,6 +114,16 @@ export class MaestroAgentClient extends AgentClient {
     private readonly options: AgentMaestroOptions
   ) {
     super(callbacks)
+  }
+
+  /** Reprojeta threads e eventos já exibidos (ex.: nomes resolvidos depois da carga). */
+  refreshProjection() {
+    const maestro = this.maestro
+    if (!maestro) return
+    this.threadSignatures.clear()
+    for (const known of this.eventSignatures.values()) known.clear()
+    this.sync(maestro.store)
+    this.requestThreadList()
   }
 
   /** Cliente Maestro subjacente (para diagnóstico/testes). */
@@ -241,7 +272,7 @@ export class MaestroAgentClient extends AgentClient {
   // --- Lista de threads do agente selecionado ---
 
   private legacyThread(thread: Parameters<typeof maestroThreadToLegacy>[0]): Thread {
-    return maestroThreadToLegacy(thread, this.agentPrincipalId)
+    return maestroThreadToLegacy(thread, this.agentPrincipalId, this.options.resolveName)
   }
 
   private async collect(cursor: string | undefined, wanted: number) {
@@ -370,7 +401,7 @@ export class MaestroAgentClient extends AgentClient {
     for (const eventId of state.eventIds) {
       const item = state.eventsById[eventId]
       if (!item) continue
-      const mapped = maestroEventToLegacy(item)
+      const mapped = maestroEventToLegacy(item, this.options.resolveName)
       if (mapped) events.push(mapped)
     }
     return events
@@ -513,13 +544,12 @@ export class MaestroAgentClient extends AgentClient {
     let threadId = params.threadId?.toLowerCase()
     try {
       if (!threadId) {
-        const created = await maestro.createThread(
-          {
-            title: titleFrom(params),
-            participants: [{ kind: 'agent', principal_id: this.agentPrincipalId }],
-          },
-          crypto.randomUUID()
-        )
+        const key = crypto.randomUUID()
+        const request = {
+          title: titleFrom(params),
+          participants: [{ kind: 'agent' as const, principal_id: this.agentPrincipalId }],
+        }
+        const created = await onceMore(() => maestro.createThread(request, key))
         threadId = created.threadId
         this.callbacks.onThreadUpsert(this.legacyThread(created))
       } else {
@@ -598,14 +628,16 @@ export class MaestroAgentClient extends AgentClient {
     if (!maestro) return Promise.resolve(false)
     const id = threadId.toLowerCase()
     const kind = user.kind ?? 'human'
-    return maestro
-      .addParticipant(
-        id,
-        kind === 'agent'
-          ? { kind: 'agent', principal_id: user.userId.toLowerCase(), role: 'member' }
-          : { kind: 'human', principal_id: user.userId, role: 'member' },
-        crypto.randomUUID()
-      )
+    const key = crypto.randomUUID()
+    const target =
+      kind === 'agent'
+        ? {
+            kind: 'agent' as const,
+            principal_id: user.userId.toLowerCase(),
+            role: 'member' as const,
+          }
+        : { kind: 'human' as const, principal_id: user.userId, role: 'member' as const }
+    return onceMore(() => maestro.addParticipant(id, target, key))
       .then(() => {
         this.requestThreadList()
         return true

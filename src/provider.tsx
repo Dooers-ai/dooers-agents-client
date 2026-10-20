@@ -103,6 +103,8 @@ export function AgentProvider({
                     return typeof current === 'function' ? current(context) : current
                   }
                 : options.authToken,
+            // Names arrive later from application queries; always use the latest resolver.
+            resolveName: (kind, id) => maestroRef.current?.resolveName?.(kind, id),
           })
         : new AgentClient(actions)
     return { store, client }
@@ -179,6 +181,12 @@ export function AgentProvider({
   connectionConfigRef.current = connectionConfig
 
   // Hard reconnect only when endpoint or agent identity changes.
+  // A newer name resolver re-projects what is already on screen (Maestro stores generic names).
+  const resolveName = maestro?.resolveName
+  useEffect(() => {
+    if (resolveName && client instanceof MaestroAgentClient) client.refreshProjection()
+  }, [client, resolveName])
+
   // Maestro connects to its configured endpoint; the agent runtime URL is not used.
   const target = transportKey ? (maestroRef.current?.endpoint ?? '') : (url ?? '')
   useEffect(() => {

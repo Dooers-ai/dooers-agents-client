@@ -82,6 +82,14 @@ describe('Maestro → legacy mapping', () => {
       [OTHER_AGENT, 'Agente Dois', MAESTRO_AGENT_ROLE],
     ])
   })
+  it('resolves real names for the generic Maestro display names', () => {
+    const resolve = (kind: 'human' | 'agent', id: string) =>
+      kind === 'agent' && id === OTHER_AGENT ? 'Agente Maestro 2' : kind === 'human' ? 'Ana' : null
+    const legacy = maestroThreadToLegacy(toMaestroThread(sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Agente'), agentParticipant(OTHER_AGENT, uuid(21), 'Agente')])), AGENT, resolve)
+    expect(legacy.users.map((u) => u.userName)).toEqual(['Ana', 'Agente', 'Agente Maestro 2'])
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(agentMessage(2, 'Oi', OTHER_AGENT, uuid(21), 'Agente')), resolve)?.author).toBe('Agente Maestro 2')
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(event(1)), resolve)?.user?.userName).toBe('Ana')
+  })
   it('a thread belongs to every participating agent and not to removed ones', () => {
     const value = toMaestroThread(sharedThread('1', [agentParticipant(AGENT, uuid(20), 'A'), { ...agentParticipant(OTHER_AGENT, uuid(21), 'B'), state: 'removed', left_sequence: '2' }]))
     expect(maestroThreadHasAgent(value, AGENT.toUpperCase())).toBe(true)
