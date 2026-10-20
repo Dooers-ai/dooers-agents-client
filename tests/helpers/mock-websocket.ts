@@ -42,10 +42,21 @@ export class MockWebSocket {
   }
 }
 
-export function ackConnect(ws: MockWebSocket, ok: boolean, error?: { code: string; message: string }) {
+/** Current servers announce their version on a good connect; pass `server: null` for an old one. */
+export function ackConnect(
+  ws: MockWebSocket,
+  ok: boolean,
+  error?: { code: string; message: string },
+  server: { name: string; version: string } | null = { name: "dooers-agents-server", version: "0.24.3" }
+) {
   ws.receive({
     id: "s1",
     type: "ack",
-    payload: { ack_id: ws.connectFrame().id, ok, ...(error ? { error } : {}) },
+    payload: {
+      ack_id: ws.connectFrame().id,
+      ok,
+      ...(error ? { error } : {}),
+      ...(ok && server ? { server } : {}),
+    },
   });
 }

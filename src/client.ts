@@ -337,6 +337,12 @@ export class AgentClient {
   } | null = null
 
   private pingTimer: ReturnType<typeof setInterval> | null = null
+  /**
+   * The connect ack carried a server version (agents-server 0.17.1+), so the server answers
+   * `ping`. Servers before 0.10.3 close the socket on that unknown frame: they get no pings and
+   * no liveness check.
+   */
+  private serverAnswersPing = false
 
   constructor(callbacks: AgentActions) {
     this.callbacks = callbacks
@@ -1369,8 +1375,10 @@ export class AgentClient {
   }
 
   private heartbeatTick() {
-    if (this.dropIfDead()) return
-    this.send('ping', {})
+    if (this.serverAnswersPing) {
+      if (this.dropIfDead()) return
+      this.send('ping', {})
+    }
     if (
       this.connected &&
       !this.candidate &&
@@ -1451,6 +1459,7 @@ export class AgentClient {
     candidate.ws.onopen = null
     this.bindPrimary(candidate.ws)
     this.connectedAt = this.lastFrameAt = Date.now()
+    this.serverAnswersPing = !!serverVersion?.trim()
     this.callbacks.setServerVersion(serverVersion?.trim() || null)
     this.restoreSession(this.threadListQueue)
   }
@@ -1466,6 +1475,7 @@ export class AgentClient {
   private handleResume() {
     if (this.isIntentionallyClosed) return
     if (this.connected) {
+      if (!this.serverAnswersPing) return
       if (this.dropIfDead()) return
       this.send('ping', {})
       return
@@ -1534,6 +1544,7 @@ export class AgentClient {
     this.attemptInFlight = false
     // consecutiveFailures is reset only once this socket proves stable (handleConnectedDrop).
     const sv = serverVersion?.trim()
+    this.serverAnswersPing = !!sv
     this.callbacks.setServerVersion(sv || null)
     this.callbacks.setConnectionStatus('connected')
     this.callbacks.resetReconnect()
