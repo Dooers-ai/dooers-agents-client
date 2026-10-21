@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentClient } from "../src/client";
 import type { AgentActions } from "../src/store";
 
@@ -74,6 +74,10 @@ describe("AgentClient", () => {
     callbacks = createMockCallbacks();
     MockWebSocket.instances = [];
     vi.stubGlobal("WebSocket", MockWebSocket);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("sends connect frame on open", async () => {
@@ -663,9 +667,10 @@ describe("AgentClient", () => {
   });
 
   it("re-subscribes settings after reconnect", async () => {
+    vi.useFakeTimers();
     const client = new AgentClient(callbacks);
     client.connect("wss://test.com/ws", "w1");
-    await new Promise((r) => setTimeout(r, 10));
+    await vi.advanceTimersByTimeAsync(10);
 
     const ws = MockWebSocket.instances[0] as MockWebSocket;
     const connectId = JSON.parse(ws.sent[0] as string).id;
@@ -675,14 +680,18 @@ describe("AgentClient", () => {
     const subscribeCount = ws.sent.filter((s) => JSON.parse(s).type === "settings.subscribe").length;
     expect(subscribeCount).toBe(1);
 
+    // A connection that stayed up, then dropped.
+    await vi.advanceTimersByTimeAsync(30_000);
     ws.onclose?.();
-    await new Promise((r) => setTimeout(r, 1100));
+    await vi.advanceTimersByTimeAsync(1_500);
 
-    const ws2 = MockWebSocket.instances[MockWebSocket.instances.length - 1] as MockWebSocket;
+    expect(MockWebSocket.instances).toHaveLength(2);
+    const ws2 = MockWebSocket.instances[1] as MockWebSocket;
     const connectId2 = JSON.parse(ws2.sent[0] as string).id;
     ws2.receive({ id: "ack-2", type: "ack", payload: { ack_id: connectId2, ok: true } });
 
     const settingsFrames = ws2.sent.filter((s) => JSON.parse(s).type === "settings.subscribe");
     expect(settingsFrames.length).toBeGreaterThanOrEqual(1);
+    client.disconnect();
   });
 });

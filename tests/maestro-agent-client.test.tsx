@@ -145,7 +145,7 @@ describe('AgentProvider transport switch', () => {
     onReady({ client, transport })
     return null
   }
-  it('without maestro the legacy client connects to the agent runtime URL', () => {
+  it('without maestro the legacy client connects to the agent runtime URL', async () => {
     const sockets: string[] = []
     const original = globalThis.WebSocket
     globalThis.WebSocket = fakeWebSocket(sockets)
@@ -157,6 +157,8 @@ describe('AgentProvider transport switch', () => {
     )
     expect(seen?.transport).toBe('legacy')
     expect(seen?.client).not.toBeInstanceOf(MaestroAgentClient)
+    // connect() awaits a fresh auth token before opening the socket.
+    await act(tick)
     expect(sockets).toEqual(['wss://agent.example/ws'])
     view.unmount()
     globalThis.WebSocket = original
@@ -196,6 +198,7 @@ describe('AgentProvider transport switch', () => {
       </AgentProvider>
     )
     expect(seen?.transport).toBe('legacy')
+    await act(tick)
     expect(opened).toEqual(['wss://agent.example/ws'])
     view.unmount()
     globalThis.WebSocket = original
