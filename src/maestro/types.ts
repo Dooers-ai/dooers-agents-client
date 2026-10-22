@@ -33,6 +33,11 @@ export interface MaestroClientConfig {
   apiPrefix?: string
   scope: MaestroScope
   authToken: MaestroCredential
+  /**
+   * Credential with `threads:supervise`, asked for only when a supervision grant is opened or renewed.
+   * The ordinary credential never carries that scope. Falls back to `authToken` when omitted.
+   */
+  supervisionAuthToken?: MaestroCredential
   transport?: MaestroTransport
   allowInsecureLocalhost?: boolean
   requestTimeoutMs?: number

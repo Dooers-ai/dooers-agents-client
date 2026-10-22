@@ -957,12 +957,16 @@ export class MaestroClient {
       reason ? { access_reason: reason } : {}
     )
     const revision = this.threadRevisions.get(threadId) ?? 0
+    const supervisionCredential = this.config.supervisionAuthToken
+    const token = supervisionCredential
+      ? await this.resolveCredential(supervisionCredential)
+      : this.token
     const grant = parseMaestroNetwork(
       publicSchemas['Public.SupervisionGrant'],
       await this.http(
         `/threads/${threadId}/supervision`,
         { method: 'POST', headers, body: JSON.stringify(body) },
-        this.token,
+        token,
         [200, 201],
         this.maxBytes,
         // Denials (no right, reason required) are about this request, not about the session.

@@ -36,6 +36,8 @@ export interface AgentMaestroOptions {
   scope: MaestroScope
   /** Credencial humana emitida pelo core; uma função é chamada a cada (re)autenticação. */
   authToken: MaestroCredential
+  /** Credencial com `threads:supervise`, pedida só ao abrir/renovar a supervisão (o token do chat não a tem). */
+  supervisionAuthToken?: MaestroCredential
   /** Nome real de pessoas/agentes pelo id (o Maestro só guarda "Humano"/"Agente"). */
   resolveName?: MaestroNameResolver
   /** Liga formulários duráveis (interaction.respond). Desligado por padrão. */
@@ -169,6 +171,9 @@ export class MaestroAgentClient extends AgentClient {
       ...(this.options.apiPrefix ? { apiPrefix: this.options.apiPrefix } : {}),
       scope: this.options.scope,
       authToken: this.options.authToken,
+      ...(this.options.supervisionAuthToken
+        ? { supervisionAuthToken: this.options.supervisionAuthToken }
+        : {}),
       allowInsecureLocalhost: this.options.allowInsecureLocalhost === true,
       durableForms: this.options.forms === true,
       maxThreads: 1000,

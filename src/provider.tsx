@@ -106,6 +106,15 @@ export function AgentProvider({
                     return typeof current === 'function' ? current(context) : current
                   }
                 : options.authToken,
+            ...(options.supervisionAuthToken
+              ? {
+                  supervisionAuthToken: (context: Parameters<Extract<typeof options.authToken, (...a: never[]) => unknown>>[0]) => {
+                    const current =
+                      maestroRef.current?.supervisionAuthToken ?? options.supervisionAuthToken
+                    return typeof current === 'function' ? current(context) : (current as string)
+                  },
+                }
+              : {}),
             // Names arrive later from application queries; always use the latest resolver.
             resolveName: (kind, id) => maestroRef.current?.resolveName?.(kind, id),
           })

@@ -227,7 +227,7 @@ describe('AgentProvider transport switch', () => {
 })
 
 describe('MaestroAgentClient projects Maestro state into the legacy store', () => {
-  async function setup(fetcher: ReturnType<typeof vi.fn>) {
+  async function setup(fetcher: ReturnType<typeof vi.fn>, extra: Record<string, unknown> = {}) {
     const store = createAgentStore()
     const sockets: Socket[] = []
     const client = new MaestroAgentClient(store.getState().actions, {
@@ -235,6 +235,7 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
       scope,
       authToken: credential(scope.principalId, scope.organizationId),
       threadListPollMs: 0,
+      ...extra,
       fetch: fetcher as unknown as typeof fetch,
       socketFactory: () => {
         const socket = new Socket()
@@ -448,6 +449,45 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
       client.setOnError((e) => errors.push(e.code))
       client.subscribe(threadId)
       await vi.waitFor(() => expect(errors).toEqual(['ACCESS_REASON_REQUIRED']))
+      client.disconnect()
+    })
+
+    it('opens and renews supervision with the supervision credential, never with the chat credential', async () => {
+      vi.useFakeTimers()
+      const supervisionToken = credential(scope.principalId, scope.organizationId, { scopes: ['threads:read', 'threads:supervise'] })
+      const bearer = (call: unknown[]) => (call[1] as RequestInit).headers as Record<string, string>
+      const view = supervisedThread('1')
+      const fetcher = supervisionFetch(view)
+      const { client, socket } = await setup(fetcher, { supervisionAuthToken: () => supervisionToken })
+      answerPings(socket)
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      expect(posts(fetcher)).toHaveLength(1)
+      expect(bearer(posts(fetcher)[0]!).Authorization).toBe(`Bearer ${supervisionToken}`)
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await settle(50_500)
+      expect(posts(fetcher)).toHaveLength(2)
+      expect(bearer(posts(fetcher)[1]!).Authorization).toBe(`Bearer ${supervisionToken}`)
+      // Ordinary reads keep the chat credential.
+      const reads = fetcher.mock.calls.filter(([url]) => !String(url).endsWith('/supervision'))
+      expect(reads.some((call) => bearer(call).Authorization === `Bearer ${supervisionToken}`)).toBe(false)
+      client.disconnect()
+    })
+
+    it('a 404 from the supervision (no elevation, or not visible) is NOT_FOUND, never ACCESS_REASON_REQUIRED', async () => {
+      const errors: string[] = []
+      const fetcher = vi.fn(async (url: string) => {
+        if (url.endsWith('/supervision')) return failure(404, 'NOT_FOUND')
+        if (url.includes(`/threads/${threadId}`)) return failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, store } = await setup(fetcher)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId)
+      await vi.waitFor(() => expect(errors).toEqual(['NOT_FOUND']))
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
       client.disconnect()
     })
 
