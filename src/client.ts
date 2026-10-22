@@ -642,6 +642,24 @@ export class AgentClient {
     return Promise.resolve(false)
   }
 
+  /** Legacy runtimes have no archive state; only the Maestro transport archives conversations. */
+  archiveThread(_threadId: string): Promise<boolean> {
+    return this.unsupportedArchive()
+  }
+
+  unarchiveThread(_threadId: string): Promise<boolean> {
+    return this.unsupportedArchive()
+  }
+
+  private unsupportedArchive(): Promise<boolean> {
+    this.onError?.({
+      code: 'UNSUPPORTED',
+      message: 'This runtime does not archive conversations',
+      frameType: 'thread.archive',
+    })
+    return Promise.resolve(false)
+  }
+
   addParticipant(
     threadId: string,
     user: {

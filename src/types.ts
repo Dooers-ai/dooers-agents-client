@@ -264,6 +264,10 @@ export interface ThreadAccess {
   read: boolean
   write: boolean
   manage: boolean
+  /** Maestro only: may archive/unarchive (organization admin, workspace manager, platform admin). */
+  archive?: boolean
+  /** Maestro only: may remove another participant (same group as ``archive``). */
+  removeParticipants?: boolean
 }
 
 export interface Thread {

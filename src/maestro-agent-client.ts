@@ -50,8 +50,24 @@ export interface AgentMaestroOptions {
 const LIST_PAGE_SIZE = 100
 const LIST_MAX_PAGES = 5
 const PENDING_RUN_PREFIX = 'maestro-pending:'
+/** A supervision grant lasts at most 60 s: renew it this long before it expires. */
+const RENEW_BEFORE_MS = 10_000
+const RENEW_RETRY_MS = 3_000
 
 type Retained = { count: number; release: () => void }
+/** A conversation read by supervision (the reader does not participate). */
+type Supervised = { timer: ReturnType<typeof setTimeout> | null; expiresAt: number }
+
+/**
+ * The Maestro asks for an access reason either with its own error code or as the reason code of
+ * a refusal. The chat only knows the legacy code, so both become ``ACCESS_REASON_REQUIRED``.
+ */
+function accessFailure(cause: unknown): unknown {
+  return cause instanceof MaestroClientError &&
+    (cause.code === 'ACCESS_REASON_REQUIRED' || cause.reasonCode === 'access_reason_required')
+    ? new MaestroClientError('ACCESS_REASON_REQUIRED', cause.message, false, cause.requestId)
+    : cause
+}
 
 function errorMessage(cause: unknown): string {
   if (cause instanceof Error && cause.message) return cause.message
@@ -94,6 +110,7 @@ export class MaestroAgentClient extends AgentClient {
   private user: AgentConnectionConfig = { organizationId: '', workspaceId: '', userId: '' }
   private subscriptions: (() => void)[] = []
   private retained = new Map<string, Retained>()
+  private supervised = new Map<string, Supervised>()
   private snapshotted = new Set<string>()
   private eventSignatures = new Map<string, Map<string, string>>()
   private threadSignatures = new Map<string, string>()
@@ -186,6 +203,8 @@ export class MaestroAgentClient extends AgentClient {
     this.pollTimer = null
     this.refreshTimer = null
     for (const unsubscribe of this.subscriptions.splice(0)) unsubscribe()
+    for (const reading of this.supervised.values()) if (reading.timer) clearTimeout(reading.timer)
+    this.supervised.clear()
     for (const ref of this.retained.values()) ref.release()
     this.retained.clear()
     this.snapshotted.clear()
@@ -341,7 +360,12 @@ export class MaestroAgentClient extends AgentClient {
 
   // --- Assinatura de threads e projeção no store legado ---
 
-  override subscribe(threadId: string, _options?: { accessReason?: string }) {
+  /**
+   * Participants read through the ordinary subscription. A reader who does not participate is
+   * refused by the Maestro (404/403); if their role allows it they read by supervision instead,
+   * with the access reason when the policy asks for one (``ACCESS_REASON_REQUIRED`` otherwise).
+   */
+  override subscribe(threadId: string, options?: { accessReason?: string }) {
     const maestro = this.maestro
     if (!maestro) return
     let id: string
@@ -356,13 +380,16 @@ export class MaestroAgentClient extends AgentClient {
       return
     }
     this.callbacks.addSubscription(id)
-    this.retained.set(id, { count: 1, release: maestro.retainThread(id) })
+    const entry: Retained = { count: 1, release: maestro.retainThread(id) }
+    this.retained.set(id, entry)
     // A projeção atual do leitor (permissões, participantes) vem do GET da thread.
     void maestro.getThread(id).catch((cause) => {
-      if (this.maestro !== maestro) return
+      if (this.maestro !== maestro || this.retained.get(id) !== entry) return
+      if (cause instanceof MaestroClientError && ['NOT_FOUND', 'FORBIDDEN'].includes(cause.code)) {
+        void this.supervise(maestro, id, entry, options?.accessReason)
+        return
+      }
       this.report(cause)
-      if (cause instanceof MaestroClientError && ['NOT_FOUND', 'FORBIDDEN'].includes(cause.code))
-        this.callbacks.removeSubscription(id)
     })
     this.sync(maestro.store)
   }
@@ -375,12 +402,127 @@ export class MaestroAgentClient extends AgentClient {
       ref.count--
       return
     }
-    ref.release()
+    this.dropSubscription(id)
+  }
+
+  private dropSubscription(id: string) {
+    // The grant goes first: closing the thread while it is still retained wipes what supervision showed.
+    this.endSupervision(id)
+    this.retained.get(id)?.release()
     this.retained.delete(id)
     this.snapshotted.delete(id)
     this.eventSignatures.delete(id)
     this.threadSignatures.delete(id)
     this.callbacks.removeSubscription(id)
+  }
+
+  // --- Leitura por supervisão (quem não participa) ---
+
+  private async supervise(
+    maestro: MaestroClient,
+    id: string,
+    entry: Retained,
+    reason: string | undefined
+  ) {
+    // The ordinary subscription was refused; a grant must exist before the wire subscription.
+    entry.release()
+    entry.release = () => {}
+    const live = () => this.maestro === maestro && this.retained.get(id) === entry
+    try {
+      const grant = await onceMore(() => maestro.openSupervision(id, reason, crypto.randomUUID()))
+      if (!live()) {
+        maestro.closeThread(id)
+        return
+      }
+      this.armRenewal(maestro, id, grant.expires_at)
+      entry.release = maestro.retainThread(id)
+    } catch (cause) {
+      if (!live()) return
+      this.dropSubscription(id)
+      this.report(accessFailure(cause))
+      return
+    }
+    this.sync(maestro.store)
+    void maestro.getThread(id).catch((cause) => {
+      if (!live()) return
+      this.dropSubscription(id)
+      this.report(cause)
+    })
+  }
+
+  private armRenewal(maestro: MaestroClient, id: string, expiresAt: string) {
+    const previous = this.supervised.get(id)
+    if (previous?.timer) clearTimeout(previous.timer)
+    const expires = Date.parse(expiresAt)
+    this.supervised.set(id, {
+      expiresAt: expires,
+      timer: setTimeout(
+        () => this.renew(maestro, id),
+        Math.max(1_000, expires - Date.now() - RENEW_BEFORE_MS)
+      ),
+    })
+  }
+
+  /**
+   * Keeps the conversation readable while it stays subscribed: a new grant, then the wire
+   * subscription (bound to one grant, revoked by the Maestro when it expires) moves onto it.
+   * The reason is not sent again; the Maestro remembers an accepted one until the end of the UTC day.
+   */
+  private renew(maestro: MaestroClient, id: string) {
+    const reading = this.supervised.get(id)
+    const entry = this.retained.get(id)
+    if (!reading || !entry || this.maestro !== maestro) return
+    const live = () => this.maestro === maestro && this.retained.get(id) === entry
+    void (async () => {
+      try {
+        const grant = await maestro.openSupervision(id, undefined, crypto.randomUUID())
+        if (!live()) return
+        this.armRenewal(maestro, id, grant.expires_at)
+        const phase = maestro.store.getThread(id)?.phase
+        if (phase === 'revoked' || phase === 'failed') {
+          // The previous grant lapsed before the renewal ran: subscribe again from scratch.
+          entry.release()
+          entry.release = maestro.retainThread(id)
+        } else maestro.retryReplay(id)
+      } catch (cause) {
+        if (!live()) return
+        const transient =
+          cause instanceof MaestroClientError &&
+          (cause.retryable || cause.code === 'CORE_UNAVAILABLE')
+        if (transient && Date.now() + RENEW_RETRY_MS < reading.expiresAt) {
+          reading.timer = setTimeout(() => this.renew(maestro, id), RENEW_RETRY_MS)
+          return
+        }
+        this.dropSubscription(id)
+        this.report(accessFailure(cause))
+      }
+    })()
+  }
+
+  private stopRenewal(id: string) {
+    const reading = this.supervised.get(id)
+    if (reading?.timer) clearTimeout(reading.timer)
+    this.supervised.delete(id)
+  }
+
+  /** Releases the grant and wipes the supervised content held by the Maestro client. */
+  private endSupervision(id: string) {
+    if (!this.supervised.has(id)) return
+    this.stopRenewal(id)
+    this.maestro?.closeThread(id)
+  }
+
+  /** The reader joined the conversation: from now on the ordinary subscription applies. */
+  private leaveSupervision(maestro: MaestroClient, id: string) {
+    const entry = this.retained.get(id)
+    if (!entry || !this.supervised.has(id)) return
+    this.endSupervision(id)
+    entry.release()
+    entry.release = maestro.retainThread(id)
+    this.snapshotted.delete(id)
+    this.eventSignatures.delete(id)
+    this.threadSignatures.delete(id)
+    void maestro.getThread(id).catch((cause) => this.report(cause))
   }
 
   override loadOlderEvents(threadId: string, limit?: number) {
@@ -640,6 +782,8 @@ export class MaestroAgentClient extends AgentClient {
     return onceMore(() => maestro.addParticipant(id, target, key))
       .then(() => {
         this.requestThreadList()
+        if (kind === 'human' && user.userId === this.options.scope.principalId)
+          this.leaveSupervision(maestro, id)
         return true
       })
       .catch((cause) => {
@@ -675,6 +819,38 @@ export class MaestroAgentClient extends AgentClient {
       })
   }
 
+  override archiveThread(threadId: string): Promise<boolean> {
+    return this.changeState(threadId, 'archived')
+  }
+
+  override unarchiveThread(threadId: string): Promise<boolean> {
+    return this.changeState(threadId, 'active')
+  }
+
+  /** Falhas são reportadas por ``onError``; a promise não rejeita. */
+  private changeState(threadId: string, state: 'active' | 'archived'): Promise<boolean> {
+    const maestro = this.maestro
+    if (!maestro) return Promise.resolve(false)
+    const id = threadId.toLowerCase()
+    const key = crypto.randomUUID()
+    return (async () => {
+      const version =
+        maestro.store.getThread(id)?.thread?.version ?? (await maestro.getThread(id)).version
+      await onceMore(() => maestro.changeThreadState(id, state, version, key))
+    })()
+      .then(() => {
+        this.requestThreadList()
+        return true
+      })
+      .catch((cause) => {
+        this.report(cause)
+        this.callbacks.setSendError(
+          `Could not ${state === 'archived' ? 'archive' : 'unarchive'} conversation: ${errorMessage(cause)}`
+        )
+        return false
+      })
+  }
+
   override deleteThread(threadId: string) {
     const maestro = this.maestro
     if (!maestro) return
@@ -683,6 +859,7 @@ export class MaestroAgentClient extends AgentClient {
     void (async () => {
       const current = version ?? (await maestro.getThread(id)).version
       await maestro.deleteThread(id, current, crypto.randomUUID())
+      this.stopRenewal(id)
       this.callbacks.onThreadDeleted(id)
     })().catch((cause) => this.report(cause))
   }

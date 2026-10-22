@@ -50,7 +50,19 @@ const agentMessage = (sequence: number, text: string, agent = AGENT, participant
 const json = (value: unknown, status = 200) =>
   new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
 
-afterEach(() => cleanup())
+const failure = (status: number, code: string, details?: Record<string, unknown>) =>
+  json({ error: { code, message: 'Falha', retryable: false, request_id: uuid(900), ...(details ? { details } : {}) } }, status)
+/** A reader who is not a participant (supervision): only agents are listed. */
+const supervisedThread = (sequence = '2', permissions: Record<string, boolean> = {}) => {
+  const value = thread(sequence)
+  value.participants = [agentParticipant(AGENT, uuid(20), 'Agente Um')]
+  value.permissions = { ...value.permissions, write: false, manage: false, cancel: false, feedback: false, archive: true, remove_participants: true, ...permissions }
+  return value
+}
+const grantFor = (n = 90, lifetime = 60_000) => ({ supervision_grant_id: uuid(n), thread_id: threadId, access: 'read_only', expires_at: new Date(Date.now() + lifetime).toISOString(), policy_version: 1 })
+const grantOf = (init?: RequestInit) => (init?.headers as Record<string, string> | undefined)?.['Maestro-Supervision-Grant']
+
+afterEach(() => { cleanup(); vi.useRealTimers() })
 
 function fakeWebSocket(opened: string[]): typeof WebSocket {
   return class {
@@ -81,6 +93,15 @@ describe('Maestro → legacy mapping', () => {
       [AGENT, 'Agente Um', MAESTRO_AGENT_ROLE],
       [OTHER_AGENT, 'Agente Dois', MAESTRO_AGENT_ROLE],
     ])
+  })
+  it('maps archive and remove permissions and exposes the thread state to the chat', () => {
+    const value = sharedThread('3')
+    value.permissions = { ...value.permissions, archive: true, remove_participants: false }
+    const legacy = maestroThreadToLegacy(toMaestroThread(value), AGENT)
+    expect(legacy.access).toEqual({ read: true, write: true, manage: true, archive: true, removeParticipants: false })
+    expect(legacy.metadata).toMatchObject({ authority: 'maestro', state: 'active' })
+    value.state = 'archived'
+    expect(maestroThreadToLegacy(toMaestroThread(value), AGENT).metadata).toMatchObject({ state: 'archived' })
   })
   it('resolves real names for the generic Maestro display names', () => {
     const resolve = (kind: 'human' | 'agent', id: string) =>
@@ -308,5 +329,317 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     legacy.setOnError((e) => errors.push(e.code))
     await expect(legacy.addParticipant(threadId, { userId: AGENT, kind: 'agent' })).resolves.toBe(false)
     expect(errors).toEqual(['UNSUPPORTED'])
+  })
+  it('archives and unarchives through PATCH with the current version in If-Match', async () => {
+    const active = sharedThread('2')
+    active.version = 4
+    active.permissions = { ...active.permissions, archive: true }
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) =>
+      url.includes(`/threads/${threadId}`) ? json(init?.method === 'PATCH' ? { ...active, version: 5, state: JSON.parse(String(init.body)).state } : active) : json({ items: [active], next_cursor: null, has_more: false, watermark: '2' })
+    )
+    const { client } = await setup(fetcher)
+    await expect(client.archiveThread(threadId)).resolves.toBe(true)
+    const archived = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!
+    expect(String(archived[0])).toBe(`https://maestro.example/api/v1/threads/${threadId}`)
+    expect(JSON.parse(String(archived[1]?.body))).toEqual({ state: 'archived' })
+    expect(archived[1]?.headers).toMatchObject({ 'If-Match': '4' })
+    await expect(client.unarchiveThread(threadId)).resolves.toBe(true)
+    const patches = fetcher.mock.calls.filter(([, init]) => init?.method === 'PATCH')
+    expect(JSON.parse(String(patches[1]![1]?.body))).toEqual({ state: 'active' })
+    client.disconnect()
+  })
+  it('a refused archive is reported and keeps the session connected', async () => {
+    const errors: string[] = []
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) =>
+      init?.method === 'PATCH' ? failure(403, 'FORBIDDEN') : url.includes(`/threads/${threadId}`) ? json(sharedThread('2')) : json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+    )
+    const { client } = await setup(fetcher)
+    client.setOnError((e) => errors.push(e.code))
+    await expect(client.archiveThread(threadId)).resolves.toBe(false)
+    expect(errors).toEqual(['FORBIDDEN'])
+    expect(client.isConnected()).toBe(true)
+    client.disconnect()
+  })
+  it('legacy runtimes cannot archive or unarchive', async () => {
+    const errors: string[] = []
+    const legacy = new AgentClient(createAgentStore().getState().actions)
+    legacy.setOnError((e) => errors.push(e.code))
+    await expect(legacy.archiveThread(threadId)).resolves.toBe(false)
+    await expect(legacy.unarchiveThread(threadId)).resolves.toBe(false)
+    expect(errors).toEqual(['UNSUPPORTED', 'UNSUPPORTED'])
+  })
+
+  describe('supervision of conversations the reader does not participate in', () => {
+    const supervisionFetch = (view = supervisedThread(), issued = { count: 0 }) =>
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/supervision')) return json(grantFor(90 + issued.count++))
+        if (url.includes(`/threads/${threadId}`))
+          return grantOf(init) ? json(view) : failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+    const posts = (fetcher: ReturnType<typeof vi.fn>) => fetcher.mock.calls.filter(([url]) => String(url).endsWith('/supervision'))
+    const answerPings = (socket: Socket) => {
+      const send = socket.send.bind(socket)
+      socket.send = (data: string) => {
+        send(data)
+        const frame = JSON.parse(data)
+        if (frame.type === 'ping') socket.receive({ id: frame.id, type: 'pong', payload: frame.payload })
+      }
+    }
+    const settle = async (ms = 0) => { await vi.advanceTimersByTimeAsync(ms) }
+
+    it('opens supervision with the reason, binds the subscription to the grant and projects read-only access', async () => {
+      const view = supervisedThread('1')
+      const fetcher = supervisionFetch(view)
+      const { client, store, socket } = await setup(fetcher)
+      client.subscribe(threadId, { accessReason: 'Auditoria de qualidade' })
+      await vi.waitFor(() => expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(2))
+      expect(JSON.parse(String(posts(fetcher)[0]![1]?.body))).toEqual({ access_reason: 'Auditoria de qualidade' })
+      expect(socket.last('thread.subscribe').payload.supervision_grant_id).toBe(uuid(90))
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await tick()
+      expect(store.getState().threads[threadId]?.access).toEqual({ read: true, write: false, manage: false, archive: true, removeParticipants: true })
+      expect(store.getState().events[threadId]).toHaveLength(1)
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(true)
+      client.disconnect()
+    })
+
+    it('a participant never opens supervision', async () => {
+      const mine = sharedThread('2')
+      const fetcher = vi.fn(async (url: string) => (url.includes(`/threads/${threadId}`) ? json(mine) : json({ items: [mine], next_cursor: null, has_more: false, watermark: '2' })))
+      const { client, socket } = await setup(fetcher)
+      client.subscribe(threadId, { accessReason: 'não precisa' })
+      await tick()
+      expect(posts(fetcher)).toHaveLength(0)
+      expect(socket.last('thread.subscribe').payload.supervision_grant_id).toBeUndefined()
+      client.disconnect()
+    })
+
+    it('without a reason, a Maestro answer that requires one becomes ACCESS_REASON_REQUIRED and the session stays up', async () => {
+      const errors: string[] = []
+      const fetcher = vi.fn(async (url: string) => {
+        if (url.endsWith('/supervision')) return failure(403, 'FORBIDDEN', { reason_code: 'access_reason_required' })
+        if (url.includes(`/threads/${threadId}`)) return failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, store } = await setup(fetcher)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId)
+      await vi.waitFor(() => expect(errors).toEqual(['ACCESS_REASON_REQUIRED']))
+      expect(posts(fetcher)).toHaveLength(1)
+      expect(JSON.parse(String(posts(fetcher)[0]![1]?.body))).toEqual({})
+      expect(client.isConnected()).toBe(true)
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      // The chat re-subscribes with the reason it just collected.
+      fetcher.mockImplementation(supervisionFetch().getMockImplementation()!)
+      client.subscribe(threadId, { accessReason: 'Motivo informado' })
+      await vi.waitFor(() => expect(posts(fetcher)).toHaveLength(2))
+      expect(JSON.parse(String(posts(fetcher)[1]![1]?.body))).toEqual({ access_reason: 'Motivo informado' })
+      client.disconnect()
+    })
+
+    it('a Maestro error code ACCESS_REASON_REQUIRED is passed through as is', async () => {
+      const errors: string[] = []
+      const { MaestroClientError } = await import('../src/maestro/types')
+      const { client } = await setup(supervisionFetch())
+      client.getMaestroClient()!.openSupervision = async () => { throw new MaestroClientError('ACCESS_REASON_REQUIRED', 'reason') }
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId)
+      await vi.waitFor(() => expect(errors).toEqual(['ACCESS_REASON_REQUIRED']))
+      client.disconnect()
+    })
+
+    it('a reader who cannot supervise gets the Maestro error and no subscription', async () => {
+      const errors: string[] = []
+      const fetcher = vi.fn(async (url: string) =>
+        url.includes(`/threads/${threadId}`) ? failure(404, 'NOT_FOUND') : json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      )
+      const { client, store } = await setup(fetcher)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId, { accessReason: 'tentativa' })
+      await vi.waitFor(() => expect(errors).toEqual(['NOT_FOUND']))
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      client.disconnect()
+    })
+
+    it('renews the grant 10 s before it expires, without repeating the reason, and rebinds the subscription', async () => {
+      vi.useFakeTimers()
+      const view = supervisedThread('1')
+      const fetcher = supervisionFetch(view)
+      const { client, socket } = await setup(fetcher)
+      answerPings(socket)
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      expect(posts(fetcher)).toHaveLength(1)
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await settle(48_000)
+      expect(posts(fetcher)).toHaveLength(1)
+      await settle(2_500)
+      expect(posts(fetcher)).toHaveLength(2)
+      expect(JSON.parse(String(posts(fetcher)[1]![1]?.body))).toEqual({})
+      await settle(500)
+      const rebound = socket.sent.filter((f) => f.type === 'thread.subscribe')
+      expect(rebound.at(-1)!.payload.supervision_grant_id).toBe(uuid(91))
+      // Still the same conversation after the original 60 s window.
+      await settle(15_000)
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(true)
+      expect(client.getMaestroClient()?.store.getThread(threadId)?.phase).not.toBe('revoked')
+      client.disconnect()
+    })
+
+    it('a renewal that runs after the grant lapsed subscribes again from scratch', async () => {
+      vi.useFakeTimers()
+      const view = supervisedThread('1')
+      const fetcher = supervisionFetch(view)
+      const { client, socket } = await setup(fetcher)
+      answerPings(socket)
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await settle(0)
+      // The 60 s window ended while timers were suspended: the Maestro client already wiped the thread.
+      client.getMaestroClient()!.closeThread(threadId)
+      expect(client.getMaestroClient()!.store.getThread(threadId)?.phase).toBe('revoked')
+      await settle(50_000)
+      expect(posts(fetcher)).toHaveLength(2)
+      await settle(100)
+      expect(socket.last('thread.subscribe').payload.supervision_grant_id).toBe(uuid(91))
+      client.disconnect()
+    })
+
+    it('a transient renewal failure is retried while the current grant is still valid', async () => {
+      vi.useFakeTimers()
+      const errors: string[] = []
+      let calls = 0
+      const view = supervisedThread('1')
+      const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/supervision')) {
+          const call = calls++
+          return call === 1
+            ? json({ error: { code: 'CORE_UNAVAILABLE', message: 'Indisponível', retryable: true, request_id: uuid(900) } }, 503)
+            : json(grantFor(90 + call))
+        }
+        if (url.includes(`/threads/${threadId}`)) return grantOf(init) ? json(view) : failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, socket } = await setup(fetcher)
+      answerPings(socket)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      await settle(50_000)
+      expect(posts(fetcher)).toHaveLength(2)
+      await settle(3_100)
+      expect(posts(fetcher)).toHaveLength(3)
+      expect(errors).toEqual([])
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(true)
+      client.disconnect()
+    })
+
+    it('stops renewing once the chat leaves the conversation', async () => {
+      vi.useFakeTimers()
+      const fetcher = supervisionFetch()
+      const { client, socket } = await setup(fetcher)
+      answerPings(socket)
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      expect(posts(fetcher)).toHaveLength(1)
+      client.unsubscribe(threadId)
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(false)
+      await settle(200_000)
+      expect(posts(fetcher)).toHaveLength(1)
+      client.disconnect()
+    })
+
+    it('a renewal refused for lack of reason drops the conversation and asks for the reason again', async () => {
+      vi.useFakeTimers()
+      const errors: string[] = []
+      let calls = 0
+      const view = supervisedThread()
+      const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/supervision')) return calls++ === 0 ? json(grantFor(90)) : failure(403, 'FORBIDDEN', { reason_code: 'access_reason_required' })
+        if (url.includes(`/threads/${threadId}`)) return grantOf(init) ? json(view) : failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, store, socket } = await setup(fetcher)
+      answerPings(socket)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await settle(50)
+      await settle(51_000)
+      expect(errors).toEqual(['ACCESS_REASON_REQUIRED'])
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(false)
+      expect(client.isConnected()).toBe(true)
+      client.disconnect()
+    })
+
+    it('a supervisor with archive permission archives without participating; one without it is refused locally', async () => {
+      const errors: string[] = []
+      const view = supervisedThread('1')
+      view.version = 6
+      const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/supervision')) return json(grantFor(90))
+        if (url.includes(`/threads/${threadId}`))
+          return init?.method === 'PATCH' ? json({ ...view, version: 7, state: 'archived' }) : grantOf(init) ? json(view) : failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, socket } = await setup(fetcher)
+      client.setOnError((e) => errors.push(e.code))
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await vi.waitFor(() => expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(2))
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await tick()
+      await expect(client.archiveThread(threadId)).resolves.toBe(true)
+      const patch = fetcher.mock.calls.find(([, init]) => init?.method === 'PATCH')!
+      expect(patch[1]?.headers).toMatchObject({ 'If-Match': '6' })
+      expect(grantOf(patch[1])).toBeUndefined()
+      // Without the archive permission the request never leaves the browser.
+      view.permissions = { ...view.permissions, archive: false }
+      await client.getMaestroClient()!.getThread(threadId)
+      const before = fetcher.mock.calls.filter(([, init]) => init?.method === 'PATCH').length
+      await expect(client.unarchiveThread(threadId)).resolves.toBe(false)
+      expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'PATCH')).toHaveLength(before)
+      expect(errors).toEqual(['FORBIDDEN'])
+      client.disconnect()
+    })
+
+    it('after adding itself as a participant the reader leaves supervision and subscribes as a participant', async () => {
+      const view = supervisedThread('1', { manage: true })
+      const joined = sharedThread('1')
+      let added = false
+      const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith('/supervision')) return json(grantFor(90))
+        if (url.endsWith('/participants')) { added = true; return json(joined) }
+        if (url.includes(`/threads/${threadId}`)) return added ? json(joined) : grantOf(init) ? json(view) : failure(404, 'NOT_FOUND')
+        return json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      })
+      const { client, store, socket } = await setup(fetcher)
+      client.subscribe(threadId, { accessReason: 'Auditoria' })
+      await vi.waitFor(() => expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(2))
+      socket.ackSubscribe()
+      socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+      socket.caught('1')
+      await tick()
+      expect(store.getState().threads[threadId]?.access?.write).toBe(false)
+      await expect(client.addParticipant(threadId, { userId: scope.principalId })).resolves.toBe(true)
+      expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(false)
+      await vi.waitFor(() => expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(3))
+      expect(socket.last('thread.subscribe').payload.supervision_grant_id).toBeUndefined()
+      socket.ackSubscribe(uuid(102))
+      socket.frame('thread.snapshot', { thread: joined, events: [event(1)], watermark: '1', next_cursor: null, has_more: false }, uuid(102))
+      socket.caught('1', uuid(102))
+      await tick()
+      expect(store.getState().threads[threadId]?.access?.write).toBe(true)
+      client.disconnect()
+    })
   })
 })

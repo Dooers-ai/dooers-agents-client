@@ -112,7 +112,9 @@ export class MaestroClientError extends Error {
     readonly requestId?: string,
     readonly threadId?: string,
     readonly clientEventId?: string,
-    readonly publicationState?: MaestroPublicationState
+    readonly publicationState?: MaestroPublicationState,
+    /** `details.reason_code` of the Maestro error, when it sent one. */
+    readonly reasonCode?: string
   ) {
     super(message)
     this.name = 'MaestroClientError'

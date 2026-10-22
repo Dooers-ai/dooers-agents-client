@@ -816,7 +816,10 @@ export class MaestroClient {
       'POST',
       'Public.ParticipantAddRequest',
       request,
-      key
+      key,
+      undefined,
+      false,
+      'manage'
     )
   }
   async removeParticipant(
@@ -831,7 +834,10 @@ export class MaestroClient {
       'DELETE',
       'Public.ReasonRequest',
       request,
-      key
+      key,
+      undefined,
+      false,
+      'remove_participants'
     )
   }
   async transferOwnership(threadId: string, participantId: string, version: number, key: string) {
@@ -858,7 +864,9 @@ export class MaestroClient {
       'Public.ThreadPatchRequest',
       { state },
       key,
-      version
+      version,
+      false,
+      'archive'
     )
   }
   async deleteThread(threadId: string, version: number, key: string) {
@@ -870,7 +878,8 @@ export class MaestroClient {
       {},
       key,
       version,
-      true
+      true,
+      'manage'
     )
     const receipt = parseMaestroNetwork(publicSchemas['Public.DeleteResponse'], result)
     this.closeThread(threadId)
@@ -888,11 +897,21 @@ export class MaestroClient {
     request: unknown,
     key: string,
     version?: number,
-    deleting = false
+    deleting = false,
+    /**
+     * Permission a supervisor needs for this call. Supervision never writes messages, but an
+     * elevated reader may manage the conversation without joining it, as far as the projected
+     * permissions say. Without one (e.g. ownership transfer) a supervised call is refused.
+     */
+    supervised?: 'manage' | 'archive' | 'remove_participants'
   ) {
     this.requireCapability('threads.shared')
     threadId = this.checkId(threadId)
-    if (this.supervisionGrants.has(threadId)) throw error('FORBIDDEN', 'Supervision is read-only')
+    if (this.supervisionGrants.has(threadId)) {
+      const state = this.store.getThread(threadId)
+      if (!supervised || state?.phase !== 'live' || state.thread?.permissions[supervised] !== true)
+        throw error('FORBIDDEN', 'Supervision is read-only')
+    }
     const headers =
       version === undefined
         ? publicSchemas['Public.MutationHeaders'].parse({ 'Idempotency-Key': key })
@@ -907,7 +926,10 @@ export class MaestroClient {
         `/threads/${threadId}${suffix}`,
         { method, headers, body: JSON.stringify(body) },
         this.token,
-        deleting ? [202] : [200, 201]
+        deleting ? [202] : [200, 201],
+        this.maxBytes,
+        // A 403 here is a business denial of this one request, not the loss of the session.
+        true
       )
       this.assertThreadRevision(threadId, revision)
       // Mutation receipts may deliberately omit current permissions. Always read a fresh projection.
@@ -922,21 +944,30 @@ export class MaestroClient {
       throw cause
     }
   }
-  async openSupervision(threadId: string, accessReason: string, key: string) {
+  /**
+   * The reason is optional on the wire: the Maestro asks for it only when the policy requires one
+   * and none was accepted earlier the same day (UTC). A grant itself still lasts at most 60 s.
+   */
+  async openSupervision(threadId: string, accessReason: string | undefined, key: string) {
     this.requireCapability('threads.shared')
     threadId = this.checkId(threadId)
     const headers = publicSchemas['Public.MutationHeaders'].parse({ 'Idempotency-Key': key })
-    const body = publicSchemas['Public.SupervisionRequest'].parse({
-      access_reason: accessReason.trim(),
-    })
+    const reason = accessReason?.trim()
+    const body = publicSchemas['Public.SupervisionRequest'].parse(
+      reason ? { access_reason: reason } : {}
+    )
     const revision = this.threadRevisions.get(threadId) ?? 0
     const grant = parseMaestroNetwork(
       publicSchemas['Public.SupervisionGrant'],
-      await this.http(`/threads/${threadId}/supervision`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      })
+      await this.http(
+        `/threads/${threadId}/supervision`,
+        { method: 'POST', headers, body: JSON.stringify(body) },
+        this.token,
+        [200, 201],
+        this.maxBytes,
+        // Denials (no right, reason required) are about this request, not about the session.
+        true
+      )
     )
     this.assertThreadRevision(threadId, revision)
     const lifetime = Date.parse(grant.expires_at) - Date.now()
@@ -2032,7 +2063,8 @@ export class MaestroClient {
           parsed.request_id,
           undefined,
           undefined,
-          rejectionState(parsed.code, response.status)
+          rejectionState(parsed.code, response.status),
+          parsed.details?.reason_code
         )
         if (
           authCodes.has(parsed.code) &&

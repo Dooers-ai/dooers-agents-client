@@ -79,3 +79,68 @@ it('an expired supervision grant fences a late HTTP response and cannot restore 
   expect(client.store.getThread(threadId)?.thread).toBeNull()
   expect(client.store.getThread(threadId)?.eventIds).toHaveLength(0)
 })
+const failure = (status: number, code: string) => json({ error: { code, message: 'Falha', retryable: false, request_id: uuid(900) } }, status)
+const supervisedGrant = () => ({ supervision_grant_id: uuid(90), thread_id: threadId, access: 'read_only', expires_at: new Date(Date.now() + 50000).toISOString(), policy_version: 1 })
+/** What the Maestro serves for the thread; supervise() points it at the supervisor's view. */
+const served: { value: ReturnType<typeof thread> } = { value: thread('1') }
+async function supervise(permissions: Record<string, boolean>, fetcher: ReturnType<typeof vi.fn>) {
+  const env = await setup(fetcher)
+  await env.client.openSupervision(threadId, 'Operational review', 'supervision-key')
+  env.client.retainThread(threadId); await tick()
+  env.socket.ackSubscribe()
+  const view = thread('1'); view.permissions = { ...view.permissions, write: false, ...permissions }
+  served.value = view
+  env.socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
+  env.socket.caught('1'); await tick()
+  return { ...env, view }
+}
+it('supervision without a reason omits access_reason (the Maestro decides whether one is required)', async () => {
+  const fetcher = vi.fn(async () => json(supervisedGrant()))
+  const { client } = await setup(fetcher)
+  await client.openSupervision(threadId, undefined, 'open-mode-key')
+  expect(fetcher.mock.calls[0]![1]?.body).toBe(JSON.stringify({}))
+  await client.openSupervision(threadId, '   ', 'blank-key')
+  expect(fetcher.mock.calls[1]![1]?.body).toBe(JSON.stringify({}))
+})
+it('a request-scoped 403 on a management call does not end the authenticated session', async () => {
+  const fetcher = vi.fn(async () => failure(403, 'FORBIDDEN'))
+  const { client } = await setup(fetcher)
+  await expect(client.changeThreadState(threadId, 'archived', 1, 'denied-key')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  expect(client.getConnection().status).toBe('connected')
+  await expect(client.openSupervision(threadId, 'Motivo', 'denied-supervision')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  expect(client.getConnection().status).toBe('connected')
+})
+it('a 401 on a management call is still a session boundary', async () => {
+  const fetcher = vi.fn(async () => failure(401, 'UNAUTHENTICATED'))
+  const { client } = await setup(fetcher)
+  await expect(client.changeThreadState(threadId, 'archived', 1, 'expired-key')).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+  expect(client.getConnection().status).toBe('unauthenticated')
+})
+it('a supervisor archives only with the archive permission, and never adds, transfers or removes without theirs', async () => {
+  const sent: Array<[string, RequestInit | undefined]> = []
+  const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
+    sent.push([url, init])
+    if (url.endsWith('/supervision')) return json(supervisedGrant())
+    return json(served.value)
+  })
+  const { client, view } = await supervise({ archive: true, remove_participants: false, manage: false }, fetcher)
+  await client.changeThreadState(threadId, 'archived', 1, 'archive-key')
+  const patch = sent.find(([, init]) => init?.method === 'PATCH')!
+  expect(patch[1]?.headers).toMatchObject({ 'If-Match': '1', 'Idempotency-Key': 'archive-key' })
+  expect((patch[1]?.headers as Record<string, string>)['Maestro-Supervision-Grant']).toBeUndefined()
+  await expect(client.removeParticipant(threadId, view.participants[0]!.participant_id, {}, 'remove-key')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  await expect(client.addParticipant(threadId, { kind: 'human', principal_id: 'someone', role: 'member' }, 'add-key')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  await expect(client.transferOwnership(threadId, uuid(9), 1, 'transfer-key')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  await expect(client.deleteThread(threadId, 1, 'delete-key')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  const mutations = sent.filter(([url, init]) => ['PATCH', 'DELETE', 'POST'].includes(init?.method ?? '') && !url.endsWith('/supervision'))
+  expect(mutations.map(([, init]) => init?.method)).toEqual(['PATCH'])
+})
+it('with remove_participants a supervisor removes another participant without the grant header', async () => {
+  const sent: Array<[string, RequestInit | undefined]> = []
+  const fetcher = vi.fn(async (url: string, init?: RequestInit) => { sent.push([url, init]); return url.endsWith('/supervision') ? json(supervisedGrant()) : json(served.value) })
+  const { client } = await supervise({ remove_participants: true }, fetcher)
+  await client.removeParticipant(threadId, uuid(9), {}, 'remove-key')
+  const removal = sent.find(([, init]) => init?.method === 'DELETE')!
+  expect(removal[0]).toBe(`https://maestro.example/api/v1/threads/${threadId}/participants/${uuid(9)}`)
+  expect((removal[1]?.headers as Record<string, string>)['Maestro-Supervision-Grant']).toBeUndefined()
+})

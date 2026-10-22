@@ -87,6 +87,7 @@ export function maestroThreadToLegacy(
     title: thread.title || null,
     metadata: {
       authority: 'maestro',
+      state: thread.state,
       participants: active.map((p) => ({
         kind: p.kind,
         participantId: p.participantId,
@@ -108,6 +109,8 @@ export function maestroThreadToLegacy(
       read: thread.permissions.read,
       write: thread.permissions.write,
       manage: thread.permissions.manage,
+      archive: thread.permissions.archive,
+      removeParticipants: thread.permissions.remove_participants,
     },
   }
 }
