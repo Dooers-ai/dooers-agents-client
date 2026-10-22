@@ -273,6 +273,35 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     expect(JSON.parse(String(post[1]?.body))).toEqual({ kind: 'agent', principal_id: OTHER_AGENT, role: 'member' })
     client.disconnect()
   })
+  it('removes a participant by its legacy user id through Maestro', async () => {
+    const two = sharedThread('2', [agentParticipant(AGENT, uuid(20), 'Agente Um'), agentParticipant(OTHER_AGENT, uuid(21), 'Agente Dois')])
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) =>
+      init?.method === 'DELETE' || url.includes(`/threads/${threadId}`)
+        ? json(two)
+        : json({ items: [two], next_cursor: null, has_more: false, watermark: '2' })
+    )
+    const { client, socket } = await setup(fetcher)
+    client.subscribe(threadId)
+    await tick()
+    socket.ackSubscribe()
+    socket.frame('thread.snapshot', { thread: two, events: [event(1)], watermark: '2', next_cursor: null, has_more: false })
+    socket.caught('2')
+    await tick()
+    await expect(client.removeParticipant(threadId, OTHER_AGENT.toUpperCase())).resolves.toBe(true)
+    const removal = fetcher.mock.calls.find(([, init]) => init?.method === 'DELETE')!
+    expect(String(removal[0])).toBe(`https://maestro.example/api/v1/threads/${threadId}/participants/${uuid(21)}`)
+    // Unknown users are not sent to the server.
+    await expect(client.removeParticipant(threadId, uuid(77))).resolves.toBe(false)
+    expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(1)
+    client.disconnect()
+  })
+  it('legacy runtimes cannot remove participants', async () => {
+    const errors: string[] = []
+    const legacy = new AgentClient(createAgentStore().getState().actions)
+    legacy.setOnError((e) => errors.push(e.code))
+    await expect(legacy.removeParticipant(threadId, AGENT)).resolves.toBe(false)
+    expect(errors).toEqual(['UNSUPPORTED'])
+  })
   it('legacy runtimes refuse agent participants without sending a frame', async () => {
     const errors: string[] = []
     const legacy = new AgentClient(createAgentStore().getState().actions)

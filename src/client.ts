@@ -632,6 +632,16 @@ export class AgentClient {
     this.send('thread.delete', { thread_id: threadId })
   }
 
+  /** Legacy runtimes have no removal frame; only the Maestro transport removes participants. */
+  removeParticipant(_threadId: string, _userId: string): Promise<boolean> {
+    this.onError?.({
+      code: 'UNSUPPORTED',
+      message: 'This runtime does not remove participants',
+      frameType: 'thread.participants.remove',
+    })
+    return Promise.resolve(false)
+  }
+
   addParticipant(
     threadId: string,
     user: {

@@ -649,6 +649,32 @@ export class MaestroAgentClient extends AgentClient {
       })
   }
 
+  /** `userId` is what the legacy views show: the instance agent id for agents, the principal for people. */
+  override removeParticipant(threadId: string, userId: string): Promise<boolean> {
+    const maestro = this.maestro
+    if (!maestro) return Promise.resolve(false)
+    const id = threadId.toLowerCase()
+    const wanted = userId.toLowerCase()
+    const state = maestro.store.getThread(id)
+    const participant = Object.values(state?.participantsById ?? {}).find(
+      (p) =>
+        p.state !== 'removed' &&
+        (p.kind === 'agent' ? p.instanceAgentId : p.principalId).toLowerCase() === wanted
+    )
+    if (!participant) return Promise.resolve(false)
+    const key = crypto.randomUUID()
+    return onceMore(() => maestro.removeParticipant(id, participant.participantId, {}, key))
+      .then(() => {
+        this.requestThreadList()
+        return true
+      })
+      .catch((cause) => {
+        this.report(cause)
+        this.callbacks.setSendError(`Could not remove participant: ${errorMessage(cause)}`)
+        return false
+      })
+  }
+
   override deleteThread(threadId: string) {
     const maestro = this.maestro
     if (!maestro) return
