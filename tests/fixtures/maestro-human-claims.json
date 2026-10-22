@@ -1,7 +1,7 @@
 {
-  "source": "contracts/fixtures/v1/identity.json",
-  "source_sha256": "94fc037199d475eb2f572d069f3fd53c828164718d8e266e96ec83a46e97c224",
-  "manifest_sha256": "7792256d9967ae2e3307b8dd627561e750ffeebc6f39ab270dbfd687336a1fcd",
+  "source": "docs/contracts/fixtures/v1/identity.json",
+  "source_sha256": "23c7230e0593beaffaeb94d7b0217d46baaeb8bd0e26ce69078d84bdda1ca816",
+  "manifest_sha256": "753a1325e030e3222289f7a45c3a12b76461a803d61b07e12ff78d04154260c8",
   "cases": [
     {
       "id": "identity.claims.human-opaque",

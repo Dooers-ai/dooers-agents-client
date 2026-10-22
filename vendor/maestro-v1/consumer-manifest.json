@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "7792256d9967ae2e3307b8dd627561e750ffeebc6f39ab270dbfd687336a1fcd",
-  "source_revision": "sha256:a32633a5ae4eebe94786fac40da632314bbcc75e7ad07ed1c562714e735e583b",
-  "bundle_manifest_sha256": "32566b338bcd7ff894cb33d81708ebe90ec9a7bb8505f042f90cae85c4c8376b",
+  "source_manifest_sha256": "753a1325e030e3222289f7a45c3a12b76461a803d61b07e12ff78d04154260c8",
+  "source_revision": "sha256:ab2df747118075a26b571806bc0b9c7dd124413b22236fdf475f7bc6584bb144",
+  "bundle_manifest_sha256": "2a5e8315e2614cad209c58d57f505ae34601093ec0004a5f8dc5932c5a0bac76",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -21,36 +21,36 @@
   ],
   "files": {
     "src/protocol/maestro/vendor/common.ts": {
-      "source": "contracts/v1/common.ts",
+      "source": "docs/contracts/v1/common.ts",
       "sha256": "3d7c46e16df30250a399fe6821e5d4e6d64d4059da493ec8dfdf9a9030b547da"
     },
     "src/protocol/maestro/vendor/public.ts": {
-      "source": "contracts/v1/public.ts",
-      "sha256": "5f982cc79fcf5781a12bca86bb77d237f872d957389638d5bdd185544fe465f8"
+      "source": "docs/contracts/v1/public.ts",
+      "sha256": "ade50748d666d02fd2c985121abc69d1d1cfeb4a519238f067a31f0d641cb7fb"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public.json": {
-      "source": "contracts/fixtures/v1/public.json",
-      "sha256": "4cb66c5518d2439afdb4efbdc2a4f5870518314a70a56d46feff203a367106a3"
+      "source": "docs/contracts/fixtures/v1/public.json",
+      "sha256": "1e73ba5a4e0b6b632f125fa03f1dab696050776631cac102125aaa8491e37a5d"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public-publication.json": {
-      "source": "contracts/fixtures/v1/public-publication.json",
+      "source": "docs/contracts/fixtures/v1/public-publication.json",
       "sha256": "9d5655db25647342fdd2d15051df7c201778784a30a92ff7bc691809d644d9c1"
     },
     "vendor/maestro-v1/contracts/harness/boundary-fixtures.json": {
-      "source": "contracts/harness/boundary-fixtures.json",
+      "source": "docs/contracts/harness/boundary-fixtures.json",
       "sha256": "0fa1e07bfe7b29248954f4e2c587e5109002f51403169d85eb5c0a9043d2ff82"
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
-      "source": "contracts/catalog-public.json",
-      "sha256": "eee165128295e6f1b9553afbaf2e61dc771d986c2162c7ff50ce2f0df841f899"
+      "source": "docs/contracts/catalog-public.json",
+      "sha256": "5118bc5b59453faf2cc20e2e4dadacb68e183074e38f8ef7a26570a4b430fae4"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
-      "source": "contracts/manifest.json",
-      "sha256": "7792256d9967ae2e3307b8dd627561e750ffeebc6f39ab270dbfd687336a1fcd"
+      "source": "docs/contracts/manifest.json",
+      "sha256": "753a1325e030e3222289f7a45c3a12b76461a803d61b07e12ff78d04154260c8"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
-      "source": "contracts/generated/v1/bundle-manifest.json",
-      "sha256": "32566b338bcd7ff894cb33d81708ebe90ec9a7bb8505f042f90cae85c4c8376b"
+      "source": "docs/contracts/generated/v1/bundle-manifest.json",
+      "sha256": "2a5e8315e2614cad209c58d57f505ae34601093ec0004a5f8dc5932c5a0bac76"
     }
   }
 }

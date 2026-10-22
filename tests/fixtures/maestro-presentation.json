@@ -125,7 +125,9 @@
       "supervise": false,
       "export": true,
       "cancel": true,
-      "feedback": true
+      "feedback": true,
+      "archive": false,
+      "remove_participants": false
     },
     "capabilities": [
       "messages.text",

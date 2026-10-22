@@ -43,7 +43,7 @@ const consumerFixture = (id: string) => fixtures.find((c) => c.id === `consumer.
 
 // Expected digest is shared with the service consumer test, independent of SDK parser output.
 const expectedClassificationDigest =
-  '7ca4d1f6ff9b6065b0eb48a6e904ee75ee7aafeff1c1f2438011c23203091a6e'
+  'ecb00e5770929bd05d87266fa8d7b722e35a989efb1716210252a9b11e491c18'
 
 describe('Maestro v1 pinned contract consumer', () => {
   it('verifies exact source bytes and dependency pin', () => {
@@ -81,7 +81,7 @@ describe('Maestro v1 pinned contract consumer', () => {
       if (mutation === 'missing-entry')
         delete consumer.files['src/protocol/maestro/vendor/public.ts']
       if (mutation === 'source-mapping')
-        consumer.files['src/protocol/maestro/vendor/public.ts'].source = 'contracts/v1/common.ts'
+        consumer.files['src/protocol/maestro/vendor/public.ts'].source = 'docs/contracts/v1/common.ts'
       writeFileSync(join(temp, manifestPath), JSON.stringify(consumer))
       if (mutation === 'runtime-bytes')
         writeFileSync(

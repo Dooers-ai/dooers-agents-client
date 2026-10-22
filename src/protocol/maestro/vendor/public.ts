@@ -147,6 +147,8 @@ const permissions = z.strictObject({
   export: z.boolean(),
   cancel: z.boolean(),
   feedback: z.boolean(),
+  archive: z.boolean(),
+  remove_participants: z.boolean(),
 })
 const threadFields = {
   thread_id: uuidSchema,

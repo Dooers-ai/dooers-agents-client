@@ -2,7 +2,7 @@
   "protocol_version": 1,
   "schema_version": 1,
   "status": "contract-only; no API implemented",
-  "source": "contracts/v1/public.ts",
+  "source": "docs/contracts/v1/public.ts",
   "registry": "publicSchemas",
   "prefix": "/api/v1",
   "websocket_path": "/ws",
@@ -14,7 +14,7 @@
     "http_headers": "normalize canonical names; infrastructure headers not schema fields",
     "ack": "exactly one correlated result or connection ends; persisted only after transaction commit",
     "callback_auth": "core instance identity + short execution capability; transport finalized by E00-04",
-    "operation_field": "HTTP route operationId only, not the core authorization operation enum. Resolve current authorization operations using contracts/catalog-identity.json and v1/identity.ts. Examples: thread.update -> thread.rename/archive/unarchive; execution.heartbeat -> delivery.heartbeat; participant.list -> thread.read."
+    "operation_field": "HTTP route operationId only, not the core authorization operation enum. Resolve current authorization operations using docs/contracts/catalog-identity.json and v1/identity.ts. Examples: thread.update -> thread.rename/archive/unarchive; execution.heartbeat -> delivery.heartbeat; participant.list -> thread.read."
   },
   "http": [
     {
@@ -133,7 +133,10 @@
       "auth": "human",
       "headers": ["Authorization", "Idempotency-Key", "If-Match"],
       "error_schema": "Public.Error",
-      "semantic_checks": [],
+      "semantic_checks": [
+        "rename: active participant, organization_admin or workspace_manager (never platform_admin)",
+        "archive/unarchive: elevation required (organization_admin, workspace_manager or platform_admin), participant or not"
+      ],
       "fixtures": {
         "request": "public.ThreadPatchRequest.valid",
         "path": "public.IdPath.valid",
@@ -154,7 +157,9 @@
       "auth": "human",
       "headers": ["Authorization", "Idempotency-Key", "If-Match"],
       "error_schema": "Public.Error",
-      "semantic_checks": [],
+      "semantic_checks": [
+        "active participant, organization_admin or workspace_manager (never platform_admin)"
+      ],
       "fixtures": {
         "request": "public.ReasonRequest.valid",
         "path": "public.IdPath.valid",
@@ -196,7 +201,10 @@
       "auth": "human",
       "headers": ["Authorization", "Idempotency-Key"],
       "error_schema": "Public.Error",
-      "semantic_checks": [],
+      "semantic_checks": [
+        "active participant, organization_admin or workspace_manager, including adding self (never platform_admin)",
+        "core checks only the actor against each agent; added people are not checked"
+      ],
       "fixtures": {
         "request": "public.ParticipantAddRequest.valid",
         "path": "public.IdPath.valid",
@@ -217,7 +225,10 @@
       "auth": "human",
       "headers": ["Authorization", "Idempotency-Key"],
       "error_schema": "Public.Error",
-      "semantic_checks": [],
+      "semantic_checks": [
+        "remove another participant: elevation required; common participant cannot",
+        "leave (remove self): any active participant"
+      ],
       "fixtures": {
         "request": "public.ReasonRequest.valid",
         "path": "public.ParticipantPath.valid",
