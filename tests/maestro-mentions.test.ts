@@ -61,9 +61,14 @@ describe('maestroMentions', () => {
     ])
   })
 
-  it('treats @all / @todos / @todo as everyone (no mentions)', () => {
+  it('turns @all / @todos / @todo into a mention of every agent, in join order', () => {
+    const joined = [
+      human,
+      { ...agent('p-mkt', 'i-mkt'), joinedSequence: '3' },
+      { ...agent('p-jur', 'i-jur'), joinedSequence: '2' },
+    ]
     for (const text of ['@all bom dia', '@todos, bom dia', 'bom dia @todo', '@Marketing e @todos'])
-      expect(maestroMentions(text, thread, resolve)).toEqual([])
+      expect(maestroMentions(text, joined, resolve)).toEqual(['p-jur', 'p-mkt'])
   })
 
   it('ignores e-mails, unknown names and text without @', () => {

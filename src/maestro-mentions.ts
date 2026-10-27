@@ -4,7 +4,7 @@
 import type { MaestroNameResolver } from './maestro-legacy'
 import type { MaestroParticipant } from './protocol/maestro/contracts'
 
-/** "@todos" e afins: a mensagem é para todos, o mesmo que não mencionar ninguém. */
+/** "@todos" e afins: todos os agentes da conversa são mencionados e cada um tem que responder. */
 const EVERYONE = ['all', 'todos', 'todas', 'todo', 'everyone']
 
 const normalize = (value: string) =>
@@ -19,8 +19,8 @@ function aliases(name: string): string[] {
 }
 
 /**
- * IDs de participante dos agentes mencionados, na ordem em que aparecem no texto. Vazio quando não
- * há menção a agente ou quando a mensagem é para todos ("@all", "@todos", "@todo").
+ * IDs de participante dos agentes mencionados, na ordem em que aparecem no texto. "@all", "@todos" ou
+ * "@todo" mencionam todos os agentes, na ordem de entrada na conversa. Vazio sem menção a agente.
  */
 export function maestroMentions(
   text: string,
@@ -29,8 +29,15 @@ export function maestroMentions(
 ): string[] {
   const source = normalize(text)
   if (!source.includes('@')) return []
-  const candidates = participants
-    .filter((p) => p.kind === 'agent' && p.state !== 'removed')
+  const agents = participants.filter((p) => p.kind === 'agent' && p.state !== 'removed')
+  const everyone = () =>
+    [...agents]
+      .sort((a, b) => {
+        const delta = BigInt(a.joinedSequence) - BigInt(b.joinedSequence)
+        return delta < 0n ? -1 : delta > 0n ? 1 : a.participantId.localeCompare(b.participantId)
+      })
+      .map((p) => p.participantId)
+  const candidates = agents
     .flatMap((p) => {
       const id = p.kind === 'agent' ? p.instanceAgentId : p.principalId
       const name = resolve?.('agent', id)?.trim() || p.displayName
@@ -42,7 +49,7 @@ export function maestroMentions(
     if (at > 0 && wordChar.test(source.charAt(at - 1))) continue
     const rest = source.slice(at + 1)
     const ends = (length: number) => !wordChar.test(rest.charAt(length))
-    if (EVERYONE.some((word) => rest.startsWith(word) && ends(word.length))) return []
+    if (EVERYONE.some((word) => rest.startsWith(word) && ends(word.length))) return everyone()
     const longest = candidates.find((c) => rest.startsWith(c.alias) && ends(c.alias.length))
     if (!longest) continue
     for (const c of candidates)
