@@ -16,6 +16,8 @@ import {
   maestroThreadHasAgent,
   maestroThreadToLegacy,
 } from './maestro-legacy'
+import { maestroMentions } from './maestro-mentions'
+import type { MaestroParticipant } from './protocol/maestro/contracts'
 import type { AgentActions } from './store'
 import type {
   ChatContext,
@@ -120,6 +122,7 @@ export class MaestroAgentClient extends AgentClient {
   private runStarts = new Map<string, string>()
   private feedbackSignatures = new Map<string, string>()
   private pendingClientEvents = new Map<string, string>()
+  private participantsByThread = new Map<string, readonly MaestroParticipant[]>()
   private listCursor: string | null = null
   private listing: Promise<void> | null = null
   private listAgain = false
@@ -296,6 +299,8 @@ export class MaestroAgentClient extends AgentClient {
   // --- Lista de threads do agente selecionado ---
 
   private legacyThread(thread: Parameters<typeof maestroThreadToLegacy>[0]): Thread {
+    // Participantes vistos por último, para transformar "@Nome" do texto em menção no envio.
+    this.participantsByThread.set(thread.threadId.toLowerCase(), thread.participants)
     return maestroThreadToLegacy(thread, this.agentPrincipalId, this.options.resolveName)
   }
 
@@ -707,7 +712,18 @@ export class MaestroAgentClient extends AgentClient {
           clientEventId
         )
       }
-      await maestro.send({ threadId, content, clientEventId })
+      const text = content.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n')
+      const mentions = maestroMentions(
+        text,
+        this.participantsByThread.get(threadId) ?? [],
+        this.options.resolveName
+      )
+      await maestro.send({
+        threadId,
+        content,
+        clientEventId,
+        ...(mentions.length ? { mentions } : {}),
+      })
       return { threadId }
     } catch (cause) {
       if (threadId && this.pendingClientEvents.delete(clientEventId))
