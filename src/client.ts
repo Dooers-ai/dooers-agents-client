@@ -9,6 +9,7 @@ import {
   rotationDue,
   STABLE_CONNECTION_MS,
 } from './helpers/connection-policy'
+import { supportsThreadSearch } from './helpers/server-version'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
@@ -326,6 +327,18 @@ export class AgentClient {
   private fullListSentAt = 0
   private fullListSentQueue: string | null = null
   private fullListPending: { queue: string | null; limit?: number } | null = null
+
+  // Title search (``thread.search``): one request at a time; a newer search waits and replaces.
+  private serverVersion: string | null = null
+  private threadSearch: { query: string; queue: string | null; limit?: number } | null = null
+  private searchCursor: string | null = null
+  private searchInFlight: {
+    frameId: string
+    query: string
+    queue: string | null
+    append: boolean
+  } | null = null
+  private searchPending: { append: boolean } | null = null
 
   // Event pagination cursors per thread
   private eventPaginationCursors = new Map<string, string | null>()
@@ -651,6 +664,61 @@ export class AgentClient {
         system_role: 'user',
         organization_role: 'member',
         workspace_role: 'member',
+      },
+    })
+  }
+
+  /**
+   * Search every thread this connection may see by title. Returns false (and sends nothing)
+   * when the query is empty or the server predates ``thread.search``: older servers close the
+   * socket on an unknown frame type, so callers fall back to filtering the loaded list.
+   */
+  searchThreads(query: string, opts?: { queue?: string | null; limit?: number }): boolean {
+    const trimmed = query.trim().slice(0, 200)
+    if (!trimmed) {
+      this.clearThreadSearch()
+      return false
+    }
+    if (!supportsThreadSearch(this.serverVersion)) return false
+    this.threadSearch = { query: trimmed, queue: opts?.queue ?? null, limit: opts?.limit }
+    this.searchCursor = null
+    this.callbacks.onThreadSearchStart(trimmed, this.threadSearch.queue, false)
+    if (this.searchInFlight) {
+      this.searchPending = { append: false }
+      return true
+    }
+    this.dispatchSearch(false)
+    return true
+  }
+
+  loadMoreThreadSearch() {
+    const search = this.threadSearch
+    if (!search || !this.searchCursor || this.searchInFlight) return
+    this.callbacks.onThreadSearchStart(search.query, search.queue, true)
+    this.dispatchSearch(true)
+  }
+
+  clearThreadSearch() {
+    this.threadSearch = null
+    this.searchCursor = null
+    this.searchPending = null
+    this.callbacks.clearThreadSearch()
+  }
+
+  private dispatchSearch(append: boolean) {
+    const search = this.threadSearch
+    if (!search) return
+    const frameId = crypto.randomUUID()
+    this.searchInFlight = { frameId, query: search.query, queue: search.queue, append }
+    this.searchPending = null
+    this.sendRaw({
+      id: frameId,
+      type: 'thread.search',
+      payload: {
+        query: search.query,
+        ...(append && this.searchCursor ? { cursor: this.searchCursor } : {}),
+        ...(search.limit ? { limit: search.limit } : {}),
+        ...(search.queue ? { queue: search.queue } : {}),
       },
     })
   }
@@ -1110,6 +1178,10 @@ export class AgentClient {
         } else if (!frame.payload.ok && frame.payload.error) {
           const ackId = frame.payload.ack_id
           const err = frame.payload.error
+          if (ackId && this.searchInFlight?.frameId === ackId) {
+            this.searchInFlight = null
+            this.clearThreadSearch()
+          }
           if (ackId) {
             const pending = this.pendingMessages.get(ackId)
             if (pending) {
@@ -1144,6 +1216,31 @@ export class AgentClient {
             frameType: 'ack',
           })
         }
+        break
+      }
+
+      case 'thread.search.result': {
+        const sent = this.searchInFlight
+        this.searchInFlight = null
+        const current = this.threadSearch
+        const fresh =
+          sent !== null &&
+          current !== null &&
+          sent.query === current.query &&
+          sent.queue === current.queue &&
+          frame.payload.query === sent.query
+        if (sent && fresh) {
+          const cursor = frame.payload.cursor ?? null
+          this.searchCursor = cursor
+          this.callbacks.onThreadSearchResult(
+            sent.query,
+            frame.payload.threads.map(toThread),
+            cursor,
+            frame.payload.total_count,
+            sent.append
+          )
+        }
+        if (this.searchPending && this.threadSearch) this.dispatchSearch(this.searchPending.append)
         break
       }
 
@@ -1460,7 +1557,8 @@ export class AgentClient {
     this.bindPrimary(candidate.ws)
     this.connectedAt = this.lastFrameAt = Date.now()
     this.serverAnswersPing = !!serverVersion?.trim()
-    this.callbacks.setServerVersion(serverVersion?.trim() || null)
+    this.serverVersion = serverVersion?.trim() || null
+    this.callbacks.setServerVersion(this.serverVersion)
     this.restoreSession(this.threadListQueue)
   }
 
@@ -1545,7 +1643,8 @@ export class AgentClient {
     // consecutiveFailures is reset only once this socket proves stable (handleConnectedDrop).
     const sv = serverVersion?.trim()
     this.serverAnswersPing = !!sv
-    this.callbacks.setServerVersion(sv || null)
+    this.serverVersion = sv || null
+    this.callbacks.setServerVersion(this.serverVersion)
     this.callbacks.setConnectionStatus('connected')
     this.callbacks.resetReconnect()
     // The app re-requests its own queue filter when the status turns `connected`.
@@ -1560,6 +1659,7 @@ export class AgentClient {
     // Lists sent on the previous socket are never answered; do not wait for them.
     this.isLoadingMore = false
     this.dispatchFullList(listQueue)
+    this.restoreThreadSearch()
     // Re-subscribe to previously tracked threads
     for (const threadId of this.subscriptionRefs.keys()) {
       const afterEventId = this.lastEventIds.get(threadId) ?? null
@@ -1573,6 +1673,21 @@ export class AgentClient {
     this.resubscribeSettings()
     if (this.analyticsSubscribed) this.send('analytics.subscribe', { agent_id: this.agentId })
     this.startHeartbeat()
+  }
+
+  /** Re-run an active search on a fresh socket, unless the agent went back to an older SDK. */
+  private restoreThreadSearch() {
+    this.searchInFlight = null
+    this.searchPending = null
+    const search = this.threadSearch
+    if (!search) return
+    if (!supportsThreadSearch(this.serverVersion)) {
+      this.clearThreadSearch()
+      return
+    }
+    this.searchCursor = null
+    this.callbacks.onThreadSearchStart(search.query, search.queue, false)
+    this.dispatchSearch(false)
   }
 
   private onAttemptFailed(reason: string) {

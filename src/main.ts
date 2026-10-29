@@ -18,9 +18,11 @@ export {
   supportsThreadAccess,
   supportsThreadArtifactsList,
   supportsThreadQueues,
+  supportsThreadSearch,
   THREAD_ACCESS_MIN_SERVER_VERSION,
   THREAD_ARTIFACTS_MIN_SERVER_VERSION,
   THREAD_QUEUES_MIN_SERVER_VERSION,
+  THREAD_SEARCH_MIN_SERVER_VERSION,
 } from './helpers/server-version'
 export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
@@ -37,7 +39,7 @@ export { useSettingsFileUpload } from './hooks/use-settings-file-upload'
 export { useThreadDetails, useThreadEvents } from './hooks/use-thread'
 export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadArtifacts } from './hooks/use-thread-artifacts'
-export { useThreadsActions, useThreadsList } from './hooks/use-threads'
+export { useThreadSearch, useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
 export type { AgentProviderProps } from './provider'
 export { AgentProvider, useAgentContext } from './provider'

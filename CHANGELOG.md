@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.20.0] — 2026-10-29
+
+### Added
+
+- `client.searchThreads(query, { queue?, limit? })`, `loadMoreThreadSearch()` and
+  `clearThreadSearch()`, with the `useThreadSearch()` hook: search every thread the
+  connection may see by title through agents-server's `thread.search` (0.25.0), instead
+  of filtering only the page already loaded. Results live in their own store slice
+  (`threadSearch`), so the sidebar list is never filtered. One search runs at a time; an
+  answer to an older search is dropped. Live `thread.upsert`/`thread.deleted` update the
+  results already shown; a reconnect re-runs the active search.
+- `supportsThreadSearch(serverVersion)` and `THREAD_SEARCH_MIN_SERVER_VERSION`. On older
+  servers `searchThreads` sends nothing and returns `false` (they close the socket on an
+  unknown frame type); filter the loaded list there.
+
 ## [0.19.2] — 2026-10-20
 
 ### Fixed
