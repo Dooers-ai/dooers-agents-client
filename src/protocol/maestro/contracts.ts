@@ -173,6 +173,7 @@ export function toMaestroThread(value: unknown) {
     cursor: thread.cursor,
     supervisionPolicy: thread.supervision_policy,
     policyVersion: thread.policy_version,
+    ...(thread.routing_version ? { routingVersion: thread.routing_version } : {}),
     createdAt: thread.created_at,
     updatedAt: thread.updated_at,
   }

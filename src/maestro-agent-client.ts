@@ -16,7 +16,7 @@ import {
   maestroThreadHasAgent,
   maestroThreadToLegacy,
 } from './maestro-legacy'
-import { maestroMentions } from './maestro-mentions'
+import { maestroMentions, maestroMentionsEveryone } from './maestro-mentions'
 import type { MaestroParticipant } from './protocol/maestro/contracts'
 import type { AgentActions } from './store'
 import type {
@@ -30,6 +30,8 @@ import type {
 
 /** Configuração do transporte Maestro. Presente ⇒ o agente selecionado é servido pelo Maestro. */
 export interface AgentMaestroOptions {
+  /** Enable only after every reader/runtime supports routing v1. New threads only. */
+  invocationRouting?: boolean
   /** Origem HTTP da API Maestro (configuração da aplicação, nunca do agente). */
   endpoint: string
   apiPrefix?: string
@@ -122,6 +124,82 @@ export class MaestroAgentClient extends AgentClient {
   private runStarts = new Map<string, string>()
   private feedbackSignatures = new Map<string, string>()
   private pendingClientEvents = new Map<string, string>()
+  private routingThreads = new Set<string>()
+  private invocationSelections = new Map<string, string[]>()
+  private selectionKey(threadId: string) {
+    return `maestro.invocation.v1:${JSON.stringify([this.options.scope.principalId, this.options.scope.organizationId, this.options.scope.workspaceId, threadId])}`
+  }
+  private selected(threadId: string): string[] {
+    const cached = this.invocationSelections.get(threadId)
+    if (cached) return cached
+    try {
+      const raw = globalThis.localStorage?.getItem(this.selectionKey(threadId))
+      const value: unknown = raw ? JSON.parse(raw) : []
+      if (Array.isArray(value) && value.every((id) => typeof id === 'string')) return value
+    } catch {
+      /* Storage may be disabled. Session memory remains usable. */
+    }
+    return []
+  }
+  private selectInvocation(threadId: string, recipients: string[]) {
+    this.invocationSelections.set(threadId, [...recipients])
+    try {
+      globalThis.localStorage?.setItem(this.selectionKey(threadId), JSON.stringify(recipients))
+    } catch {}
+  }
+  override clearInvocationSelection(threadId?: string) {
+    this.selectInvocation(threadId?.toLowerCase() ?? 'new', [])
+  }
+  override getInvocationSelection(threadId?: string, text = '') {
+    const id = threadId?.toLowerCase()
+    if (!id && !this.options.invocationRouting) return null
+    if (!id)
+      return this.invocationSelections.has('new')
+        ? { mode: 'none' as const, recipients: [], labels: [], invalid: false }
+        : {
+            mode: 'direct' as const,
+            recipients: [this.agentPrincipalId],
+            labels: [this.options.resolveName?.('agent', this.agentPrincipalId)].filter(
+              (name): name is string => Boolean(name)
+            ),
+            invalid: false,
+          }
+    if (!this.routingThreads.has(id)) return null
+    const participants = this.participantsByThread.get(id ?? '') ?? []
+    let mentions: string[]
+    try {
+      mentions = maestroMentions(text, participants, this.options.resolveName, true)
+    } catch {
+      return { mode: 'none' as const, recipients: [], labels: [], invalid: true }
+    }
+    const all = maestroMentionsEveryone(text)
+    const explicit = mentions.length > 0
+    mentions = mentions.filter((id) =>
+      participants.some((p) => p.participantId === id && p.kind === 'agent')
+    )
+    const recipients = all
+      ? participants
+          .filter((p) => p.kind === 'agent' && p.state === 'active')
+          .map((p) => p.participantId)
+      : explicit
+        ? mentions
+        : this.selected(id ?? 'new')
+    const labels = recipients.map((recipient) => {
+      const p = participants.find((p) => p.participantId === recipient)
+      return p ? this.options.resolveName?.('agent', p.principalId) || p.displayName : ''
+    })
+    return {
+      mode: all ? ('all' as const) : recipients.length ? ('direct' as const) : ('none' as const),
+      recipients,
+      labels,
+      invalid: recipients.some(
+        (recipient) =>
+          !participants.some(
+            (p) => p.participantId === recipient && p.kind === 'agent' && p.state === 'active'
+          )
+      ),
+    }
+  }
   private participantsByThread = new Map<string, readonly MaestroParticipant[]>()
   private listCursor: string | null = null
   private listing: Promise<void> | null = null
@@ -301,6 +379,7 @@ export class MaestroAgentClient extends AgentClient {
   private legacyThread(thread: Parameters<typeof maestroThreadToLegacy>[0]): Thread {
     // Participantes vistos por último, para transformar "@Nome" do texto em menção no envio.
     this.participantsByThread.set(thread.threadId.toLowerCase(), thread.participants)
+    if (thread.routingVersion === 1) this.routingThreads.add(thread.threadId.toLowerCase())
     return maestroThreadToLegacy(thread, this.agentPrincipalId, this.options.resolveName)
   }
 
@@ -699,11 +778,19 @@ export class MaestroAgentClient extends AgentClient {
         const key = crypto.randomUUID()
         const request = {
           title: titleFrom(params),
+          ...(this.options.invocationRouting ? { routing_version: 1 as const } : {}),
           participants: [{ kind: 'agent' as const, principal_id: this.agentPrincipalId }],
         }
         const created = await onceMore(() => maestro.createThread(request, key))
         threadId = created.threadId
         this.callbacks.onThreadUpsert(this.legacyThread(created))
+        const initial = created.participants.find(
+          (p) => p.kind === 'agent' && p.principalId === this.agentPrincipalId
+        )
+        this.selectInvocation(
+          threadId,
+          !this.invocationSelections.has('new') && initial ? [initial.participantId] : []
+        )
       } else {
         this.pendingClientEvents.set(clientEventId, threadId)
         this.callbacks.addOptimistic(
@@ -716,12 +803,25 @@ export class MaestroAgentClient extends AgentClient {
       const mentions = maestroMentions(
         text,
         this.participantsByThread.get(threadId) ?? [],
-        this.options.resolveName
+        this.options.resolveName,
+        this.routingThreads.has(threadId)
       )
+      const selection = this.getInvocationSelection(threadId, text)
+      if (selection?.invalid)
+        throw new Error('Destinatário indisponível. Selecione outro agente com @.')
+      const routing = selection
+        ? selection.mode === 'direct'
+          ? { mode: 'direct' as const, recipients: selection.recipients }
+          : { mode: selection.mode }
+        : undefined
+      // Selection belongs to the sender and thread; never infer it from another participant's event.
+      if (selection?.mode === 'direct' || (selection?.mode === 'none' && mentions.length))
+        this.selectInvocation(threadId, selection.recipients)
       await maestro.send({
         threadId,
         content,
         clientEventId,
+        ...(routing ? { routing } : {}),
         ...(mentions.length ? { mentions } : {}),
       })
       return { threadId }

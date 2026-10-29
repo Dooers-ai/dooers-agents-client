@@ -252,6 +252,34 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     await tick()
     return { client, store, socket }
   }
+  it('retains @ selection per sender and thread; all is one-shot and clearing is explicit', async () => {
+    localStorage.clear()
+    const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro'), agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]), routing_version:1}
+    const fetcher = vi.fn(async () => json({items:[mine],next_cursor:null,has_more:false,watermark:'1'}))
+    const {client} = await setup(fetcher)
+    await tick()
+    const transport = client.getMaestroClient()!
+    const send = vi.spyOn(transport,'send').mockRejectedValue(new Error('simulated unavailable transport'))
+    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none'})
+    await expect(client.sendMessage({threadId,text:'@Analista calcule'})).rejects.toThrow()
+    expect(send.mock.calls[0]?.[0].routing).toEqual({mode:'direct',recipients:[uuid(21)]})
+    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(21)]})
+    await expect(client.sendMessage({threadId,text:'continue'})).rejects.toThrow()
+    expect(send.mock.calls[1]?.[0].routing).toEqual({mode:'direct',recipients:[uuid(21)]})
+    await expect(client.sendMessage({threadId,text:'(@todos) opinem'})).rejects.toThrow()
+    expect(send.mock.calls[2]?.[0].routing).toEqual({mode:'all'})
+    expect(client.getInvocationSelection(threadId)).toMatchObject({recipients:[uuid(21)]})
+    expect(client.getInvocationSelection(threadId, '@Inexistente ajude')).toMatchObject({invalid:true})
+    expect(client.getInvocationSelection(threadId, '@Pessoa revise')).toMatchObject({mode:'none',invalid:false})
+    await expect(client.sendMessage({threadId,text:'@Pessoa revise'})).rejects.toThrow()
+    expect(send.mock.calls[3]?.[0].routing).toEqual({mode:'none'})
+    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none'})
+    client.clearInvocationSelection(threadId)
+    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none'})
+    client.disconnect()
+    localStorage.clear()
+  })
+
   it('lists only threads of the selected agent, then streams messages with per-agent authorship', async () => {
     const mine = sharedThread('2', [agentParticipant(AGENT, uuid(20), 'Agente Um'), agentParticipant(OTHER_AGENT, uuid(21), 'Agente Dois')])
     const foreign = { ...thread('1'), thread_id: uuid(99) }

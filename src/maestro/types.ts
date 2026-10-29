@@ -87,6 +87,7 @@ export interface MaestroSendInput {
   content: MaestroMessageContent
   clientEventId?: string
   mentions?: string[]
+  routing?: z.infer<(typeof publicSchemas)['Public.MessageCreateRequest']>['routing']
   agentOptions?: MaestroAgentOptions
 }
 export type MaestroPublicationState = 'pending' | 'persisted' | 'rejected' | 'unknown'

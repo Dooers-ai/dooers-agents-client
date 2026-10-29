@@ -848,6 +848,20 @@ export class AgentClient {
 
   // --- Messaging ---
 
+  /** Maestro-only composer state. Legacy runtimes have no invocation selector. */
+  getInvocationSelection(
+    _threadId?: string,
+    _text = ''
+  ): {
+    mode: 'none' | 'direct' | 'all'
+    recipients: string[]
+    labels: string[]
+    invalid: boolean
+  } | null {
+    return null
+  }
+  clearInvocationSelection(_threadId?: string): void {}
+
   sendMessage(params: {
     text?: string
     threadId?: string

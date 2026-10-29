@@ -1186,6 +1186,7 @@ export class MaestroClient {
       type: 'message.create',
       client_event_id: clientEventId,
       content: input.content,
+      ...(input.routing ? { routing: input.routing } : {}),
       ...(input.mentions === undefined
         ? {}
         : { mentions: input.mentions.map((id) => this.checkId(id)) }),
@@ -1205,6 +1206,7 @@ export class MaestroClient {
       threadId,
       clientEventId,
       content: body.content,
+      ...(body.routing ? { routing: body.routing } : {}),
       ...(body.mentions === undefined ? {} : { mentions: body.mentions }),
       ...(body.agent_options === undefined ? {} : { agentOptions: body.agent_options }),
     })
@@ -1224,6 +1226,7 @@ export class MaestroClient {
       type: 'message.create',
       client_event_id: prepared.clientEventId,
       content: prepared.content,
+      ...(prepared.routing ? { routing: prepared.routing } : {}),
       mentions: prepared.mentions ?? [],
       agent_options: prepared.agentOptions ?? [],
     })
@@ -1354,6 +1357,7 @@ export class MaestroClient {
         threadId,
         clientEventId,
         content: body.content,
+        ...(body.routing ? { routing: body.routing } : {}),
         mentions: body.mentions,
         agentOptions: body.agent_options,
       },
@@ -1742,11 +1746,13 @@ export class MaestroClient {
       event.payload.client_event_id !== body.client_event_id ||
       canonical({
         content: event.payload.content,
+        ...(event.payload.routing ? { routing: event.payload.routing } : {}),
         mentions: event.payload.mentions,
         agent_options: event.payload.agent_options ?? [],
       }) !==
         canonical({
           content: body.content,
+          ...(body.routing ? { routing: body.routing } : {}),
           mentions: body.mentions ?? [],
           agent_options: body.agent_options ?? [],
         })

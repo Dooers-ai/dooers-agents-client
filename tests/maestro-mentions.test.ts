@@ -82,3 +82,10 @@ describe('maestroMentions', () => {
     expect(maestroMentions('@marketing', [removed], resolve)).toEqual([])
   })
 })
+
+it('strict @all excludes suspended agents while preserving legacy parsing', () => {
+  const suspended = {...agent('p-jur','i-jur'),state:'suspended' as const}
+  const participants = [agent('p-mkt','i-mkt'),suspended]
+  expect(maestroMentions('(@todos)',participants,resolve,true)).toEqual(['p-mkt'])
+  expect(maestroMentions('(@todos)',participants,resolve)).toEqual(['p-jur','p-mkt'])
+})

@@ -25,11 +25,14 @@ function aliases(name: string): string[] {
 export function maestroMentions(
   text: string,
   participants: readonly MaestroParticipant[],
-  resolve?: MaestroNameResolver
+  resolve?: MaestroNameResolver,
+  strict = false
 ): string[] {
   const source = normalize(text)
   if (!source.includes('@')) return []
-  const agents = participants.filter((p) => p.kind === 'agent' && p.state !== 'removed')
+  const agents = participants.filter(
+    (p) => p.kind === 'agent' && (strict ? p.state === 'active' : p.state !== 'removed')
+  )
   const everyone = () =>
     [...agents]
       .sort((a, b) => {
@@ -37,10 +40,11 @@ export function maestroMentions(
         return delta < 0n ? -1 : delta > 0n ? 1 : a.participantId.localeCompare(b.participantId)
       })
       .map((p) => p.participantId)
-  const candidates = agents
+  const mentionable = strict ? participants.filter((p) => p.state === 'active') : agents
+  const candidates = mentionable
     .flatMap((p) => {
       const id = p.kind === 'agent' ? p.instanceAgentId : p.principalId
-      const name = resolve?.('agent', id)?.trim() || p.displayName
+      const name = resolve?.(p.kind, id)?.trim() || p.displayName
       return aliases(name).map((alias) => ({ alias, participantId: p.participantId }))
     })
     .sort((a, b) => b.alias.length - a.alias.length)
@@ -51,9 +55,29 @@ export function maestroMentions(
     const ends = (length: number) => !wordChar.test(rest.charAt(length))
     if (EVERYONE.some((word) => rest.startsWith(word) && ends(word.length))) return everyone()
     const longest = candidates.find((c) => rest.startsWith(c.alias) && ends(c.alias.length))
-    if (!longest) continue
+    if (!longest) {
+      if (strict) throw new Error('Menção não encontrada')
+      continue
+    }
+    if (
+      new Set(candidates.filter((c) => c.alias === longest.alias).map((c) => c.participantId))
+        .size > 1
+    )
+      throw new Error('Menção ambígua; selecione um destinatário com nome único')
     for (const c of candidates)
       if (c.alias === longest.alias && !found.includes(c.participantId)) found.push(c.participantId)
   }
   return found
+}
+
+/** Same delimiter rules as the ID parser; punctuation cannot turn all into persistent direct. */
+export function maestroMentionsEveryone(text: string): boolean {
+  const source = normalize(text)
+  for (let at = source.indexOf('@'); at !== -1; at = source.indexOf('@', at + 1)) {
+    if (at > 0 && wordChar.test(source.charAt(at - 1))) continue
+    const rest = source.slice(at + 1)
+    if (EVERYONE.some((word) => rest.startsWith(word) && !wordChar.test(rest.charAt(word.length))))
+      return true
+  }
+  return false
 }

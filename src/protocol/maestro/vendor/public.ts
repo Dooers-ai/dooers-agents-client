@@ -104,7 +104,19 @@ const options = z
     'Options must be unique by participant'
   )
   .meta({ 'x-maestro-semantic': 'unique-option-participant' })
+export const routingIntent = z.discriminatedUnion('mode', [
+  z.strictObject({ mode: z.literal('none') }),
+  z.strictObject({ mode: z.literal('all') }),
+  z.strictObject({ mode: z.literal('direct'), recipients: uniqueIds.min(1) }),
+])
+export const routingDecision = z.strictObject({
+  version: z.literal(1),
+  mode: z.enum(['none', 'direct', 'all']),
+  recipients: uniqueIds,
+  execution: z.literal('sequential'),
+})
 const messageInputFields = {
+  routing: routingIntent.optional(),
   client_event_id: idempotencyKeySchema,
   content,
   mentions: uniqueIds.optional(),
@@ -151,6 +163,7 @@ const permissions = z.strictObject({
   remove_participants: z.boolean(),
 })
 const threadFields = {
+  routing_version: z.literal(1).optional(),
   thread_id: uuidSchema,
   mode: z.literal('maestro'),
   title: z.string().max(200),
@@ -175,6 +188,7 @@ const participantTarget = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('agent'), principal_id: uuidSchema }),
 ])
 const createFields = {
+  routing_version: z.literal(1).optional(),
   title: z.string().max(200).optional(),
   participants: z.array(participantTarget).max(99),
 }
@@ -348,6 +362,8 @@ const eventFields = {
 const eventOf = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
   z.strictObject({ ...eventFields, type: z.literal(type), payload })
 const messagePayload = z.strictObject({
+  routing: routingIntent.optional(),
+  routing_decision: routingDecision.optional(),
   content,
   mentions: uniqueIds,
   client_event_id: idempotencyKeySchema.optional(),
@@ -544,7 +560,12 @@ const downloadMetadata = z.strictObject({
 const output = z.strictObject({
   output_id: outputId,
   type: z.literal('message.create'),
-  payload: z.strictObject({ content, mentions: uniqueIds, agent_options: options.optional() }),
+  payload: z.strictObject({
+    content,
+    mentions: uniqueIds,
+    agent_options: options.optional(),
+    handoff: z.strictObject({ recipients: uniqueIds.min(1).max(1) }).optional(),
+  }),
 })
 const heartbeat = z.strictObject({
   lease_fence: sequenceSchema,
@@ -608,6 +629,7 @@ const brokerEvent = z.strictObject({
 const contextResponse = z.strictObject({
   delivery_id: uuidSchema,
   trigger_event: event,
+  invocation_event: event.optional(),
   participants: z.array(participant).max(100),
   context_cursor: cursorSchema,
   history: page(event),
@@ -795,6 +817,7 @@ const publicationExchange = z
     const input = (
       body: z.infer<(typeof wsCommands)['message.publish']> | z.infer<typeof messageCreate>
     ) => ({
+      ...(body.routing ? { routing: body.routing } : {}),
       content: body.content,
       mentions: body.mentions ?? [],
       agent_options: body.agent_options ?? [],
