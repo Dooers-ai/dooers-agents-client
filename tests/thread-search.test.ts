@@ -68,4 +68,19 @@ describe("thread search", () => {
     });
     expect(callbacks.onThreadSearchResult).toHaveBeenCalledWith("pedido", [], null, 1, false);
   });
+
+  it("ends a search the server refused with no results instead of loading forever", async () => {
+    const { client, callbacks, ws } = await connectTo("0.25.0");
+
+    client.searchThreads("pedido");
+    const sent = sentOfType(ws, "thread.search")[0];
+    ws.receive({
+      id: "a1",
+      type: "ack",
+      payload: { ack_id: sent.id, ok: false, error: { code: "SEARCH_FAILED", message: "x" } },
+    });
+
+    expect(callbacks.onThreadSearchResult).toHaveBeenCalledWith("pedido", [], null, 0, false);
+    expect(callbacks.clearThreadSearch).not.toHaveBeenCalled();
+  });
 });

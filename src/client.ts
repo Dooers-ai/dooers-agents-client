@@ -1178,9 +1178,21 @@ export class AgentClient {
         } else if (!frame.payload.ok && frame.payload.error) {
           const ackId = frame.payload.ack_id
           const err = frame.payload.error
-          if (ackId && this.searchInFlight?.frameId === ackId) {
+          const refusedSearch = ackId ? this.searchInFlight : null
+          if (refusedSearch && refusedSearch.frameId === ackId) {
+            // Settle the search as empty: clearing it would leave the page waiting forever.
             this.searchInFlight = null
-            this.clearThreadSearch()
+            this.searchCursor = null
+            this.callbacks.onThreadSearchResult(
+              refusedSearch.query,
+              [],
+              null,
+              0,
+              refusedSearch.append
+            )
+            if (this.searchPending && this.threadSearch) {
+              this.dispatchSearch(this.searchPending.append)
+            }
           }
           if (ackId) {
             const pending = this.pendingMessages.get(ackId)
