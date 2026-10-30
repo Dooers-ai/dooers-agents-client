@@ -544,7 +544,7 @@ describe('ephemeral response streaming', () => {
     actions.onTextDelta('t1', 'r1', 3, 'missing')
     actions.onTextDelta('t1', 'r1', 2, ' mundo')
     expect(store.getState().liveText.t1?.text).toBe('olá mundo')
-    actions.onEventAppend('t1', [event('final', 't1', 'assistant')])
+    actions.onEventAppend('t1', [{ ...event('final', 't1', 'assistant'), runId: 'r1' }])
     expect(store.getState().liveText.t1).toBeUndefined()
   })
 
@@ -552,6 +552,18 @@ describe('ephemeral response streaming', () => {
     const store = createAgentStore()
     store.getState().actions.onTextDelta('t1', 'r1', 1, 'partial')
     store.getState().actions.onRunUpsert(run('r1', 't1', 'succeeded'))
+    expect(store.getState().liveText.t1).toBeUndefined()
+  })
+})
+
+describe('live stream run isolation', () => {
+  it('does not clear the next run when the previous run finishes late', () => {
+    const store = createAgentStore()
+    const actions = store.getState().actions
+    actions.onTextDelta('t1', 'r2', 1, 'new stream')
+    actions.onEventAppend('t1', [{ ...event('old-final', 't1', 'assistant'), runId: 'r1' }])
+    expect(store.getState().liveText.t1?.text).toBe('new stream')
+    actions.onEventAppend('t1', [{ ...event('new-final', 't1', 'assistant'), runId: 'r2' }])
     expect(store.getState().liveText.t1).toBeUndefined()
   })
 })
