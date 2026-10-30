@@ -574,16 +574,20 @@ export function createAgentStore() {
           if (old && old.runId !== runId && sequence !== 1) return s
           const previous = old?.runId === runId ? old.text : ''
           return {
-            liveText: { ...s.liveText, [threadId]: { runId, sequence, text: previous + text } },
+            liveText: { ...s.liveText, [threadId]: {
+              runId, sequence, text: (previous + text).slice(0, 160_000),
+            } },
           }
         }),
 
       onEventAppend: (threadId, newEvents) =>
         set((s) => {
           const existing = s.events[threadId] ?? []
+          const activeRun = s.liveText[threadId]?.runId
           const finalText = newEvents.some(
             (event) => event.actor === 'assistant' &&
               event.type === 'message' &&
+              (!activeRun || event.runId === activeRun) &&
               event.content?.some((part) => part.type === 'text')
           )
           const liveText = { ...s.liveText }
