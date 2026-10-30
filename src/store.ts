@@ -163,7 +163,14 @@ function extractFormStates(
   return result
 }
 
+export interface LiveText {
+  runId: string
+  sequence: number
+  text: string
+}
+
 export interface AgentActions {
+  onTextDelta: (threadId: string, runId: string, sequence: number, text: string) => void
   setConnectionStatus: (status: AgentState['connection']['status'], error?: string) => void
   setServerVersion: (version: string | null) => void
   setSendError: (message: string | null) => void
@@ -257,6 +264,8 @@ export interface AgentState {
   optimistic: Record<string, ThreadEvent[]>
   optimisticKeys: Record<string, string[]>
   runs: Record<string, Run[]>
+  /** Live-only fragments, not history. Cleared when final event arrives. */
+  liveText: Record<string, LiveText>
   settings: {
     fields: SettingsItem[]
     updatedAt: string | null
@@ -302,6 +311,7 @@ export function createAgentStore() {
     optimistic: {},
     optimisticKeys: {},
     runs: {},
+    liveText: {},
     settings: {
       fields: [],
       updatedAt: null,
@@ -438,6 +448,7 @@ export function createAgentStore() {
           const { [threadId]: _upserted, ...threadUpsertedAt } = s.threadUpsertedAt
           const { [threadId]: _e, ...events } = s.events
           const { [threadId]: _r, ...runs } = s.runs
+          const { [threadId]: _live, ...liveText } = s.liveText
           const { [threadId]: _o, ...optimistic } = s.optimistic
           const { [threadId]: _k, ...optimisticKeys } = s.optimisticKeys
           const { [threadId]: _p, ...eventPagination } = s.eventPagination
@@ -467,6 +478,7 @@ export function createAgentStore() {
             threadUpsertedAt,
             events,
             runs,
+            liveText,
             optimistic,
             optimisticKeys,
             eventPagination,
@@ -553,11 +565,32 @@ export function createAgentStore() {
           }
         }),
 
+      onTextDelta: (threadId, runId, sequence, text) =>
+        set((s) => {
+          if (!text || text.length > 8192 || !Number.isSafeInteger(sequence) || sequence < 1) return s
+          const old = s.liveText[threadId]
+          // Ignore duplicate/out-of-order delivery; a new run starts from sequence 1.
+          if (old && old.runId === runId && sequence !== old.sequence + 1) return s
+          if (old && old.runId !== runId && sequence !== 1) return s
+          const previous = old?.runId === runId ? old.text : ''
+          return {
+            liveText: { ...s.liveText, [threadId]: { runId, sequence, text: previous + text } },
+          }
+        }),
+
       onEventAppend: (threadId, newEvents) =>
         set((s) => {
           const existing = s.events[threadId] ?? []
+          const finalText = newEvents.some(
+            (event) => event.actor === 'assistant' &&
+              event.type === 'message' &&
+              event.content?.some((part) => part.type === 'text')
+          )
+          const liveText = { ...s.liveText }
+          if (finalText) delete liveText[threadId]
           return {
             events: { ...s.events, [threadId]: insertEventsChronologically(existing, newEvents) },
+            liveText,
             formStates: extractFormStates(newEvents, s.formStates),
           }
         }),
@@ -604,11 +637,15 @@ export function createAgentStore() {
 
       onRunUpsert: (run) =>
         set((s) => {
+          const liveText = { ...s.liveText }
+          if (run.status !== 'running' && liveText[run.threadId]?.runId === run.id) {
+            delete liveText[run.threadId]
+          }
           const existing = s.runs[run.threadId] ?? []
           const idx = existing.findIndex((r) => r.id === run.id)
           const updated =
             idx >= 0 ? existing.map((r) => (r.id === run.id ? run : r)) : [...existing, run]
-          return { runs: { ...s.runs, [run.threadId]: updated } }
+          return { runs: { ...s.runs, [run.threadId]: updated }, liveText }
         }),
 
       addOptimistic: (threadId, event, clientEventId) =>
