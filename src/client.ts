@@ -1303,6 +1303,12 @@ export class AgentClient {
         break
       }
 
+      case 'text.delta': {
+        const { thread_id, run_id, sequence, text } = frame.payload
+        this.callbacks.onTextDelta(thread_id, run_id, sequence, text)
+        break
+      }
+
       case 'event.append': {
         const events = this.resolveEventUrls(frame.payload.events.map(toThreadEvent))
         // Collect reconciled client event IDs; resolve sends only after store update
