@@ -534,3 +534,24 @@ describe("createAgentStore", () => {
     expect(store.getState().eventPagination.t1).toBeUndefined();
   });
 });
+
+describe('ephemeral response streaming', () => {
+  it('collects ordered fragments, drops duplicates and clears on final text', () => {
+    const store = createAgentStore()
+    const actions = store.getState().actions
+    actions.onTextDelta('t1', 'r1', 1, 'olá')
+    actions.onTextDelta('t1', 'r1', 1, 'duplicate')
+    actions.onTextDelta('t1', 'r1', 3, 'missing')
+    actions.onTextDelta('t1', 'r1', 2, ' mundo')
+    expect(store.getState().liveText.t1?.text).toBe('olá mundo')
+    actions.onEventAppend('t1', [event('final', 't1', 'assistant')])
+    expect(store.getState().liveText.t1).toBeUndefined()
+  })
+
+  it('discards unfinished output on failed or completed run', () => {
+    const store = createAgentStore()
+    store.getState().actions.onTextDelta('t1', 'r1', 1, 'partial')
+    store.getState().actions.onRunUpsert(run('r1', 't1', 'succeeded'))
+    expect(store.getState().liveText.t1).toBeUndefined()
+  })
+})
