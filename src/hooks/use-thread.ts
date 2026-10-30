@@ -41,6 +41,7 @@ export function useThreadDetails(
   )
   const confirmed = useStore((s) => (threadId ? (s.events[threadId] ?? EMPTY_ARRAY) : EMPTY_ARRAY))
   const runs = useStore((s) => (threadId ? (s.runs[threadId] ?? EMPTY_RUNS) : EMPTY_RUNS))
+  const streamText = useStore((s) => (threadId ? s.liveText[threadId]?.text ?? null : null))
 
   // Merge with useMemo — stable ref when inputs are the same arrays
   const events = useMemo(
@@ -48,7 +49,7 @@ export function useThreadDetails(
     [optimistic, confirmed]
   )
 
-  return { thread, events, runs, isLoading, isWaiting }
+  return { thread, events, runs, isLoading, isWaiting, streamText }
 }
 
 export function useThreadEvents(threadId: string | null) {
