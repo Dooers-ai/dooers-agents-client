@@ -807,6 +807,9 @@ export interface MemoryRecord {
   workspaceId: string
   userId: string
   createdBy: string | null
+  /** The person the memory came from; on workspace memory, who may edit it besides managers. */
+  authorId: string
+  authorName: string
   sourceThreadId: string | null
   useCount: number
   createdAt: string
@@ -845,12 +848,26 @@ export function toMemoryRecord(w: WireMemoryRecord): MemoryRecord {
     workspaceId: w.workspace_id ?? '',
     userId: w.user_id ?? '',
     createdBy: w.created_by ?? null,
+    authorId: w.author_id ?? '',
+    authorName: w.author_name ?? '',
     sourceThreadId: w.source_thread_id ?? null,
     useCount: w.use_count ?? 0,
     createdAt: w.created_at,
     updatedAt: w.updated_at,
     lastUsedAt: w.last_used_at ?? null,
   }
+}
+
+/**
+ * Whether ``viewerId`` may edit or delete ``record``: personal memory belongs to its owner (the
+ * server only lists the viewer's own); workspace memory to the managers and to its author.
+ */
+export function canEditMemory(
+  record: MemoryRecord,
+  viewer: { userId: string; canManageWorkspace: boolean }
+): boolean {
+  if (record.scope !== 'workspace') return true
+  return viewer.canManageWorkspace || (!!record.authorId && record.authorId === viewer.userId)
 }
 
 export function toMemoryPreferences(w: WireMemoryPreferences): MemoryPreferences {

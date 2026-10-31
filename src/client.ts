@@ -991,6 +991,19 @@ export class AgentClient {
     return this.requestWithAck('memory.delete', { memory_id: memoryId })
   }
 
+  /**
+   * Move one of the user's personal memories to the workspace (shared with its members). Always
+   * an explicit action of the person — the agent itself only ever saves personal memory.
+   */
+  shareMemory(memoryId: string) {
+    return this.requestWithAck('memory.update', { memory_id: memoryId, scope: 'workspace' })
+  }
+
+  /** The connected user's id, as sent in the connect frame. */
+  currentUserId(): string {
+    return this.config.userId ?? ''
+  }
+
   requestMemoryPrefs(): boolean {
     if (!this.supportsFrontierFeatures()) return false
     this.send('memory.prefs.get', {})

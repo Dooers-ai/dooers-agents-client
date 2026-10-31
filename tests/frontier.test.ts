@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentClient } from "../src/client";
+import { canEditMemory } from "../src/types";
 import { createAgentStore } from "../src/store";
 import { MockWebSocket, ackConnect } from "./helpers/mock-websocket";
 
@@ -163,6 +164,49 @@ describe("frontier features", () => {
     expect(prefsFrame.payload).toEqual({ custom_instructions: "Use tópicos" });
     ack(ws, prefsFrame.id);
     await saved;
+  });
+
+  it("separates personal and workspace memory: author, editing rights and sharing", async () => {
+    const { client, store, ws } = await connectTo("0.26.0");
+    client.updateConnectionConfig({ userId: "ana" });
+    const base = {
+      agent_id: "w1",
+      organization_id: "o",
+      workspace_id: "ws",
+      kind: "fact",
+      tags: [],
+      pinned: false,
+      use_count: 0,
+      created_at: "2026-10-31T10:00:00Z",
+      updated_at: "2026-10-31T10:00:00Z",
+    };
+    ws.receive({
+      id: "l",
+      type: "memory.list.result",
+      payload: {
+        memories: [
+          { ...base, id: "m1", user_id: "ana", scope: "user", content: "Pessoal", author_id: "ana", author_name: "Ana" },
+          { ...base, id: "m2", user_id: "", scope: "workspace", content: "Da Ana", author_id: "ana", author_name: "Ana" },
+          { ...base, id: "m3", user_id: "", scope: "workspace", content: "Do Bruno", author_id: "bruno", author_name: "Bruno" },
+        ],
+        cursor: null,
+        has_more: false,
+        available: true,
+        can_manage_workspace: false,
+      },
+    });
+    const items = store.getState().memory.items;
+    expect(items.find((m) => m.id === "m2")?.authorName).toBe("Ana");
+    const viewer = { userId: client.currentUserId(), canManageWorkspace: false };
+    const editable = Object.fromEntries(items.map((m) => [m.id, canEditMemory(m, viewer)]));
+    expect(editable).toEqual({ m1: true, m2: true, m3: false });
+    expect(canEditMemory(items.find((m) => m.id === "m3")!, { ...viewer, canManageWorkspace: true })).toBe(true);
+
+    const shared = client.shareMemory("m1");
+    const frame = sentOfType(ws, "memory.update")[0];
+    expect(frame.payload).toEqual({ memory_id: "m1", scope: "workspace" });
+    ack(ws, frame.id);
+    await shared;
   });
 
   it("tracks schedules and drops canceled ones", async () => {

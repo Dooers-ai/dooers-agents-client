@@ -354,6 +354,9 @@ export interface WireMemoryRecord {
   source_thread_id?: string | null
   source_event_id?: string | null
   created_by?: string | null
+  /** Who the memory came from (agents-server ≥ 0.26, rows written before have it empty). */
+  author_id?: string
+  author_name?: string
   use_count: number
   created_at: string
   updated_at: string

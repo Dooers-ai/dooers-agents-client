@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import { useAgentContext, useStore } from '../provider'
-import type { MemoryKind, MemoryScope } from '../types'
+import type { MemoryKind, MemoryRecord, MemoryScope } from '../types'
+import { canEditMemory } from '../types'
 
 export type UseMemoriesOptions = {
   /** Load the list and preferences when the connection is ready (default true). */
@@ -44,6 +45,15 @@ export function useMemories(options?: UseMemoriesOptions) {
     [client]
   )
   const remove = useCallback((memoryId: string) => client.deleteMemory(memoryId), [client])
+  const share = useCallback((memoryId: string) => client.shareMemory(memoryId), [client])
+  const canEdit = useCallback(
+    (record: MemoryRecord) =>
+      canEditMemory(record, {
+        userId: client.currentUserId(),
+        canManageWorkspace: memory.canManageWorkspace,
+      }),
+    [client, memory.canManageWorkspace]
+  )
   const updatePrefs = useCallback(
     (patch: { enabled?: boolean; customInstructions?: string; aboutMe?: string }) =>
       client.updateMemoryPrefs(patch),
@@ -65,6 +75,10 @@ export function useMemories(options?: UseMemoriesOptions) {
     create,
     update,
     remove,
+    /** Share a personal memory with the workspace members. */
+    share,
+    /** Whether the signed-in user may edit/delete this memory. */
+    canEdit,
     updatePrefs,
   }
 }

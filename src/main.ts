@@ -117,6 +117,7 @@ export type {
   User,
 } from './types'
 export {
+  canEditMemory,
   isSettingsFieldGroup,
   LLM_MODELS_FIELD_ID,
   toChartEventData,
