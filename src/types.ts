@@ -40,6 +40,10 @@ export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | Doc
 export interface ChatContext {
   llmModel?: string
   reasoningEffort?: string
+  /** IANA time zone (``America/Sao_Paulo``). ``sendMessage`` fills the browser's by default. */
+  timezone?: string
+  /** BCP 47 locale (``pt-BR``). ``sendMessage`` fills the browser's by default. */
+  locale?: string
 }
 
 /** Reserved settings field id: SELECT options are the chat model catalog. */
@@ -309,6 +313,8 @@ export interface ThreadEvent {
   data?: Record<string, unknown>
   createdAt: string
   clientEventId?: string
+  /** True while the assistant is still generating this message (token streaming). */
+  streaming?: boolean
 }
 
 export interface Run {
@@ -409,9 +415,12 @@ export interface ThreadState {
 import type {
   WireAnalyticsEvent,
   WireC2S_ContentPart,
+  WireMemoryPreferences,
+  WireMemoryRecord,
   WireRun,
   WireS2C_ContentPart,
   WireS2C_FormElement,
+  WireScheduleRecord,
   WireSettingsField,
   WireSettingsFieldGroup,
   WireSettingsItem,
@@ -627,6 +636,7 @@ export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
     data: w.data,
     createdAt: w.created_at,
     clientEventId: w.client_event_id,
+    ...(w.streaming ? { streaming: true } : {}),
   }
 }
 
@@ -779,5 +789,145 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
       if (p.url) w.url = p.url
       return w
     }
+  }
+}
+
+// --- Long-term memory ---
+
+export type MemoryScope = 'user' | 'workspace'
+export type MemoryKind = 'fact' | 'preference' | 'instruction' | 'context' | 'note'
+
+export interface MemoryRecord {
+  id: string
+  scope: MemoryScope
+  kind: MemoryKind
+  content: string
+  tags: string[]
+  pinned: boolean
+  workspaceId: string
+  userId: string
+  createdBy: string | null
+  sourceThreadId: string | null
+  useCount: number
+  createdAt: string
+  updatedAt: string
+  lastUsedAt: string | null
+}
+
+export interface MemoryPreferences {
+  enabled: boolean
+  customInstructions: string
+  aboutMe: string
+  updatedAt: string | null
+}
+
+export interface MemoryState {
+  items: MemoryRecord[]
+  /** False when the agent has no long-term memory (or the user is a guest / old server). */
+  available: boolean
+  canManageWorkspace: boolean
+  loaded: boolean
+  isLoading: boolean
+  hasMore: boolean
+  cursor: string | null
+  query: string
+  prefs: MemoryPreferences | null
+}
+
+export function toMemoryRecord(w: WireMemoryRecord): MemoryRecord {
+  return {
+    id: w.id,
+    scope: w.scope,
+    kind: w.kind,
+    content: w.content,
+    tags: w.tags ?? [],
+    pinned: !!w.pinned,
+    workspaceId: w.workspace_id ?? '',
+    userId: w.user_id ?? '',
+    createdBy: w.created_by ?? null,
+    sourceThreadId: w.source_thread_id ?? null,
+    useCount: w.use_count ?? 0,
+    createdAt: w.created_at,
+    updatedAt: w.updated_at,
+    lastUsedAt: w.last_used_at ?? null,
+  }
+}
+
+export function toMemoryPreferences(w: WireMemoryPreferences): MemoryPreferences {
+  return {
+    enabled: w.enabled !== false,
+    customInstructions: w.custom_instructions ?? '',
+    aboutMe: w.about_me ?? '',
+    updatedAt: w.updated_at ?? null,
+  }
+}
+
+// --- Schedules ---
+
+export type ScheduleStatus = 'active' | 'paused' | 'completed' | 'canceled' | 'failed'
+
+export interface Recurrence {
+  freq: 'once' | 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly'
+  interval: number
+  byWeekday: number[] | null
+  byMonthday: number | null
+  atTime: string | null
+  until: string | null
+  count: number | null
+}
+
+export interface ScheduleRecord {
+  id: string
+  title: string
+  instruction: string
+  kind: 'reminder' | 'task'
+  recurrence: Recurrence
+  timezone: string
+  threadId: string | null
+  nextRunAt: string | null
+  status: ScheduleStatus
+  runCount: number
+  lastRunAt: string | null
+  lastStatus: string | null
+  lastError: string | null
+  lastThreadId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ScheduleState {
+  items: ScheduleRecord[]
+  available: boolean
+  loaded: boolean
+  isLoading: boolean
+}
+
+export function toScheduleRecord(w: WireScheduleRecord): ScheduleRecord {
+  const r = w.recurrence ?? { freq: 'once', interval: 1 }
+  return {
+    id: w.id,
+    title: w.title,
+    instruction: w.instruction,
+    kind: w.kind,
+    recurrence: {
+      freq: r.freq,
+      interval: r.interval ?? 1,
+      byWeekday: r.by_weekday ?? null,
+      byMonthday: r.by_monthday ?? null,
+      atTime: r.at_time ?? null,
+      until: r.until ?? null,
+      count: r.count ?? null,
+    },
+    timezone: w.timezone,
+    threadId: w.thread_id ?? null,
+    nextRunAt: w.next_run_at ?? null,
+    status: w.status,
+    runCount: w.run_count ?? 0,
+    lastRunAt: w.last_run_at ?? null,
+    lastStatus: w.last_status ?? null,
+    lastError: w.last_error ?? null,
+    lastThreadId: w.last_thread_id ?? null,
+    createdAt: w.created_at,
+    updatedAt: w.updated_at,
   }
 }

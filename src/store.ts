@@ -3,7 +3,12 @@ import { isUnqueuedQueueFilter } from './helpers/thread-queue'
 import type {
   AnalyticsEvent,
   DisplayContentPart,
+  MemoryPreferences,
+  MemoryRecord,
+  MemoryState,
   Run,
+  ScheduleRecord,
+  ScheduleState,
   SettingsItem,
   Thread,
   ThreadEvent,
@@ -57,8 +62,60 @@ function mergeThreadEventById(prev: ThreadEvent, next: ThreadEvent): ThreadEvent
   return {
     ...prev,
     ...next,
+    // A finalized event (no ``streaming`` flag) ends the live stream of the draft it replaces.
+    streaming: next.streaming,
     ...(content !== undefined ? { content } : {}),
   }
+}
+
+/** Append a streamed ``delta`` to the text (or reasoning) of ``event``. */
+export function appendEventDelta(
+  event: ThreadEvent,
+  kind: 'text' | 'reasoning',
+  delta: string
+): ThreadEvent {
+  if (kind === 'reasoning') {
+    const current = typeof event.data?.text === 'string' ? (event.data.text as string) : ''
+    return { ...event, data: { ...(event.data ?? {}), text: current + delta } }
+  }
+  const parts = event.content ? [...event.content] : []
+  const index = parts.findIndex((part) => part.type === 'text')
+  if (index >= 0) {
+    const part = parts[index]
+    if (part && part.type === 'text') parts[index] = { ...part, text: part.text + delta }
+  } else {
+    parts.push({ type: 'text', text: delta })
+  }
+  return { ...event, content: parts }
+}
+
+const EMPTY_MEMORY: MemoryState = {
+  items: [],
+  available: false,
+  canManageWorkspace: false,
+  loaded: false,
+  isLoading: false,
+  hasMore: false,
+  cursor: null,
+  query: '',
+  prefs: null,
+}
+
+const EMPTY_SCHEDULES: ScheduleState = {
+  items: [],
+  available: false,
+  loaded: false,
+  isLoading: false,
+}
+
+function sortSchedules(items: ScheduleRecord[]): ScheduleRecord[] {
+  return [...items].sort((a, b) => (a.nextRunAt ?? '9999').localeCompare(b.nextRunAt ?? '9999'))
+}
+
+function sortMemories(items: MemoryRecord[]): MemoryRecord[] {
+  return [...items].sort((a, b) =>
+    a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : b.updatedAt.localeCompare(a.updatedAt)
+  )
 }
 
 function eventTime(event: ThreadEvent): number {
@@ -204,6 +261,31 @@ export interface AgentActions {
     hasMore: boolean
   ) => void
   onRunUpsert: (run: Run) => void
+  /** Streaming text for an event announced with ``streaming: true`` (unknown events are ignored). */
+  onEventDelta: (
+    threadId: string,
+    eventId: string,
+    kind: 'text' | 'reasoning',
+    delta: string
+  ) => void
+  onMemoryListStart: (query: string, append: boolean) => void
+  onMemoryList: (
+    items: MemoryRecord[],
+    meta: {
+      cursor: string | null
+      hasMore: boolean
+      available: boolean
+      canManageWorkspace: boolean
+    },
+    append: boolean
+  ) => void
+  onMemoryUpsert: (memory: MemoryRecord) => void
+  onMemoryDeleted: (memoryId: string) => void
+  onMemoryPrefs: (prefs: MemoryPreferences, available: boolean) => void
+  onScheduleListStart: () => void
+  onScheduleList: (items: ScheduleRecord[], available: boolean) => void
+  onScheduleUpsert: (schedule: ScheduleRecord) => void
+  onScheduleDeleted: (scheduleId: string) => void
   addOptimistic: (threadId: string, event: ThreadEvent, clientEventId: string) => void
   removeOptimistic: (threadId: string, clientEventId: string) => void
   addSubscription: (threadId: string) => void
@@ -274,6 +356,10 @@ export interface AgentState {
   formStates: Record<string, FormState>
   subscriptions: Set<string>
   loadingThreads: Set<string>
+  /** Long-term memory of the connected user (agents-server ≥ 0.26.0). */
+  memory: MemoryState
+  /** Reminders / recurring tasks of the connected user (agents-server ≥ 0.26.0). */
+  schedules: ScheduleState
   actions: AgentActions
 }
 
@@ -315,6 +401,8 @@ export function createAgentStore() {
     },
     subscriptions: new Set(),
     loadingThreads: new Set(),
+    memory: EMPTY_MEMORY,
+    schedules: EMPTY_SCHEDULES,
 
     actions: {
       setConnectionStatus: (status, error) =>
@@ -610,6 +698,93 @@ export function createAgentStore() {
             idx >= 0 ? existing.map((r) => (r.id === run.id ? run : r)) : [...existing, run]
           return { runs: { ...s.runs, [run.threadId]: updated } }
         }),
+
+      onEventDelta: (threadId, eventId, kind, delta) =>
+        set((s) => {
+          const existing = s.events[threadId]
+          if (!existing) return s
+          const index = existing.findIndex((event) => event.id === eventId)
+          if (index < 0) return s
+          const current = existing[index]
+          if (!current) return s
+          const next = existing.slice()
+          next[index] = appendEventDelta(current, kind, delta)
+          return { events: { ...s.events, [threadId]: next } }
+        }),
+
+      onMemoryListStart: (query, append) =>
+        set((s) => ({
+          memory: { ...s.memory, isLoading: true, query, ...(append ? {} : { cursor: null }) },
+        })),
+
+      onMemoryList: (items, meta, append) =>
+        set((s) => {
+          const merged = append
+            ? [
+                ...s.memory.items,
+                ...items.filter((m) => !s.memory.items.some((x) => x.id === m.id)),
+              ]
+            : items
+          return {
+            memory: {
+              ...s.memory,
+              items: merged,
+              available: meta.available,
+              canManageWorkspace: meta.canManageWorkspace,
+              hasMore: meta.hasMore,
+              cursor: meta.cursor,
+              loaded: true,
+              isLoading: false,
+            },
+          }
+        }),
+
+      onMemoryUpsert: (memory) =>
+        set((s) => {
+          const others = s.memory.items.filter((m) => m.id !== memory.id)
+          return { memory: { ...s.memory, items: sortMemories([memory, ...others]) } }
+        }),
+
+      onMemoryDeleted: (memoryId) =>
+        set((s) => ({
+          memory: { ...s.memory, items: s.memory.items.filter((m) => m.id !== memoryId) },
+        })),
+
+      onMemoryPrefs: (prefs, available) =>
+        set((s) => ({
+          memory: {
+            ...s.memory,
+            prefs,
+            available: s.memory.loaded ? s.memory.available : available,
+          },
+        })),
+
+      onScheduleListStart: () => set((s) => ({ schedules: { ...s.schedules, isLoading: true } })),
+
+      onScheduleList: (items, available) =>
+        set(() => ({
+          schedules: { items: sortSchedules(items), available, loaded: true, isLoading: false },
+        })),
+
+      onScheduleUpsert: (schedule) =>
+        set((s) => {
+          const others = s.schedules.items.filter((x) => x.id !== schedule.id)
+          const keep = schedule.status === 'active' || schedule.status === 'paused'
+          return {
+            schedules: {
+              ...s.schedules,
+              items: sortSchedules(keep ? [...others, schedule] : others),
+            },
+          }
+        }),
+
+      onScheduleDeleted: (scheduleId) =>
+        set((s) => ({
+          schedules: {
+            ...s.schedules,
+            items: s.schedules.items.filter((x) => x.id !== scheduleId),
+          },
+        })),
 
       addOptimistic: (threadId, event, clientEventId) =>
         set((s) => ({

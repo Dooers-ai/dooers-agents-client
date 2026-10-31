@@ -9,13 +9,19 @@ import {
   rotationDue,
   STABLE_CONNECTION_MS,
 } from './helpers/connection-policy'
-import { supportsThreadSearch } from './helpers/server-version'
+import {
+  supportsChatContext,
+  supportsFrontierFeatures,
+  supportsThreadSearch,
+} from './helpers/server-version'
 import type { ServerToClient } from './protocol/frames'
 import type { WireC2S_ContentPart, WireSettingsItem } from './protocol/models'
 import type { AgentActions } from './store'
 import type {
   ChatContext,
   DisplayContentPart,
+  MemoryKind,
+  MemoryScope,
   SendContentPart,
   SettingsItem,
   ThreadArtifact,
@@ -24,7 +30,10 @@ import type {
 import {
   publicSchemaFromResultPayload,
   toAnalyticsEvent,
+  toMemoryPreferences,
+  toMemoryRecord,
   toRun,
+  toScheduleRecord,
   toSettingsItem,
   toThread,
   toThreadArtifact,
@@ -292,6 +301,15 @@ export class AgentClient {
     }
   >()
 
+  /** Mutations acknowledged by a plain ``ack`` (run.cancel, memory.*, schedule.*). */
+  private pendingAcks = new Map<
+    string,
+    { resolve: () => void; reject: (reason: Error) => void; timer: ReturnType<typeof setTimeout> }
+  >()
+  /** Last ``event.delta`` sequence applied per event (drops replays after a reconnect). */
+  private deltaSeq = new Map<string, number>()
+  private memoryListAppend = false
+
   private pendingArtifactsRequests = new Map<
     string,
     {
@@ -515,7 +533,16 @@ export class AgentClient {
     this.pendingMessages.clear()
   }
 
+  private abortPendingAcks(reason: string) {
+    for (const [frameId, pending] of this.pendingAcks) {
+      clearTimeout(pending.timer)
+      this.pendingAcks.delete(frameId)
+      pending.reject(new Error(reason))
+    }
+  }
+
   private abortPendingArtifacts(reason: string) {
+    this.abortPendingAcks(reason)
     for (const [frameId, pending] of this.pendingArtifactsRequests) {
       clearTimeout(pending.timer)
       this.pendingArtifactsRequests.delete(frameId)
@@ -877,6 +904,127 @@ export class AgentClient {
 
   // --- Messaging ---
 
+  // --- Run control / memory / schedules (agents-server ≥ 0.26.0) ---------------------------
+
+  /** True when the connected server supports Stop, memory and schedules frames. */
+  supportsFrontierFeatures(): boolean {
+    return supportsFrontierFeatures(this.serverVersion)
+  }
+
+  private requestWithAck(type: string, payload: unknown, timeoutMs = 15_000): Promise<void> {
+    if (!this.supportsFrontierFeatures()) {
+      return Promise.reject(
+        new Error('This agent does not support this feature yet (agents-server < 0.26.0)')
+      )
+    }
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return Promise.reject(new Error('Not connected'))
+    }
+    const id = crypto.randomUUID()
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingAcks.delete(id)
+        reject(new Error('Request timed out'))
+      }, timeoutMs)
+      this.pendingAcks.set(id, { resolve, reject, timer })
+      this.sendRaw({ id, type, payload })
+    })
+  }
+
+  /** Stop the run in progress on ``threadId`` (the partial answer is kept). */
+  cancelRun(threadId: string, runId?: string | null): Promise<void> {
+    return this.requestWithAck('run.cancel', {
+      thread_id: threadId,
+      ...(runId ? { run_id: runId } : {}),
+    })
+  }
+
+  /** Load (or search) the user's long-term memories. ``append`` continues from the last cursor. */
+  requestMemories(options?: {
+    query?: string
+    scope?: MemoryScope | null
+    append?: boolean
+    limit?: number
+  }): boolean {
+    if (!this.supportsFrontierFeatures()) return false
+    const append = !!options?.append
+    const query = options?.query?.trim() ?? ''
+    this.memoryListAppend = append
+    this.callbacks.onMemoryListStart(query, append)
+    this.send('memory.list', {
+      query: query || null,
+      scope: options?.scope ?? null,
+      cursor: append ? this.memoryCursor() : null,
+      limit: options?.limit ?? 50,
+    })
+    return true
+  }
+
+  private memoryCursor: () => string | null = () => null
+
+  /** Wire the store reader used for memory pagination (set by the provider). */
+  setMemoryCursorReader(reader: () => string | null) {
+    this.memoryCursor = reader
+  }
+
+  createMemory(
+    content: string,
+    options?: { scope?: MemoryScope; kind?: MemoryKind; tags?: string[]; pinned?: boolean }
+  ) {
+    return this.requestWithAck('memory.create', {
+      content,
+      scope: options?.scope ?? 'user',
+      ...(options?.kind ? { kind: options.kind } : {}),
+      ...(options?.tags ? { tags: options.tags } : {}),
+      ...(options?.pinned !== undefined ? { pinned: options.pinned } : {}),
+    })
+  }
+
+  updateMemory(
+    memoryId: string,
+    patch: { content?: string; tags?: string[]; pinned?: boolean; kind?: MemoryKind }
+  ) {
+    return this.requestWithAck('memory.update', { memory_id: memoryId, ...patch })
+  }
+
+  deleteMemory(memoryId: string) {
+    return this.requestWithAck('memory.delete', { memory_id: memoryId })
+  }
+
+  requestMemoryPrefs(): boolean {
+    if (!this.supportsFrontierFeatures()) return false
+    this.send('memory.prefs.get', {})
+    return true
+  }
+
+  updateMemoryPrefs(patch: { enabled?: boolean; customInstructions?: string; aboutMe?: string }) {
+    return this.requestWithAck('memory.prefs.update', {
+      ...(patch.enabled !== undefined ? { enabled: patch.enabled } : {}),
+      ...(patch.customInstructions !== undefined
+        ? { custom_instructions: patch.customInstructions }
+        : {}),
+      ...(patch.aboutMe !== undefined ? { about_me: patch.aboutMe } : {}),
+    })
+  }
+
+  requestSchedules(options?: { threadId?: string | null; includeClosed?: boolean }): boolean {
+    if (!this.supportsFrontierFeatures()) return false
+    this.callbacks.onScheduleListStart()
+    this.send('schedule.list', {
+      thread_id: options?.threadId ?? null,
+      include_closed: !!options?.includeClosed,
+    })
+    return true
+  }
+
+  setScheduleStatus(scheduleId: string, status: 'active' | 'paused') {
+    return this.requestWithAck('schedule.update', { schedule_id: scheduleId, status })
+  }
+
+  deleteSchedule(scheduleId: string) {
+    return this.requestWithAck('schedule.delete', { schedule_id: scheduleId })
+  }
+
   sendMessage(params: {
     text?: string
     threadId?: string
@@ -968,7 +1116,7 @@ export class AgentClient {
       },
     }
     payload.metadata = this.withChannelMetadata(params.metadata)
-    const chatContext = this.toWireChatContext(params.chatContext)
+    const chatContext = this.toWireChatContext(this.withLocaleDefaults(params.chatContext))
     if (chatContext) {
       payload.chat_context = chatContext
     }
@@ -1154,6 +1302,19 @@ export class AgentClient {
   private route(frame: ServerToClient) {
     switch (frame.type) {
       case 'ack': {
+        const waiting = this.pendingAcks.get(frame.payload.ack_id)
+        if (waiting) {
+          clearTimeout(waiting.timer)
+          this.pendingAcks.delete(frame.payload.ack_id)
+          if (frame.payload.ok) waiting.resolve()
+          else
+            waiting.reject(
+              new Error(
+                frame.payload.error?.message || frame.payload.error?.code || 'Request rejected'
+              )
+            )
+          break
+        }
         if (frame.payload.ack_id === this.connectFrameId) {
           if (frame.payload.ok) {
             this.handleConnected(frame.payload.server?.version ?? null)
@@ -1435,6 +1596,69 @@ export class AgentClient {
 
       case 'analytics.event':
         this.callbacks.onAnalyticsEvent(toAnalyticsEvent(frame.payload))
+        break
+
+      case 'event.delta': {
+        const { thread_id: threadId, event_id: eventId, seq, kind, delta } = frame.payload
+        const last = this.deltaSeq.get(eventId) ?? 0
+        if (seq && seq <= last) break
+        this.deltaSeq.set(eventId, seq || last + 1)
+        if (this.deltaSeq.size > 500) {
+          const oldest = this.deltaSeq.keys().next().value
+          if (oldest) this.deltaSeq.delete(oldest)
+        }
+        this.callbacks.onEventDelta(
+          threadId,
+          eventId,
+          kind === 'reasoning' ? 'reasoning' : 'text',
+          delta
+        )
+        break
+      }
+
+      case 'memory.list.result': {
+        const p = frame.payload
+        this.callbacks.onMemoryList(
+          p.memories.map(toMemoryRecord),
+          {
+            cursor: p.cursor ?? null,
+            hasMore: !!p.has_more,
+            available: p.available !== false,
+            canManageWorkspace: !!p.can_manage_workspace,
+          },
+          this.memoryListAppend
+        )
+        break
+      }
+
+      case 'memory.upsert':
+        this.callbacks.onMemoryUpsert(toMemoryRecord(frame.payload.memory))
+        break
+
+      case 'memory.deleted':
+        this.callbacks.onMemoryDeleted(frame.payload.memory_id)
+        break
+
+      case 'memory.prefs':
+        this.callbacks.onMemoryPrefs(
+          toMemoryPreferences(frame.payload.prefs),
+          frame.payload.available !== false
+        )
+        break
+
+      case 'schedule.list.result':
+        this.callbacks.onScheduleList(
+          frame.payload.schedules.map(toScheduleRecord),
+          frame.payload.available !== false
+        )
+        break
+
+      case 'schedule.upsert':
+        this.callbacks.onScheduleUpsert(toScheduleRecord(frame.payload.schedule))
+        break
+
+      case 'schedule.deleted':
+        this.callbacks.onScheduleDeleted(frame.payload.schedule_id)
         break
 
       case 'pong':
@@ -1749,14 +1973,45 @@ export class AgentClient {
     return Object.keys(base).length > 0 ? base : undefined
   }
 
+  /** Browser time zone and locale for servers that read them (agents-server ≥ 0.26.0). */
+  private withLocaleDefaults(chatContext: ChatContext | undefined): ChatContext | undefined {
+    if (!supportsChatContext(this.serverVersion) || !supportsFrontierFeatures(this.serverVersion)) {
+      return chatContext
+    }
+    let timezone = chatContext?.timezone
+    let locale = chatContext?.locale
+    try {
+      timezone ||= Intl.DateTimeFormat().resolvedOptions().timeZone
+    } catch {
+      // Intl unavailable: leave it unset
+    }
+    if (!locale && typeof navigator !== 'undefined') locale = navigator.language
+    return {
+      ...(chatContext ?? {}),
+      ...(timezone ? { timezone } : {}),
+      ...(locale ? { locale } : {}),
+    }
+  }
+
   private toWireChatContext(
     chatContext: ChatContext | undefined
-  ): { llm_model?: string; reasoning_effort?: string } | undefined {
+  ):
+    | { llm_model?: string; reasoning_effort?: string; timezone?: string; locale?: string }
+    | undefined {
     const llmModel = chatContext?.llmModel?.trim()
     const reasoningEffort = chatContext?.reasoningEffort?.trim().toLowerCase()
-    const out: { llm_model?: string; reasoning_effort?: string } = {}
+    const timezone = chatContext?.timezone?.trim()
+    const locale = chatContext?.locale?.trim()
+    const out: {
+      llm_model?: string
+      reasoning_effort?: string
+      timezone?: string
+      locale?: string
+    } = {}
     if (llmModel) out.llm_model = llmModel
     if (reasoningEffort) out.reasoning_effort = reasoningEffort
+    if (timezone) out.timezone = timezone
+    if (locale) out.locale = locale
     return Object.keys(out).length > 0 ? out : undefined
   }
 

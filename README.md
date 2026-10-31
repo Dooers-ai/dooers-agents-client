@@ -142,6 +142,24 @@ const { deleteThread, loadMore } = useThreadsActions()
 
 `loadMore()` for cursor-based pagination. `deleteThread(id)` broadcasts deletion to all connected clients.
 
+### useRunControl (Stop)
+
+```tsx
+const { isRunning, canCancel, cancel } = useRunControl(threadId)
+{isRunning && <button disabled={!canCancel} onClick={() => cancel()}>Parar</button>}
+```
+
+Assistant messages stream token by token (`event.streaming === true` while being written).
+
+### useMemories / useSchedules
+
+```tsx
+const { memories, prefs, available, create, update, remove, updatePrefs, search } = useMemories()
+const { schedules, pause, resume, cancel } = useSchedules()
+```
+
+Both need agents-server ≥ 0.26.0 (`supported` is false otherwise).
+
 ### useMessage
 
 ```tsx

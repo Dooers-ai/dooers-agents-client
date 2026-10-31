@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] — 2026-10-31
+
+Requires agents-server 0.26.0 for the new frames; with older servers nothing new is sent
+(they close the socket on unknown frame types).
+
+### Added
+
+- **Token streaming**: `event.delta` frames append to the event announced with
+  `streaming: true` (text or reasoning). `ThreadEvent.streaming` is true while the assistant is
+  still writing and is cleared by the final `event.append`. Replayed deltas (same `seq`) are
+  dropped; deltas for events the client never saw are ignored.
+- **Stop**: `client.cancelRun(threadId, runId?)` and `useRunControl(threadId)`
+  (`isRunning`, `activeRunId`, `canCancel`, `isCanceling`, `cancel()`).
+- **Long-term memory**: `useMemories()` — list/search with pagination, create, edit, pin, delete,
+  workspace memories (read-only unless `canManageWorkspace`) and preferences (enabled, custom
+  instructions, about me). Client methods `requestMemories`, `createMemory`, `updateMemory`,
+  `deleteMemory`, `requestMemoryPrefs`, `updateMemoryPrefs`; live `memory.upsert`/`memory.deleted`.
+- **Schedules**: `useSchedules({ threadId? })` — reminders and recurring tasks with
+  `pause`, `resume`, `cancel`; live `schedule.upsert`/`schedule.deleted`.
+- `ChatContext.timezone` / `ChatContext.locale`; `sendMessage` fills the browser's values
+  automatically for servers ≥ 0.26.0.
+- `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
+- Store: `memory` and `schedules` slices.
+
 ## [0.20.0] — 2026-10-29
 
 ### Added

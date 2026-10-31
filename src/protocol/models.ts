@@ -334,3 +334,75 @@ export interface WireAnalyticsEvent {
   event_id: string | null
   data: Record<string, unknown> | null
 }
+
+// --- Long-term memory (agents-server ≥ 0.26.0) ---
+
+export type WireMemoryScope = 'user' | 'workspace'
+export type WireMemoryKind = 'fact' | 'preference' | 'instruction' | 'context' | 'note'
+
+export interface WireMemoryRecord {
+  id: string
+  agent_id: string
+  organization_id: string
+  workspace_id: string
+  user_id: string
+  scope: WireMemoryScope
+  kind: WireMemoryKind
+  content: string
+  tags: string[]
+  pinned: boolean
+  source_thread_id?: string | null
+  source_event_id?: string | null
+  created_by?: string | null
+  use_count: number
+  created_at: string
+  updated_at: string
+  last_used_at?: string | null
+  expires_at?: string | null
+}
+
+export interface WireMemoryPreferences {
+  agent_id: string
+  organization_id: string
+  user_id: string
+  enabled: boolean
+  custom_instructions: string
+  about_me: string
+  updated_at?: string | null
+}
+
+// --- Schedules (agents-server ≥ 0.26.0) ---
+
+export interface WireRecurrence {
+  freq: 'once' | 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly'
+  interval: number
+  by_weekday?: number[] | null
+  by_monthday?: number | null
+  at_time?: string | null
+  until?: string | null
+  count?: number | null
+}
+
+export interface WireScheduleRecord {
+  id: string
+  agent_id: string
+  organization_id: string
+  workspace_id: string
+  user_id: string
+  user_name?: string | null
+  thread_id?: string | null
+  title: string
+  instruction: string
+  kind: 'reminder' | 'task'
+  recurrence: WireRecurrence
+  timezone: string
+  next_run_at?: string | null
+  status: 'active' | 'paused' | 'completed' | 'canceled' | 'failed'
+  run_count: number
+  last_run_at?: string | null
+  last_status?: string | null
+  last_error?: string | null
+  last_thread_id?: string | null
+  created_at: string
+  updated_at: string
+}

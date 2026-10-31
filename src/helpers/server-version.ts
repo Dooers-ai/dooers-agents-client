@@ -16,6 +16,13 @@ export const THREAD_QUEUES_MIN_SERVER_VERSION = '0.24.0'
  */
 export const THREAD_SEARCH_MIN_SERVER_VERSION = '0.25.0'
 
+/**
+ * Minimum agents-server semver for token streaming (``event.delta``), ``run.cancel``, long-term
+ * memory (``memory.*``) and schedules (``schedule.*``). Older servers close the socket on these
+ * frame types, so the client never sends them there.
+ */
+export const FRONTIER_MIN_SERVER_VERSION = '0.26.0'
+
 /** Parse ``major.minor.patch`` prefix; non-numeric parts become 0. */
 function parseSemverParts(version: string): [number, number, number] {
   const core = version.trim().split('-')[0]?.split('+')[0] ?? ''
@@ -56,4 +63,9 @@ export function supportsThreadQueues(serverVersion: string | null | undefined): 
 
 export function supportsThreadSearch(serverVersion: string | null | undefined): boolean {
   return isServerAtLeast(serverVersion, THREAD_SEARCH_MIN_SERVER_VERSION)
+}
+
+/** ``run.cancel`` (Stop), ``memory.*`` and ``schedule.*`` frames. */
+export function supportsFrontierFeatures(serverVersion: string | null | undefined): boolean {
+  return isServerAtLeast(serverVersion, FRONTIER_MIN_SERVER_VERSION)
 }
