@@ -19,7 +19,7 @@ Requires agents-server 0.26.0 for the new frames; with older servers nothing new
 - **Stop**: `client.cancelRun(threadId, runId?)` and `useRunControl(threadId)`
   (`isRunning`, `activeRunId`, `canCancel`, `isCanceling`, `cancel()`).
 - **Long-term memory**: `useMemories()` — list/search with pagination, create, edit, pin, delete,
-  workspace memories (read-only unless `canManageWorkspace`) and preferences (enabled, custom
+  workspace memories (editable by managers and by their author) and preferences (enabled, custom
   instructions, about me). Client methods `requestMemories`, `createMemory`, `updateMemory`,
   `deleteMemory`, `requestMemoryPrefs`, `updateMemoryPrefs`; live `memory.upsert`/`memory.deleted`.
   Personal and workspace memory are separate: records carry `authorId`/`authorName`;
