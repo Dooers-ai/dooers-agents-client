@@ -10,6 +10,12 @@ export const THREAD_ACCESS_MIN_SERVER_VERSION = '0.22.0'
 /** Minimum agents-server semver for thread queues. */
 export const THREAD_QUEUES_MIN_SERVER_VERSION = '0.24.0'
 
+/**
+ * Minimum agents-server semver for ``thread.search``. Older servers close the socket on an
+ * unknown frame type, so the client never sends it to them.
+ */
+export const THREAD_SEARCH_MIN_SERVER_VERSION = '0.25.0'
+
 /** Parse ``major.minor.patch`` prefix; non-numeric parts become 0. */
 function parseSemverParts(version: string): [number, number, number] {
   const core = version.trim().split('-')[0]?.split('+')[0] ?? ''
@@ -46,4 +52,8 @@ export function supportsThreadAccess(serverVersion: string | null | undefined): 
 
 export function supportsThreadQueues(serverVersion: string | null | undefined): boolean {
   return isServerAtLeast(serverVersion, THREAD_QUEUES_MIN_SERVER_VERSION)
+}
+
+export function supportsThreadSearch(serverVersion: string | null | undefined): boolean {
+  return isServerAtLeast(serverVersion, THREAD_SEARCH_MIN_SERVER_VERSION)
 }

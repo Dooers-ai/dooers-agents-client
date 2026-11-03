@@ -36,6 +36,12 @@ export type C2S_ThreadList = Frame<
   { cursor?: string | null; limit?: number; queue?: string | null }
 >
 
+/** Title search over every thread the connection may see (agents-server ≥ 0.25.0). */
+export type C2S_ThreadSearch = Frame<
+  'thread.search',
+  { query: string; cursor?: string | null; limit?: number; queue?: string | null }
+>
+
 export type C2S_ThreadUpdate = Frame<'thread.update', { thread_id: string; queue?: string | null }>
 
 export type C2S_ThreadSubscribe = Frame<
@@ -134,6 +140,7 @@ export type C2S_Ping = Frame<'ping', Record<string, never>>
 export type ClientToServer =
   | C2S_Connect
   | C2S_ThreadList
+  | C2S_ThreadSearch
   | C2S_ThreadSubscribe
   | C2S_ThreadUnsubscribe
   | C2S_ThreadDelete
@@ -166,6 +173,11 @@ export type S2C_Ack = Frame<
 export type S2C_ThreadListResult = Frame<
   'thread.list.result',
   { threads: WireThread[]; cursor?: string | null; total_count: number }
+>
+
+export type S2C_ThreadSearchResult = Frame<
+  'thread.search.result',
+  { query: string; threads: WireThread[]; cursor?: string | null; total_count: number }
 >
 
 export type S2C_ThreadSnapshot = Frame<
@@ -242,6 +254,7 @@ export type S2C_Pong = Frame<'pong', Record<string, never>>
 export type ServerToClient =
   | S2C_Ack
   | S2C_ThreadListResult
+  | S2C_ThreadSearchResult
   | S2C_ThreadSnapshot
   | S2C_EventAppend
   | S2C_EventListResult

@@ -180,6 +180,16 @@ export interface AgentActions {
   onThreadListAppend: (threads: Thread[], cursor?: string | null, totalCount?: number) => void
   onThreadUpsert: (thread: Thread) => void
   onThreadDeleted: (threadId: string) => void
+  /** A title search was sent; ``append`` keeps the current results (load more). */
+  onThreadSearchStart: (query: string, queue: string | null, append: boolean) => void
+  onThreadSearchResult: (
+    query: string,
+    threads: Thread[],
+    cursor: string | null,
+    totalCount: number,
+    append: boolean
+  ) => void
+  clearThreadSearch: () => void
   onThreadSnapshot: (thread: Thread, events: ThreadEvent[], runs: Run[], hasMore?: boolean) => void
   onEventAppend: (threadId: string, events: ThreadEvent[]) => void
   reconcileEvents: (
@@ -210,6 +220,17 @@ export interface AgentActions {
   setFormCancelled: (formEventId: string) => void
 }
 
+/** Results of the active ``thread.search``, kept apart from the sidebar's ``thread.list``. */
+export interface ThreadSearchState {
+  query: string
+  queue: string | null
+  threads: Thread[]
+  cursor: string | null
+  hasMore: boolean
+  totalCount: number
+  isLoading: boolean
+}
+
 export interface AgentState {
   connection: {
     status: 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'
@@ -230,6 +251,7 @@ export interface AgentState {
   threadListQueue: string | null
   /** When each thread last arrived via ``thread.upsert`` (ms). */
   threadUpsertedAt: Record<string, number>
+  threadSearch: ThreadSearchState | null
   events: Record<string, ThreadEvent[]>
   eventPagination: Record<string, { cursor: string | null; hasMore: boolean }>
   optimistic: Record<string, ThreadEvent[]>
@@ -274,6 +296,7 @@ export function createAgentStore() {
     threadListTotalCount: 0,
     threadListQueue: null,
     threadUpsertedAt: {},
+    threadSearch: null,
     events: {},
     eventPagination: {},
     optimistic: {},
@@ -393,10 +416,19 @@ export function createAgentStore() {
           const next = withPreservedAccess(s.threads[thread.id], thread)
           const threads = { ...s.threads, [thread.id]: next }
           const threadOrder = listOrderAfterUpsert(s.threadOrder, next, s.threadListQueue)
+          // A search result shows the fresh title, but a new thread does not join it.
+          const threadSearch =
+            s.threadSearch?.threads.some((t) => t.id === thread.id) === true
+              ? {
+                  ...s.threadSearch,
+                  threads: s.threadSearch.threads.map((t) => (t.id === thread.id ? next : t)),
+                }
+              : s.threadSearch
           return {
             threads,
             threadOrder,
             threadUpsertedAt: { ...s.threadUpsertedAt, [thread.id]: Date.now() },
+            threadSearch,
           }
         }),
 
@@ -410,6 +442,12 @@ export function createAgentStore() {
           const { [threadId]: _k, ...optimisticKeys } = s.optimisticKeys
           const { [threadId]: _p, ...eventPagination } = s.eventPagination
           const threadOrder = s.threadOrder.filter((id) => id !== threadId)
+          const threadSearch = s.threadSearch
+            ? {
+                ...s.threadSearch,
+                threads: s.threadSearch.threads.filter((t) => t.id !== threadId),
+              }
+            : null
           const subscriptions = new Set(s.subscriptions)
           subscriptions.delete(threadId)
           const loadingThreads = new Set(s.loadingThreads)
@@ -435,8 +473,47 @@ export function createAgentStore() {
             subscriptions,
             loadingThreads,
             formStates,
+            threadSearch,
           }
         }),
+
+      onThreadSearchStart: (query, queue, append) =>
+        set((s) => ({
+          threadSearch:
+            append && s.threadSearch
+              ? { ...s.threadSearch, isLoading: true }
+              : {
+                  query,
+                  queue,
+                  threads: [],
+                  cursor: null,
+                  hasMore: false,
+                  totalCount: 0,
+                  isLoading: true,
+                },
+        })),
+
+      onThreadSearchResult: (query, threads, cursor, totalCount, append) =>
+        set((s) => {
+          const previous = append && s.threadSearch ? s.threadSearch : null
+          const seen = new Set(previous?.threads.map((t) => t.id))
+          return {
+            threadSearch: {
+              query,
+              queue: s.threadSearch?.queue ?? null,
+              threads: previous
+                ? [...previous.threads, ...threads.filter((t) => !seen.has(t.id))]
+                : threads,
+              cursor,
+              hasMore: cursor != null,
+              // Cursor pages carry no total; the first page's count stands.
+              totalCount: previous ? previous.totalCount : totalCount,
+              isLoading: false,
+            },
+          }
+        }),
+
+      clearThreadSearch: () => set({ threadSearch: null }),
 
       onThreadSnapshot: (thread, snapshotEvents, runs, hasMore = false) =>
         set((s) => {
