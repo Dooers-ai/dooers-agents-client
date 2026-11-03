@@ -252,6 +252,26 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     await tick()
     return { client, store, socket }
   }
+  it('applies the chosen model only to invoked recipients, including all, and rejects unknown models', async () => {
+    localStorage.clear()
+    const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro'), agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]), routing_version:1}
+    const fetcher = vi.fn(async () => json({items:[mine],next_cursor:null,has_more:false,watermark:'1'}))
+    const {client} = await setup(fetcher, {turnModels:['model-a','model-b']})
+    await tick()
+    const send = vi.spyOn(client.getMaestroClient()!, 'send').mockRejectedValue(new Error('transport'))
+    await expect(client.sendMessage({threadId,text:'@Analista calcule',chatContext:{llmModel:'model-b'}})).rejects.toThrow()
+    expect(send.mock.calls[0]?.[0].agentOptions).toEqual([{participant_id:uuid(21),model:'model-b'}])
+    await expect(client.sendMessage({threadId,text:'@todos calculem',chatContext:{llmModel:'model-b'}})).rejects.toThrow()
+    expect(send.mock.calls[1]?.[0].agentOptions).toEqual([{participant_id:uuid(20),model:'model-b'},{participant_id:uuid(21),model:'model-b'}])
+    client.clearInvocationSelection(threadId)
+    await expect(client.sendMessage({threadId,text:'nota',chatContext:{llmModel:'model-b'}})).rejects.toThrow()
+    expect(send.mock.calls[2]?.[0].agentOptions).toBeUndefined()
+    await expect(client.sendMessage({threadId,text:'@todos teste',chatContext:{llmModel:'unknown'}})).rejects.toThrow('Selected model')
+    expect(send).toHaveBeenCalledTimes(3)
+    client.disconnect()
+    localStorage.clear()
+  })
+
   it('retains @ selection per sender and thread; all is one-shot and clearing is explicit', async () => {
     localStorage.clear()
     const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro'), agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]), routing_version:1}

@@ -1,7 +1,7 @@
 // Transporte Maestro atrás da API legada (AgentProvider + hooks). O chat existente
 // continua chamando os mesmos métodos; aqui eles viram HTTP/WS do Maestro e o
 // estado canônico do MaestroStore é projetado no store legado.
-import { AgentClient, type AgentConnectionConfig, type UploadResult } from './client'
+import { AgentClient, type AgentConnectionConfig, type PublicSettingsSchemaResult, type UploadResult } from './client'
 import { MaestroClient } from './maestro/client'
 import type { MaestroStore, MaestroThreadState } from './maestro/store'
 import type { MaestroClientConfig, MaestroCredential, MaestroScope } from './maestro/types'
@@ -32,6 +32,8 @@ import type {
 export interface AgentMaestroOptions {
   /** Enable only after every reader/runtime supports routing v1. New threads only. */
   invocationRouting?: boolean
+  /** Operator-approved model catalog; server and recipient validate every override. */
+  turnModels?: string[]
   /** Origem HTTP da API Maestro (configuração da aplicação, nunca do agente). */
   endpoint: string
   apiPrefix?: string
@@ -257,6 +259,7 @@ export class MaestroAgentClient extends AgentClient {
         : {}),
       allowInsecureLocalhost: this.options.allowInsecureLocalhost === true,
       durableForms: this.options.forms === true,
+      perAgentOptions: Boolean(this.options.turnModels?.length),
       maxThreads: 1000,
       maxReconnectAttempts: 8,
       ...(this.options.fetch ? { fetch: this.options.fetch } : {}),
@@ -817,7 +820,14 @@ export class MaestroAgentClient extends AgentClient {
       // Selection belongs to the sender and thread; never infer it from another participant's event.
       if (selection?.mode === 'direct' || (selection?.mode === 'none' && mentions.length))
         this.selectInvocation(threadId, selection.recipients)
+      const model = params.chatContext?.llmModel
+      if (model && !this.options.turnModels?.includes(model))
+        throw new Error('Selected model is not available through Maestro')
+      const recipients = selection?.recipients ?? []
       await maestro.send({
+        ...(model && recipients.length ? {
+          agentOptions: recipients.map((participant_id) => ({ participant_id, model })),
+        } : {}),
         threadId,
         content,
         clientEventId,
@@ -1107,8 +1117,15 @@ export class MaestroAgentClient extends AgentClient {
   }
   override unsubscribeSettings() {}
   override patchSetting() {}
-  override fetchPublicSettingsSchema(): Promise<never> {
-    return Promise.reject(new Error('Settings schema is not available through Maestro'))
+  override fetchPublicSettingsSchema(): Promise<PublicSettingsSchemaResult> {
+    const models = this.options.turnModels
+    if (!models?.length) return Promise.reject(new Error('Settings schema is not available through Maestro'))
+    return Promise.resolve({ version: 'maestro-turn-models-v1', fields: [{
+      id: 'llm_models', type: 'select', label: 'Model', value: models[0],
+      required: false, readonly: false, visibility: 'user', placeholder: null,
+      min: null, max: null, rows: null, src: null, width: null, height: null, uploadUrl: null, accept: null,
+      options: models.map((value) => ({ value, label: value })),
+    }] })
   }
   override subscribeAnalytics() {}
   override unsubscribeAnalytics() {}
