@@ -3,6 +3,7 @@
 // estado canônico do MaestroStore é projetado no store legado.
 import { AgentClient, type AgentConnectionConfig, type PublicSettingsSchemaResult, type UploadResult } from './client'
 import { MaestroClient } from './maestro/client'
+import { MaestroOutbox } from './maestro-outbox'
 import type { MaestroStore, MaestroThreadState } from './maestro/store'
 import type { MaestroClientConfig, MaestroCredential, MaestroScope } from './maestro/types'
 import { MaestroClientError } from './maestro/types'
@@ -128,6 +129,31 @@ export class MaestroAgentClient extends AgentClient {
   private pendingClientEvents = new Map<string, string>()
   private routingThreads = new Set<string>()
   private invocationSelections = new Map<string, string[]>()
+  private outbox() {
+    return new MaestroOutbox(
+      `maestro.outbox.v1:${JSON.stringify([this.options.endpoint, this.options.scope.principalId, this.options.scope.organizationId, this.options.scope.workspaceId, this.agentPrincipalId])}:`,
+      globalThis.localStorage
+    )
+  }
+  private recoveringOutbox = false
+  private async recoverOutbox(maestro: MaestroClient) {
+    if (this.recoveringOutbox) return
+    this.recoveringOutbox = true
+    try {
+      for (const input of this.outbox().entries()) {
+        if (this.maestro !== maestro || this.closed) break
+        try {
+          await maestro.send(input)
+          this.outbox().remove(input.clientEventId!)
+        } catch (cause) {
+          this.callbacks.setSendError(`Envio pendente preservado: ${errorMessage(cause)}`)
+          break
+        }
+      }
+    } catch (cause) {
+      this.callbacks.setSendError(`Não foi possível recuperar os envios pendentes: ${errorMessage(cause)}`)
+    } finally { this.recoveringOutbox = false }
+  }
   private selectionKey(threadId: string) {
     return `maestro.invocation.v1:${JSON.stringify([this.options.scope.principalId, this.options.scope.organizationId, this.options.scope.workspaceId, threadId])}`
   }
@@ -328,6 +354,7 @@ export class MaestroAgentClient extends AgentClient {
         this.callbacks.resetReconnect()
         this.armRefresh(maestro, connection.handshake?.expiresAt)
         this.startPolling()
+        void this.recoverOutbox(maestro)
         this.requestThreadList()
         break
       }
@@ -824,7 +851,7 @@ export class MaestroAgentClient extends AgentClient {
       if (model && !this.options.turnModels?.includes(model))
         throw new Error('Selected model is not available through Maestro')
       const recipients = selection?.recipients ?? []
-      await maestro.send({
+      const publication = maestro.prepareMessage({
         ...(model && recipients.length ? {
           agentOptions: recipients.map((participant_id) => ({ participant_id, model })),
         } : {}),
@@ -834,6 +861,10 @@ export class MaestroAgentClient extends AgentClient {
         ...(routing ? { routing } : {}),
         ...(mentions.length ? { mentions } : {}),
       })
+      // Synchronous durable write precedes all transport awaits and composer clearing.
+      this.outbox().put(publication)
+      await maestro.send(publication)
+      this.outbox().remove(clientEventId)
       return { threadId }
     } catch (cause) {
       if (threadId && this.pendingClientEvents.delete(clientEventId))

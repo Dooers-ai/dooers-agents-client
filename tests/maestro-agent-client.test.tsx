@@ -4,6 +4,7 @@ import { AgentClient } from '../src/client'
 import { useConnection } from '../src/hooks/use-connection'
 import { toMaestroThread } from '../src/protocol/maestro/contracts'
 import { toMaestroNetworkEvent } from '../src/maestro/network'
+import { MaestroClient } from '../src/maestro/client'
 import { MaestroAgentClient } from '../src/maestro-agent-client'
 import {
   legacyContentToMaestro,
@@ -252,6 +253,25 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     await tick()
     return { client, store, socket }
   }
+  it('recovers an interrupted publication with the same identity, recipients and model after reload', async () => {
+    localStorage.clear()
+    const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro')]), routing_version:1}
+    const fetcher = vi.fn(async () => json({items:[mine],next_cursor:null,has_more:false,watermark:'1'}))
+    const first = await setup(fetcher, {turnModels:['model-b']})
+    const send = vi.spyOn(MaestroClient.prototype, 'send').mockRejectedValue(new Error('connection lost'))
+    await expect(first.client.sendMessage({threadId,text:'@todos teste',chatContext:{llmModel:'model-b'}})).rejects.toThrow()
+    const original = send.mock.calls[0]![0]
+    first.client.disconnect()
+    const second = await setup(fetcher, {turnModels:['model-b']})
+    await tick()
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(send.mock.calls[1]![0]).toEqual(original)
+    expect(Object.keys(localStorage).filter(k=>k.startsWith('maestro.outbox.'))).toHaveLength(1)
+    second.client.disconnect()
+    send.mockRestore()
+    localStorage.clear()
+  })
+
   it('applies the chosen model only to invoked recipients, including all, and rejects unknown models', async () => {
     localStorage.clear()
     const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro'), agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]), routing_version:1}
