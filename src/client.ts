@@ -976,11 +976,20 @@ export class AgentClient {
       payload.queue = params.queue
     }
 
-    this.sendRaw({
-      id: clientEventId,
-      type: 'event.create',
-      payload,
-    })
+    const frame = { id: clientEventId, type: 'event.create' as const, payload }
+    // The initial handshake is short-lived. A fresh Core assertion is attached
+    // to each message, and the server verifies its subject against the socket.
+    // On refresh failure, chat still works but user-delegated memory fails closed.
+    if (this.config.getAuthToken) {
+      void this.resolveAuthToken()
+        .then((token) => {
+          if (token) payload.auth_token = token
+          this.sendRaw(frame)
+        })
+        .catch(() => this.sendRaw(frame))
+    } else {
+      this.sendRaw(frame)
+    }
 
     return promise
   }
