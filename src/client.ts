@@ -258,6 +258,9 @@ export class AgentClient {
   private connectFrameId = ''
   private latestAuthToken: string | undefined
   private latestAuthTokenAt = 0
+  private get hasSignedDashboardToken(): boolean {
+    return Boolean(this.latestAuthToken && this.latestAuthToken.split('.').length === 3)
+  }
   private refreshingAuthToken = false
   private isIntentionallyClosed = false
   private lastFrameAt = 0
@@ -982,10 +985,10 @@ export class AgentClient {
     // Preserve the synchronous send contract and optimistic-message ordering.
     // Dashboard handshakes are renewed in the heartbeat/background; only a
     // recently resolved assertion is attached to each message.
-    if (this.latestAuthToken && Date.now() - this.latestAuthTokenAt < 95_000) {
+    if (this.hasSignedDashboardToken && Date.now() - this.latestAuthTokenAt < 95_000) {
       payload.auth_token = this.latestAuthToken
     }
-    if (this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
+    if (this.hasSignedDashboardToken && this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
       void this.refreshAuthToken()
     }
     this.sendRaw({ id: clientEventId, type: 'event.create', payload })
@@ -1520,7 +1523,7 @@ export class AgentClient {
   }
 
   private heartbeatTick() {
-    if (this.connected && this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
+    if (this.connected && this.hasSignedDashboardToken && this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
       void this.refreshAuthToken()
     }
     if (this.serverAnswersPing) {
