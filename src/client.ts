@@ -256,6 +256,9 @@ export class AgentClient {
   }
 
   private connectFrameId = ''
+  private latestAuthToken: string | undefined
+  private latestAuthTokenAt = 0
+  private refreshingAuthToken = false
   private isIntentionallyClosed = false
   private lastFrameAt = 0
   private resumeListenersAttached = false
@@ -976,20 +979,16 @@ export class AgentClient {
       payload.queue = params.queue
     }
 
-    const frame = { id: clientEventId, type: 'event.create' as const, payload }
-    // The initial handshake is short-lived. A fresh Core assertion is attached
-    // to each message, and the server verifies its subject against the socket.
-    // On refresh failure, chat still works but user-delegated memory fails closed.
-    if (this.config.getAuthToken) {
-      void this.resolveAuthToken()
-        .then((token) => {
-          if (token) payload.auth_token = token
-          this.sendRaw(frame)
-        })
-        .catch(() => this.sendRaw(frame))
-    } else {
-      this.sendRaw(frame)
+    // Preserve the synchronous send contract and optimistic-message ordering.
+    // Dashboard handshakes are renewed in the heartbeat/background; only a
+    // recently resolved assertion is attached to each message.
+    if (this.latestAuthToken && Date.now() - this.latestAuthTokenAt < 95_000) {
+      payload.auth_token = this.latestAuthToken
     }
+    if (this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
+      void this.refreshAuthToken()
+    }
+    this.sendRaw({ id: clientEventId, type: 'event.create', payload })
 
     return promise
   }
@@ -1046,6 +1045,19 @@ export class AgentClient {
     })
   }
 
+  /** Refresh the short-lived signed dashboard assertion without replacing the socket. */
+  private async refreshAuthToken(): Promise<void> {
+    if (this.refreshingAuthToken || !this.config.getAuthToken) return
+    this.refreshingAuthToken = true
+    try {
+      await this.resolveAuthToken()
+    } catch {
+      // No privilege fallback: absence of a current assertion disables user memory.
+    } finally {
+      this.refreshingAuthToken = false
+    }
+  }
+
   /** Rejects when `getAuthToken` throws or has not settled within AUTH_TOKEN_TIMEOUT_MS. */
   private async resolveAuthToken(): Promise<string | undefined> {
     if (!this.config.getAuthToken) return this.config.authToken
@@ -1054,7 +1066,12 @@ export class AgentClient {
       timer = setTimeout(() => reject(new Error('auth token timeout')), AUTH_TOKEN_TIMEOUT_MS)
     })
     try {
-      return await Promise.race([this.config.getAuthToken(), timeout])
+      const token = await Promise.race([this.config.getAuthToken(), timeout])
+      if (token) {
+        this.latestAuthToken = token
+        this.latestAuthTokenAt = Date.now()
+      }
+      return token
     } finally {
       clearTimeout(timer)
     }
@@ -1135,6 +1152,10 @@ export class AgentClient {
   /** Send the `connect` frame on this socket (the primary or a renewal candidate). */
   private authenticate(ws: WebSocket, token: string | undefined, frameId: string) {
     if (ws.readyState !== WebSocket.OPEN) return
+    if (token) {
+      this.latestAuthToken = token
+      this.latestAuthTokenAt = Date.now()
+    }
     const frame = {
       id: frameId,
       type: 'connect',
@@ -1499,6 +1520,9 @@ export class AgentClient {
   }
 
   private heartbeatTick() {
+    if (this.connected && this.config.getAuthToken && Date.now() - this.latestAuthTokenAt > 45_000) {
+      void this.refreshAuthToken()
+    }
     if (this.serverAnswersPing) {
       if (this.dropIfDead()) return
       this.send('ping', {})
