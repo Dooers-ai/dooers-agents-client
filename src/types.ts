@@ -402,6 +402,8 @@ export interface ThreadState {
   runs: Run[]
   isLoading: boolean
   isWaiting: boolean
+  /** Incremental assistant text while the current response is still running. */
+  streamText: string | null
 }
 
 // --- Wire → Public transforms ---

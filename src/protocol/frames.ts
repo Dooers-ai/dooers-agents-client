@@ -58,6 +58,8 @@ export type C2S_EventCreate = Frame<
   {
     thread_id?: string
     client_event_id?: string
+    /** Fresh Core-signed dashboard assertion for delegated service calls during this turn. */
+    auth_token?: string
     event: {
       type: 'message' | 'form.response'
       actor: 'user'
@@ -190,6 +192,12 @@ export type S2C_EventAppend = Frame<
   { thread_id: string; events: WireThreadEvent[] }
 >
 
+/** Ephemeral live text, finalized as a normal event.append later. */
+export type S2C_TextDelta = Frame<
+  'text.delta',
+  { thread_id: string; run_id: string; sequence: number; text: string }
+>
+
 export type S2C_EventListResult = Frame<
   'event.list.result',
   {
@@ -257,6 +265,7 @@ export type ServerToClient =
   | S2C_ThreadSearchResult
   | S2C_ThreadSnapshot
   | S2C_EventAppend
+  | S2C_TextDelta
   | S2C_EventListResult
   | S2C_ThreadArtifactsListResult
   | S2C_ThreadUpsert
