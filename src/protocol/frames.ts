@@ -58,6 +58,8 @@ export type C2S_EventCreate = Frame<
   {
     thread_id?: string
     client_event_id?: string
+    /** Fresh Core-signed dashboard assertion for delegated service calls during this turn. */
+    auth_token?: string
     event: {
       type: 'message' | 'form.response'
       actor: 'user'
