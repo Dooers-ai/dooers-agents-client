@@ -197,7 +197,7 @@ export class MaestroThreads {
       ref.permissionSequence ?? this.client.store.getThread(id)?.thread?.lastSequence ?? '0'
     let latest = floor
     for (const value of values) {
-      const parsed = toMaestroNetworkEvent(value)
+      const parsed = toMaestroNetworkEvent(value, this.client.reportUnsupported)
       if (!parsed.known) continue
       const event = parsed.event
       if (compareMaestroSequences(event.sequence, latest) <= 0) continue
@@ -302,7 +302,9 @@ export class MaestroThreads {
           }
           this.client.store.page(
             id,
-            payload.events.map(toMaestroNetworkEvent),
+            payload.events.map((item) =>
+              toMaestroNetworkEvent(item, this.client.reportUnsupported)
+            ),
             payload.watermark,
             payload.next_cursor,
             payload.has_more
@@ -312,14 +314,20 @@ export class MaestroThreads {
           this.permissionsChanged(id, ref, payload.events)
           this.client.store.page(
             id,
-            payload.events.map(toMaestroNetworkEvent),
+            payload.events.map((item) =>
+              toMaestroNetworkEvent(item, this.client.reportUnsupported)
+            ),
             payload.watermark,
             payload.next_cursor,
             payload.has_more
           )
           break
         case 'event.append':
-          this.client.store.append(id, toMaestroNetworkEvent(payload.event), payload.cursor)
+          this.client.store.append(
+            id,
+            toMaestroNetworkEvent(payload.event, this.client.reportUnsupported),
+            payload.cursor
+          )
           if (
             ['deleting', 'deleted'].includes(this.client.store.getThread(id)?.thread?.state ?? '')
           ) {

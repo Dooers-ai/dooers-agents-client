@@ -25,6 +25,7 @@ import { MaestroFeedback } from './feedback.js'
 import { MaestroInteractionUploads } from './interaction-uploads.js'
 import { MaestroInteractions, maestroInteractionArtifactsSchema } from './interactions.js'
 import {
+  type MaestroUnsupportedKind,
   parseMaestroNetwork,
   parseMaestroNetworkSchema,
   readMaestroNetworkEvent,
@@ -82,6 +83,7 @@ export class MaestroClient {
   readonly exports: MaestroExports
   readonly artifacts: MaestroArtifacts
   private readonly fieldArtifacts: MaestroArtifacts
+  private readonly unsupportedReported = new Set<string>()
   readonly controls: MaestroControls
   readonly store: MaestroStore
   private readonly threads: MaestroThreads
@@ -1474,7 +1476,8 @@ export class MaestroClient {
         await this.http(`/threads/${threadId}/events${this.query(query)}`, {
           method: 'GET',
           headers: this.grantHeader(threadId),
-        })
+        }),
+        this.reportUnsupported
       )
     )
     this.assertThreadRevision(threadId, revision)
@@ -1495,7 +1498,8 @@ export class MaestroClient {
       await this.http(`/threads/${threadId}/events${this.query(query)}`, {
         method: 'GET',
         headers: this.grantHeader(threadId),
-      })
+      }),
+      this.reportUnsupported
     )
     this.assertThreadRevision(threadId, revision)
     if (page.items.some((item) => item.event.threadId !== threadId))
@@ -1874,7 +1878,7 @@ export class MaestroClient {
       if (!schema) return // Unknown unsolicited frames are ignored, never capabilities/ACKs.
       const parsed =
         frame.type === 'thread.snapshot' || frame.type === 'thread.replay'
-          ? readMaestroReplayFrame(frame.type, frame)
+          ? readMaestroReplayFrame(frame.type, frame, this.reportUnsupported)
           : parseMaestroNetwork(schema, frame)
       if (this.connection.status !== 'connected' && this.connection.status !== 'refreshing')
         throw error('PROTOCOL_ERROR', 'Unsolicited data before authenticated handshake')
@@ -1934,7 +1938,7 @@ export class MaestroClient {
     const thread = this.subscriptions.get(payload.subscription_id)
     if (!thread) return
     const source = value as { payload: { event: unknown } }
-    const parsed = readMaestroNetworkEvent(source.payload.event)
+    const parsed = readMaestroNetworkEvent(source.payload.event, this.reportUnsupported)
     if (parsed.event.thread_id !== thread)
       throw error('PROTOCOL_ERROR', 'Subscription thread mismatch')
     if (parsed.known)
@@ -2178,6 +2182,20 @@ export class MaestroClient {
         listener(immutable(frame))
       } catch {}
     }
+  }
+  /**
+   * Receive-side callback for content this client version cannot interpret (content part, form
+   * field, event type). Reports `UNSUPPORTED_CONTENT` through `onError` once per type.
+   * @internal
+   */
+  readonly reportUnsupported = (kind: MaestroUnsupportedKind, type: string) => {
+    const key = `${kind}:${type}`
+    if (this.unsupportedReported.has(key)) return
+    this.unsupportedReported.add(key)
+    const label = { content_part: 'content part', form_field: 'form field', event: 'event' }[kind]
+    this.report(
+      new MaestroClientError('UNSUPPORTED_CONTENT', `Unsupported ${label} type ignored: ${type}`)
+    )
   }
   private report(failure: MaestroClientError) {
     try {
