@@ -552,10 +552,18 @@ export class MaestroClient {
             return response
           },
           failure: (failure, threadId) => {
-            if (authCodes.has(failure.code)) this.invalidate(failure)
-            // A download NOT_FOUND is about the file (the URL names only the artifact), so it must
-            // not close the thread. The thread's own NOT_FOUND arrives through the thread stream.
-            else if (threadId && ['THREAD_DELETED', 'THREAD_ACCESS_REVOKED'].includes(failure.code))
+            // A file download (it has a thread) is bound to that thread: a FORBIDDEN there closes at
+            // most that thread and never the whole session. A NOT_FOUND names only the file (the URL
+            // has the artifact id), so it closes nothing; the thread's own NOT_FOUND arrives through
+            // the thread stream. Upload failures (no thread) and UNAUTHENTICATED keep ending the session.
+            if (failure.code === 'UNAUTHENTICATED' || (failure.code === 'FORBIDDEN' && !threadId))
+              this.invalidate(failure)
+            else if (
+              threadId &&
+              ['FORBIDDEN', 'THREAD_DELETING', 'THREAD_DELETED', 'THREAD_ACCESS_REVOKED'].includes(
+                failure.code
+              )
+            )
               this.closeThread(threadId)
           },
         },

@@ -22,6 +22,15 @@ export interface UseMaestroArtifactUrlOptions {
    * one released when the client needs a slot. Default: `true`.
    */
   visible?: boolean
+  /**
+   * Keeps one URL for as long as the component is mounted: no renewal, no release when off
+   * screen, no eviction. After the read the hook copies the file to its own `blob:` URL and
+   * releases the artifact resource at once, so the resource leaves the 8-live limit. Use it for
+   * media that must not be cut while playing (audio); the copy lives in memory until unmount.
+   * The copy reads the `blob:` URL with `fetch`, so the page `connect-src` must allow `blob:`.
+   * Default: `false`.
+   */
+  stable?: boolean
 }
 
 export interface MaestroArtifactUrlResult {
@@ -53,6 +62,7 @@ interface EntryInit {
   filename?: string
   size?: number
   visible: boolean
+  stable: boolean
 }
 
 class Entry {
@@ -173,7 +183,7 @@ class ArtifactQueue {
   private liveCount() {
     let live = 0
     for (const entry of this.entries) {
-      if (entry.resource) live++
+      if (entry.resource && !entry.init.stable) live++
       if (entry.inflight) live++
     }
     return live
@@ -197,7 +207,7 @@ class ArtifactQueue {
   private evictOne(): boolean {
     let oldest: Entry | undefined
     for (const entry of this.entries) {
-      if (!entry.resource || entry.visible || entry.inflight) continue
+      if (!entry.resource || entry.init.stable || entry.visible || entry.inflight) continue
       if (!oldest || entry.acquiredSeq < oldest.acquiredSeq) oldest = entry
     }
     if (!oldest) return false
@@ -242,6 +252,8 @@ class ArtifactQueue {
     let opening: Promise<MaestroArtifactResource>
     try {
       opening = this.artifacts.open(threadId, attachment, controller.signal)
+      if (entry.init.stable)
+        opening = opening.then((resource) => copyToOwnBlob(resource, controller.signal))
     } catch (cause) {
       opening = Promise.reject(cause)
     }
@@ -270,6 +282,10 @@ class ArtifactQueue {
     entry.attempts = 0
     if (entry.renewTimer) clearTimeout(entry.renewTimer)
     if (entry.dropTimer) clearTimeout(entry.dropTimer)
+    if (entry.init.stable) {
+      entry.emit()
+      return
+    }
     const remaining = Math.max(0, resource.expiresAt - Date.now())
     entry.renewTimer = setTimeout(
       () => {
@@ -324,6 +340,39 @@ class ArtifactQueue {
   }
 }
 
+/**
+ * Copies the artifact resource to a `blob:` URL owned by the hook and releases the resource.
+ * The copy has no expiry; its `release` revokes the URL.
+ */
+async function copyToOwnBlob(
+  resource: MaestroArtifactResource,
+  signal: AbortSignal
+): Promise<MaestroArtifactResource> {
+  try {
+    const response = await fetch(resource.url, { signal })
+    const blob = await response.blob()
+    signal.throwIfAborted()
+    const url = URL.createObjectURL(blob)
+    let revoked = false
+    return {
+      url,
+      mimeType: resource.mimeType,
+      filename: resource.filename,
+      expiresAt: Number.POSITIVE_INFINITY,
+      release: () => {
+        if (revoked) return
+        revoked = true
+        URL.revokeObjectURL(url)
+      },
+    }
+  } catch (cause) {
+    if (signal.aborted) throw cause
+    throw new MaestroClientError('NETWORK_ERROR', 'Could not copy the artifact', true)
+  } finally {
+    resource.release()
+  }
+}
+
 const queues = new WeakMap<MaestroArtifacts, ArtifactQueue>()
 function queueFor(artifacts: MaestroArtifacts): ArtifactQueue {
   let queue = queues.get(artifacts)
@@ -356,6 +405,7 @@ export function useMaestroArtifactUrl(
   const size = part?.size ?? part?.sizeBytes
   const hasUrl = Boolean(part?.url)
   const visible = options?.visible ?? true
+  const stable = options?.stable ?? false
   const eligible = Boolean(artifacts && threadId && refId && !hasUrl)
   const identity = `${threadId}|${refId}|${mimeType}|${filename}|${size}`
 
@@ -372,7 +422,7 @@ export function useMaestroArtifactUrl(
     if (!artifacts || !threadId || !refId || hasUrl) return
     const queue = queueFor(artifacts)
     const entry = queue.add(
-      { threadId, refId, mimeType, filename, size, visible: visibleRef.current },
+      { threadId, refId, mimeType, filename, size, visible: visibleRef.current, stable },
       (snapshot) => setState({ artifacts, identity, snapshot })
     )
     entryRef.current = { entry, queue }
@@ -380,7 +430,7 @@ export function useMaestroArtifactUrl(
       entryRef.current = null
       queue.dispose(entry)
     }
-  }, [artifacts, threadId, refId, mimeType, filename, size, hasUrl, identity])
+  }, [artifacts, threadId, refId, mimeType, filename, size, hasUrl, identity, stable])
 
   useEffect(() => {
     entryRef.current?.queue.setVisible(entryRef.current.entry, visible)

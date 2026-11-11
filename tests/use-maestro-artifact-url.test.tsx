@@ -91,12 +91,15 @@ interface ItemProps {
   refId?: string
   url?: string
   visible?: boolean
+  stable?: boolean
 }
-function Item({ name, threadId = T1, refId, url, visible }: ItemProps) {
+function Item({ name, threadId = T1, refId, url, visible, stable }: ItemProps) {
   const result = useMaestroArtifactUrl(
     threadId,
     { refId, url, mimeType: 'image/png', filename: 'a.png' },
-    visible === undefined ? undefined : { visible }
+    visible === undefined && stable === undefined
+      ? undefined
+      : { ...(visible === undefined ? {} : { visible }), ...(stable === undefined ? {} : { stable }) }
   )
   return (
     <div data-testid={name} data-status={result.status} data-code={result.errorCode ?? ''}>
@@ -311,6 +314,96 @@ describe('useMaestroArtifactUrl', () => {
     expect(fake.state.resources[0]!.released).toBe(true)
     expect(fake.state.resources[1]!.released).toBe(false)
     expect(fake.state.live).toBe(1)
+  })
+
+  describe('stable', () => {
+    let created: string[]
+    let revoked: string[]
+    const originalCreate = URL.createObjectURL
+    const originalRevoke = URL.revokeObjectURL
+    beforeEach(() => {
+      created = []
+      revoked = []
+      URL.createObjectURL = vi.fn(() => {
+        const url = `blob:own#${created.length + 1}`
+        created.push(url)
+        return url
+      }) as never
+      URL.revokeObjectURL = vi.fn((url: string) => { revoked.push(url) }) as never
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, blob: async () => new Blob(['audio']) })))
+    })
+    afterEach(() => {
+      URL.createObjectURL = originalCreate
+      URL.revokeObjectURL = originalRevoke
+      vi.unstubAllGlobals()
+    })
+
+    it('copia o arquivo para um Blob próprio, libera o recurso na hora e mantém a mesma URL', async () => {
+      const fake = fakeArtifacts()
+      useFakeMaestro(fake)
+      const view = render(<Item name="a" refId={id(1)} stable />)
+      await advance(100)
+      const first = snap(view, 'a')
+      expect(first).toMatchObject({ status: 'ready' })
+      expect(first.url).toBe('blob:own#1')
+      expect(globalThis.fetch).toHaveBeenCalledWith(fake.state.resources[0]!.url, expect.anything())
+      expect(fake.state.resources[0]!.released).toBe(true)
+      // Renewal window: no second read, same URL, own blob not revoked.
+      await advance(55000)
+      expect(fake.open).toHaveBeenCalledTimes(1)
+      expect(snap(view, 'a').url).toBe('blob:own#1')
+      // Off screen for longer than the 60 s of the artifact: still the same URL.
+      view.rerender(<Item name="a" refId={id(1)} visible={false} stable />)
+      await advance(120000)
+      expect(fake.open).toHaveBeenCalledTimes(1)
+      expect(snap(view, 'a')).toMatchObject({ status: 'ready', url: 'blob:own#1' })
+      view.rerender(<Item name="a" refId={id(1)} visible stable />)
+      await advance(1000)
+      expect(snap(view, 'a').url).toBe('blob:own#1')
+      expect(revoked).toEqual([])
+      view.unmount()
+      expect(revoked).toEqual(['blob:own#1'])
+    })
+
+    it('não ocupa a conta de 8 recursos vivos e não é evictado', async () => {
+      const fake = fakeArtifacts({ readMs: 10 })
+      useFakeMaestro(fake)
+      const view = render(
+        <>
+          {Array.from({ length: 12 }, (_, i) => (
+            <Item key={i} name={`a${i}`} refId={id(i + 1)} stable />
+          ))}
+        </>
+      )
+      await advance(2000)
+      for (let i = 0; i < 12; i++) expect(snap(view, `a${i}`).status).toBe('ready')
+      expect(fake.state.rateLimited).toBe(0)
+      expect(revoked).toEqual([])
+    })
+
+    it('desmontar durante a cópia revoga o Blob próprio e libera o recurso', async () => {
+      const fake = fakeArtifacts()
+      useFakeMaestro(fake)
+      let resolveBlob!: () => void
+      vi.stubGlobal('fetch', vi.fn(() => new Promise((resolve) => { resolveBlob = () => resolve({ ok: true, blob: async () => new Blob(['x']) }) })))
+      const view = render(<Item name="a" refId={id(1)} stable />)
+      await advance(100)
+      view.unmount()
+      resolveBlob()
+      await advance(100)
+      expect(fake.state.resources[0]!.released).toBe(true)
+      expect(revoked).toEqual(created)
+    })
+
+    it('falha na cópia vira erro do hook e libera o recurso', async () => {
+      const fake = fakeArtifacts()
+      useFakeMaestro(fake)
+      vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('blocked') }))
+      const view = render(<Item name="a" refId={id(1)} stable />)
+      await advance(100)
+      expect(snap(view, 'a').status).toBe('error')
+      expect(fake.state.resources[0]!.released).toBe(true)
+    })
   })
 
   it('cliente antigo (AgentClient) devolve idle e não abre nada', async () => {

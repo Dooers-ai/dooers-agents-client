@@ -92,6 +92,35 @@ it('a download that answers 404 NOT_FOUND fails that file only and keeps the thr
  expect(ok.url).toBe('blob:still-works')
  ok.release(); create.mockRestore(); revoke.mockRestore()
 })
+async function twoMedia(fetcher: (url: string) => Promise<Response>) {
+ const missing = { ...attachment, artifact_id: uuid(42) }
+ const env = await setup(fetcher as never)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const e = event(1); e.payload.content = [missing, attachment]
+ const t = thread('1'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ return { env, missing }
+}
+const errorResponse = (code: string, status: number) => json({ error: { code, message: 'Denied', retryable: false, request_id: uuid(99) } }, status)
+it('a FORBIDDEN on one file download closes at most that thread and never the session', async () => {
+ const { env, missing } = await twoMedia(async (url) => String(url).includes(uuid(42)) ? errorResponse('FORBIDDEN', 403) : bytes())
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ expect(env.client.getConnection().status).not.toBe('unauthenticated')
+ expect(env.client.getConnection().status).toBe('connected')
+})
+it('an UNAUTHENTICATED on a file download still ends the session', async () => {
+ const { env, missing } = await twoMedia(async () => errorResponse('UNAUTHENTICATED', 401))
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+ expect(env.client.getConnection().status).toBe('unauthenticated')
+})
+it('THREAD_DELETING on a file download still closes the thread and keeps the session', async () => {
+ for (const code of ['THREAD_DELETING']) {
+  const { env, missing } = await twoMedia(async () => errorResponse(code, 409))
+  await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code })
+  expect(env.client.store.getThread(threadId)?.phase).toBe('revoked')
+  expect(env.client.getConnection().status).toBe('connected')
+ }
+})
 it('an artifact from another history cannot be retained under the wrong thread', async () => {
  const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
  await expect(env.client.artifacts.open(uuid(80), attachment)).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(fetcher).not.toHaveBeenCalled()
