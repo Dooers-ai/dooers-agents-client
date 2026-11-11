@@ -3,8 +3,6 @@ import {
   createMaestroConnectCommand,
   type MaestroEvent,
   toMaestroConnectAck,
-  toMaestroEvent,
-  toMaestroEventPage,
   toMaestroPersistedResponse,
   toMaestroThread,
   toMaestroThreadPage,
@@ -31,6 +29,7 @@ import {
   readMaestroNetworkEvent,
   readMaestroNetworkPage,
   readMaestroReplayFrame,
+  toMaestroReceivedEvent,
 } from './network.js'
 import { canonical, immutable, MaestroPublicationLedger, publicationKey } from './publications.js'
 import { MaestroStore } from './store.js'
@@ -1470,16 +1469,20 @@ export class MaestroClient {
     threadId = this.checkId(threadId)
     const revision = this.threadRevisions.get(threadId) ?? 0
     const query = publicSchemas['Public.EventsQuery'].parse(options)
-    const page = toMaestroEventPage(
-      parseMaestroNetwork(
-        publicSchemas['Public.EventPage'],
-        await this.http(`/threads/${threadId}/events${this.query(query)}`, {
-          method: 'GET',
-          headers: this.grantHeader(threadId),
-        }),
-        this.reportUnsupported
-      )
+    const received = parseMaestroNetwork(
+      publicSchemas['Public.EventPage'],
+      await this.http(`/threads/${threadId}/events${this.query(query)}`, {
+        method: 'GET',
+        headers: this.grantHeader(threadId),
+      }),
+      this.reportUnsupported
     )
+    const page = {
+      items: received.items.map(toMaestroReceivedEvent),
+      nextCursor: received.next_cursor,
+      hasMore: received.has_more,
+      watermark: received.watermark,
+    }
     this.assertThreadRevision(threadId, revision)
     if (page.items.some((item) => item.threadId !== threadId))
       throw error('PROTOCOL_ERROR', 'History response mismatch')
@@ -1942,10 +1945,12 @@ export class MaestroClient {
     if (parsed.event.thread_id !== thread)
       throw error('PROTOCOL_ERROR', 'Subscription thread mismatch')
     if (parsed.known)
-      this.confirmObservedPublication(thread, toMaestroEvent(parsed.event), payload.cursor)
+      this.confirmObservedPublication(thread, toMaestroReceivedEvent(parsed.event), payload.cursor)
     this.emit({
       type: 'event.append',
-      payload: { ...payload, event: parsed.event, known: parsed.known },
+      // Raw wire event: the listener parses it with the same tolerant reader. The parsed value may
+      // hold an emptied content/fields list that the strict contract refuses to read again.
+      payload: { ...payload, event: source.payload.event, known: parsed.known },
     })
   }
 

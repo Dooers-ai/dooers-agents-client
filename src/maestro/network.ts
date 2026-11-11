@@ -1,5 +1,9 @@
 import { z } from 'zod'
-import { MaestroContractError, toMaestroEvent } from '../protocol/maestro/contracts.js'
+import {
+  MaestroContractError,
+  type MaestroEvent,
+  toMaestroEvent,
+} from '../protocol/maestro/contracts.js'
 import {
   durableEventSchemas,
   publicSchemas,
@@ -14,15 +18,26 @@ export type MaestroUnsupportedReport = (kind: MaestroUnsupportedKind, type: stri
 
 type Removal =
   | { path: PropertyKey[]; keys: string[] }
-  | {
-      path: PropertyKey[]
-      discard: { kind: MaestroUnsupportedKind; type: string }
-    }
+  | { path: PropertyKey[]; discard: { kind: MaestroUnsupportedKind; type: string } }
 
 // Arrays whose items are a discriminated union that newer Maestro contracts may extend.
 const extensibleArrays: Readonly<Record<string, MaestroUnsupportedKind>> = {
   content: 'content_part',
   fields: 'form_field',
+}
+
+// The contract requires at least one content part / form field. When every item was unknown, the
+// strict validator sees one of these valid placeholders instead; the array is emptied again in the
+// parsed output, so the event keeps its metadata with an empty list. Receive path only.
+const placeholders: Readonly<Record<string, unknown>> = {
+  content_part: { type: 'text', text: '-' },
+  form_field: {
+    name: 'unsupported',
+    label: '-',
+    required: false,
+    share_response: false,
+    type: 'boolean',
+  },
 }
 
 function at(root: unknown, path: readonly PropertyKey[]): unknown {
@@ -102,9 +117,14 @@ export function parseMaestroNetwork<T extends z.ZodType>(
 ): z.output<T> {
   let candidate = value
   const dropped = new Map<string, { kind: MaestroUnsupportedKind; type: string }>()
+  const emptied = new Map<string, PropertyKey[]>()
   for (let attempt = 0; attempt < 8; attempt++) {
     const result = schema.safeParse(candidate)
     if (result.success) {
+      for (const path of emptied.values()) {
+        const parent = at(result.data, path.slice(0, -1))
+        if (parent && typeof parent === 'object') Reflect.set(parent, path.at(-1)!, [])
+      }
       for (const { kind, type } of dropped.values()) onUnsupported?.(kind, type)
       return result.data
     }
@@ -128,9 +148,45 @@ export function parseMaestroNetwork<T extends z.ZodType>(
       if (!Array.isArray(list)) continue
       list.splice(Number(path.at(-1)), 1)
       dropped.set(`${discard.kind}:${discard.type}`, discard)
+      if (list.length === 0) {
+        list.push(structuredClone(placeholders[discard.kind]))
+        emptied.set(path.slice(0, -1).join('\u0000'), path.slice(0, -1))
+      }
     }
   }
   throw new MaestroContractError('network response')
+}
+
+// Where the contract's non-empty lists live inside a durable event payload.
+const emptiableLists: readonly { path: readonly string[]; placeholder: unknown }[] = [
+  { path: ['payload', 'content'], placeholder: placeholders.content_part },
+  {
+    path: ['payload', 'interaction', 'definition', 'fields'],
+    placeholder: placeholders.form_field,
+  },
+]
+
+/**
+ * Public view of an event produced by `parseMaestroNetwork`. When every content part or form field
+ * was unknown, the parsed event keeps an empty list that the strict `toMaestroEvent` would refuse;
+ * the list is validated with a placeholder and emptied again in the result.
+ * Only call it with the output of the tolerant parser, never with raw wire data.
+ */
+export function toMaestroReceivedEvent(event: unknown): MaestroEvent {
+  const empty = emptiableLists.filter(({ path }) => {
+    const list = at(event, path)
+    return Array.isArray(list) && list.length === 0
+  })
+  if (!empty.length) return toMaestroEvent(event)
+  const filled = structuredClone(event)
+  for (const { path, placeholder } of empty)
+    Reflect.set(at(filled, path.slice(0, -1)) as object, path.at(-1)!, [
+      structuredClone(placeholder),
+    ])
+  const result = toMaestroEvent(filled)
+  for (const { path } of empty)
+    Reflect.set(at(result, path.slice(0, -1)) as object, path.at(-1)!, [])
+  return result
 }
 
 export function parseMaestroNetworkSchema(name: string, value: unknown): unknown {
@@ -158,10 +214,7 @@ export function readMaestroNetworkEvent(value: unknown, onUnsupported?: MaestroU
     ? durableEventSchemas[type as keyof typeof durableEventSchemas]
     : null
   if (schema)
-    return {
-      known: true as const,
-      event: parseMaestroNetwork(schema, value, onUnsupported),
-    }
+    return { known: true as const, event: parseMaestroNetwork(schema, value, onUnsupported) }
   const future = parseMaestroNetwork(futureEvent, value)
   onUnsupported?.('event', future.type)
   return { known: false as const, event: future }
@@ -172,10 +225,7 @@ export type MaestroUnknownEvent = Omit<
   'type' | 'payload'
 > & { type: string; payload: unknown }
 export type MaestroNetworkEvent =
-  | {
-      known: true
-      event: import('../protocol/maestro/contracts.js').MaestroEvent
-    }
+  | { known: true; event: import('../protocol/maestro/contracts.js').MaestroEvent }
   | { known: false; event: MaestroUnknownEvent }
 export interface MaestroNetworkPage {
   items: MaestroNetworkEvent[]
@@ -188,7 +238,7 @@ export function toMaestroNetworkEvent(
   onUnsupported?: MaestroUnsupportedReport
 ): MaestroNetworkEvent {
   const parsed = readMaestroNetworkEvent(value, onUnsupported)
-  if (parsed.known) return { known: true, event: toMaestroEvent(parsed.event) }
+  if (parsed.known) return { known: true, event: toMaestroReceivedEvent(parsed.event) }
   const e = parsed.event
   const actor = e.actor
   const commonActor = {
@@ -198,11 +248,7 @@ export function toMaestroNetworkEvent(
   }
   const publicActor =
     actor.kind === 'agent'
-      ? {
-          ...commonActor,
-          kind: actor.kind,
-          instanceAgentId: actor.instance_agent_id,
-        }
+      ? { ...commonActor, kind: actor.kind, instanceAgentId: actor.instance_agent_id }
       : { ...commonActor, kind: actor.kind }
   return {
     known: false,
@@ -227,9 +273,7 @@ export function readMaestroNetworkPage(
   value: unknown,
   onUnsupported?: MaestroUnsupportedReport
 ): MaestroNetworkPage {
-  const schema = publicSchemas['Public.EventPage'].extend({
-    items: z.array(z.unknown()).max(100),
-  })
+  const schema = publicSchemas['Public.EventPage'].extend({ items: z.array(z.unknown()).max(100) })
   const page = parseMaestroNetwork(schema, value)
   return {
     items: page.items.map((item) => toMaestroNetworkEvent(item, onUnsupported)),
@@ -247,9 +291,7 @@ export function readMaestroReplayFrame(
   const schema = wsFrameSchemas[type]!
   const frame = parseMaestroNetwork(
     schema.extend({
-      payload: schema.shape.payload.extend({
-        events: z.array(z.unknown()).max(100),
-      }),
+      payload: schema.shape.payload.extend({ events: z.array(z.unknown()).max(100) }),
     }),
     value
   )
