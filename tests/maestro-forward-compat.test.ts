@@ -230,12 +230,12 @@ describe('Maestro forward-compatible receive: event types', () => {
     const { calls, report } = unsupported()
     const future = {
       ...event(1),
-      type: 'message.updated',
+      type: 'hologram.created',
       payload: { qualquer: 1 },
     }
     const r = toMaestroNetworkEvent(future, report)
     expect(r.known).toBe(false)
-    expect(calls).toEqual([['event', 'message.updated']])
+    expect(calls).toEqual([['event', 'hologram.created']])
   })
   it('sem callback, nada quebra', () => {
     expect(() =>
@@ -283,7 +283,7 @@ describe('MaestroClient reports unknown types through onError', () => {
     const { socket, errors } = await setup()
     const future = (n: number) => ({
       ...event(n),
-      type: 'message.updated',
+      type: 'hologram.created',
       payload: { qualquer: n },
     })
     socket.snapshot([future(1), future(2)], '2')
@@ -291,7 +291,7 @@ describe('MaestroClient reports unknown types through onError', () => {
     await tick()
     const codes = errors.filter((e) => e.code === 'UNSUPPORTED_CONTENT')
     expect(codes).toHaveLength(1)
-    expect(codes[0]!.message).toContain('message.updated')
+    expect(codes[0]!.message).toContain('hologram.created')
   })
   it('callback onError que lança não derruba o parse', async () => {
     const env = make({

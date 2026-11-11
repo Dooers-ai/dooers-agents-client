@@ -65,6 +65,15 @@ export const reasonCodeSchema = z
   .regex(/^[a-z][a-z0-9_]*$/)
 export const versionSchema = z.number().int().min(1).max(Number.MAX_SAFE_INTEGER)
 export const displayNameSchema = z.string().min(1).max(200)
+// Person on a messaging channel (WhatsApp number, public-chat visitor) that has no Dooers principal.
+export const externalChannels = ['whatsapp', 'public_chat'] as const
+export const externalChannelSchema = z.enum(externalChannels)
+export const externalIdSchema = z.string().min(1).max(256)
+export const externalFields = {
+  external_id: externalIdSchema,
+  channel: externalChannelSchema,
+  display_name: displayNameSchema.optional(),
+}
 export const actorSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('human'),
@@ -84,6 +93,11 @@ export const actorSchema = z.discriminatedUnion('kind', [
     principal_id: opaquePrincipalSchema,
     participant_id: z.null(),
     display_name: displayNameSchema,
+  }),
+  z.strictObject({
+    kind: z.literal('external'),
+    ...externalFields,
+    participant_id: uuidSchema.optional(),
   }),
 ])
 export const publicErrorCodes = [

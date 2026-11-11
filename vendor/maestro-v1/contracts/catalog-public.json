@@ -931,6 +931,72 @@
       "schema": "Public.Event.feedback.updated",
       "fixture": "public.Event.feedback.updated.valid",
       "triggers_agents": false
+    },
+    {
+      "type": "reasoning.created",
+      "schema": "Public.Event.reasoning.created",
+      "fixture": "public.Event.reasoning.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "tool_call.created",
+      "schema": "Public.Event.tool_call.created",
+      "fixture": "public.Event.tool_call.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "tool_result.created",
+      "schema": "Public.Event.tool_result.created",
+      "fixture": "public.Event.tool_result.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "tool_transaction.created",
+      "schema": "Public.Event.tool_transaction.created",
+      "fixture": "public.Event.tool_transaction.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "chart.created",
+      "schema": "Public.Event.chart.created",
+      "fixture": "public.Event.chart.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "form.created",
+      "schema": "Public.Event.form.created",
+      "fixture": "public.Event.form.created.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "form.responded",
+      "schema": "Public.Event.form.responded",
+      "fixture": "public.Event.form.responded.valid",
+      "triggers_agents": true
+    },
+    {
+      "type": "message.updated",
+      "schema": "Public.Event.message.updated",
+      "fixture": "public.Event.message.updated.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "message.removed",
+      "schema": "Public.Event.message.removed",
+      "fixture": "public.Event.message.removed.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "run.updated",
+      "schema": "Public.Event.run.updated",
+      "fixture": "public.Event.run.updated.valid",
+      "triggers_agents": false
+    },
+    {
+      "type": "channel_delivery.updated",
+      "schema": "Public.Event.channel_delivery.updated",
+      "fixture": "public.Event.channel_delivery.updated.valid",
+      "triggers_agents": false
     }
   ],
   "server_frames": [

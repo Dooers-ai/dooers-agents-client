@@ -6,6 +6,7 @@ import {
   displayNameSchema,
   errorResponseSchema,
   errorSchema,
+  externalFields,
   idempotencyKeySchema,
   opaquePrincipalSchema,
   protocolVersionSchema,
@@ -26,6 +27,11 @@ const accessReason = z.string().min(1).max(500)
 const uniqueIds = z
   .array(uuidSchema)
   .max(100)
+  .refine((v) => new Set(v).size === v.length, 'IDs must be unique')
+  .meta({ uniqueItems: true })
+const resultEventIds = z
+  .array(uuidSchema)
+  .max(1000)
   .refine((v) => new Set(v).size === v.length, 'IDs must be unique')
   .meta({ uniqueItems: true })
 const threadState = z.enum(['active', 'archived', 'deleting', 'deleted'])
@@ -71,25 +77,250 @@ const publicArtifact = z.strictObject({
   created_at: timestampSchema,
   expires_at: timestampSchema.nullable(),
 })
+const textPart = z.strictObject({ type: z.literal('text'), text })
+const attachmentPart = z.strictObject({
+  type: z.literal('attachment'),
+  artifact_id: uuidSchema,
+  filename: publicArtifact.shape.filename.optional(),
+  mime_type: publicArtifact.shape.mime_type.optional(),
+  size_bytes: count.optional(),
+  alt: z.string().max(1024).optional(),
+  duration: z.number().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+  width: count.optional(),
+  height: count.optional(),
+})
+// Open production values (dict[str, Any]: tool args/results, form values, chart rows, contact phones, Cloud API
+// template components) are one recursive JSON value: no depth, list length, string length or key rules.
+// The only bound is the serialized size of each open container (UTF-8 bytes of its compact JSON), mirrored
+// by the open-json-bytes rule in semantics.py. The ceiling matches the request body limit of the API.
+type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
+const jsonValue: z.ZodType<Json> = z
+  .lazy(() =>
+    z.union([
+      z.string(),
+      z.number(),
+      z.boolean(),
+      z.null(),
+      z.array(jsonValue),
+      z.record(z.string(), jsonValue),
+    ])
+  )
+  .meta({ id: 'JsonValue' })
+const OPEN_JSON_MAX_BYTES = 1048576
+const withinOpenJsonBytes = (value: unknown) =>
+  new TextEncoder().encode(JSON.stringify(value)).length <= OPEN_JSON_MAX_BYTES
+const boundedJson = <T extends z.ZodType>(schema: T) =>
+  schema
+    .refine(withinOpenJsonBytes, 'Open JSON must not exceed 1 MiB serialized')
+    .meta({ 'x-maestro-semantic': 'open-json-bytes' })
+const openObject = boundedJson(z.record(z.string(), jsonValue))
+// Production ContactPart.phones is list[dict[str, Any]]: open objects, passed through as-is.
+const contactPhone = z.record(z.string(), jsonValue)
+const contactPart = z.strictObject({
+  type: z.literal('contact'),
+  display_name: z.string().max(512),
+  vcard: text.optional(),
+  phones: boundedJson(z.array(contactPhone)).optional(),
+})
+// Agent-only part: the SDK keeps the original URL when it cannot download send.image/audio/document media.
+const mediaLinkPart = z.strictObject({
+  type: z.literal('media_link'),
+  kind: z.enum(['image', 'audio', 'document']),
+  url: z.url({ protocol: /^https?$/ }).max(2048),
+  mime_type: publicArtifact.shape.mime_type.optional(),
+  filename: publicArtifact.shape.filename.optional(),
+  alt: z.string().max(1024).optional(),
+  duration: z.number().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+})
+const humanContentPart = z.discriminatedUnion('type', [textPart, attachmentPart, contactPart])
 const contentPart = z.discriminatedUnion('type', [
-  z.strictObject({ type: z.literal('text'), text }),
-  z.strictObject({
-    type: z.literal('attachment'),
-    artifact_id: uuidSchema,
-    filename: publicArtifact.shape.filename.optional(),
-    mime_type: publicArtifact.shape.mime_type.optional(),
-    size_bytes: count.optional(),
-  }),
+  textPart,
+  attachmentPart,
+  contactPart,
+  mediaLinkPart,
 ])
+const nonblankParts = (parts: z.infer<typeof contentPart>[]) =>
+  parts.some((p) => p.type !== 'text' || p.text.trim().length > 0)
 const content = z
   .array(contentPart)
   .min(1)
   .max(32)
-  .refine(
-    (parts) => parts.some((p) => p.type === 'attachment' || p.text.trim().length > 0),
-    'Message must contain text or an attachment'
-  )
+  .refine(nonblankParts, 'Message must contain text, an attachment, a contact or a media link')
   .meta({ 'x-maestro-semantic': 'nonblank-content' })
+// Human messages cannot carry media_link: only agents hold URLs they did not upload as artifacts.
+const humanContent = z
+  .array(humanContentPart)
+  .min(1)
+  .max(32)
+  .refine(nonblankParts, 'Message must contain text, an attachment or a contact')
+  .meta({ 'x-maestro-semantic': 'nonblank-content' })
+const messageTemplate = z.strictObject({
+  template_name: z.string().min(1).max(512),
+  template_language: z.string().min(1).max(64),
+  template_components: boundedJson(z.array(z.record(z.string(), jsonValue))).optional(),
+})
+const messageWhatsapp = z.strictObject({
+  to_e164: z.string().min(1).max(64),
+  instance_id: z.string().min(1).max(256),
+})
+// Run that produced the event (production run_id, handlers/pipeline.py); every agent output may carry it.
+const runId = uuidSchema
+const agentMessageFields = {
+  author: z.string().max(200).optional(),
+  template: messageTemplate.optional(),
+  whatsapp: messageWhatsapp.optional(),
+  run_id: runId.optional(),
+}
+// Free text the agent writes (reasoning, form/chart messages, run error): same 1 MiB ceiling as open JSON.
+const longText = z.string().max(OPEN_JSON_MAX_BYTES)
+const queueName = z.string().max(200)
+const runStatus = z.enum(['running', 'succeeded', 'failed'])
+const toolFields = {
+  id: z.string().max(1024),
+  name: z.string().max(1024),
+  display_name: z.string().max(4096).optional(),
+}
+const reasoningPayload = z.strictObject({
+  text: longText,
+  author: z.string().max(200).optional(),
+  run_id: runId.optional(),
+})
+const toolCallPayload = z.strictObject({
+  ...toolFields,
+  args: openObject,
+  run_id: runId.optional(),
+})
+const toolResultPayload = z.strictObject({
+  ...toolFields,
+  args: openObject.optional(),
+  result: openObject,
+  run_id: runId.optional(),
+})
+const toolTransactionPayload = z.strictObject({
+  ...toolFields,
+  args: openObject,
+  result: openObject,
+  run_id: runId.optional(),
+})
+const panelSize = z.enum(['small', 'medium', 'large'])
+// WireS2C_ChartEventData (protocol/models.py): AgentEvent.data of send.chart always carries title, message, size and series.
+const chartPayload = z.strictObject({
+  title: z.string().max(4096),
+  message: longText,
+  chart_type: z.enum([
+    'bar',
+    'bar_horizontal',
+    'stacked_bar',
+    'line',
+    'area',
+    'pie',
+    'donut',
+    'scatter',
+  ]),
+  size: panelSize,
+  x_key: z.string().max(1024),
+  y_keys: z.array(z.string().max(1024)).max(1000),
+  data: boundedJson(z.array(z.record(z.string(), jsonValue))),
+  series: z
+    .array(
+      z.strictObject({
+        key: z.string().max(1024),
+        label: z.string().max(4096).nullish(),
+        color: z.string().max(256).nullish(),
+      })
+    )
+    .max(1000),
+  x_label: z.string().max(4096).optional(),
+  y_label: z.string().max(4096).optional(),
+  run_id: runId.optional(),
+})
+// WireS2C_Form*Element (protocol/models.py): order, required, disabled and the per-element variants default in the wire model.
+const formElementBase = {
+  name: z.string().max(1024),
+  label: z.string().max(4096),
+  order: z.number().int().optional(),
+  required: z.boolean().optional(),
+  disabled: z.boolean().optional(),
+}
+const formOptions = z
+  .array(z.strictObject({ value: z.string().max(4096), label: z.string().max(4096) }))
+  .max(5000)
+const formElement = z.discriminatedUnion('type', [
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('text_input'),
+    placeholder: z.string().max(4096).nullish(),
+    default: longText.nullish(),
+    input_type: z.enum(['text', 'password', 'email', 'number', 'date']).optional(),
+  }),
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('textarea_input'),
+    placeholder: z.string().max(4096).nullish(),
+    default: longText.nullish(),
+    rows: z.number().int().min(1).nullish(),
+  }),
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('select_input'),
+    options: formOptions,
+    default: longText.nullish(),
+    placeholder: z.string().max(4096).nullish(),
+  }),
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('radio_input'),
+    options: formOptions,
+    default: longText.nullish(),
+    variant: z.enum(['native', 'button']).optional(),
+  }),
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('checkbox_input'),
+    options: formOptions,
+    default: z.array(z.string().max(4096)).max(5000).nullish(),
+    variant: z.enum(['native', 'button']).optional(),
+  }),
+  z.strictObject({
+    ...formElementBase,
+    type: z.literal('file_input'),
+    upload_url: z.string().max(8192),
+    accept: z.string().max(4096).nullish(),
+    multiple: z.boolean().optional(),
+  }),
+])
+const formPayload = z.strictObject({
+  message: longText,
+  elements: z.array(formElement).max(1000),
+  submit_label: z.string().max(4096),
+  cancel_label: z.string().max(4096),
+  size: panelSize,
+  run_id: runId.optional(),
+})
+const messageUpdatePayload = z.strictObject({
+  event_id: uuidSchema,
+  content,
+  run_id: runId.optional(),
+})
+const threadUpdatePayload = z.strictObject({
+  title: z.string().max(200).optional(),
+  queue: queueName.nullish(),
+  run_id: runId.optional(),
+})
+const participantAddPayload = z.strictObject({
+  user: z.strictObject({
+    user_id: z.string().max(256),
+    user_name: z.string().max(200).nullish(),
+    user_email: z.string().max(320).nullish(),
+    identity_ids: z.array(z.string().min(1).max(256)).max(64).optional(),
+  }),
+  run_id: runId.optional(),
+})
+const runUpdatePayload = z.strictObject({
+  run_id: runId,
+  status: runStatus,
+  error: longText.optional(),
+})
 const options = z
   .array(
     z.strictObject({
@@ -118,7 +349,7 @@ export const routingDecision = z.strictObject({
 const messageInputFields = {
   routing: routingIntent.optional(),
   client_event_id: idempotencyKeySchema,
-  content,
+  content: humanContent,
   mentions: uniqueIds.optional(),
   agent_options: options.optional(),
 }
@@ -134,23 +365,38 @@ const participantFields = {
   joined_sequence: sequenceSchema,
   left_sequence: sequenceSchema.nullable(),
 }
-const participant = z.discriminatedUnion('kind', [
-  z.strictObject({
-    ...participantFields,
-    kind: z.literal('human'),
-    principal_id: opaquePrincipalSchema,
-    role: z.enum(['owner', 'member']),
-  }),
-  z.strictObject({
-    ...participantFields,
-    kind: z.literal('agent'),
-    principal_id: uuidSchema,
-    instance_agent_id: uuidSchema,
-    role: z.literal('member'),
-    capabilities: capabilitiesSchema,
-    availability: z.enum(['available', 'unavailable', 'unknown']),
-  }),
-])
+// Email and identity ids of a human reach only the agent-facing context (index 4.3.1), never a browser.
+const humanIdentity = {
+  email: z.string().max(320).nullish(),
+  identity_ids: z.array(z.string().min(1).max(256)).max(64).optional(),
+}
+const participantOf = <H extends z.ZodRawShape>(humanExtra: H) =>
+  z.discriminatedUnion('kind', [
+    z.strictObject({
+      ...participantFields,
+      ...humanExtra,
+      kind: z.literal('human'),
+      principal_id: opaquePrincipalSchema,
+      role: z.enum(['owner', 'member']),
+    }),
+    z.strictObject({
+      ...participantFields,
+      kind: z.literal('agent'),
+      principal_id: uuidSchema,
+      instance_agent_id: uuidSchema,
+      role: z.literal('member'),
+      capabilities: capabilitiesSchema,
+      availability: z.enum(['available', 'unavailable', 'unknown']),
+    }),
+    z.strictObject({
+      ...participantFields,
+      ...externalFields,
+      kind: z.literal('external'),
+      role: z.literal('member'),
+    }),
+  ])
+const participant = participantOf({})
+const agentParticipant = participantOf(humanIdentity)
 const permissions = z.strictObject({
   read: z.boolean(),
   write: z.boolean(),
@@ -169,7 +415,6 @@ const threadFields = {
   title: z.string().max(200),
   state: threadState,
   version: versionSchema,
-  participants: z.array(participant).max(100),
   permissions,
   capabilities: capabilitiesSchema,
   last_sequence: sequenceSchema,
@@ -178,14 +423,34 @@ const threadFields = {
   policy_version: versionSchema,
   created_at: timestampSchema,
   updated_at: timestampSchema,
+  // SDK parity (index 4.3): optional so threads of the original contract stay valid.
+  queue: queueName.nullish(),
+  channel: z.string().min(1).max(200).optional(),
+  channel_meta: z.union([openObject, z.null()]).optional(),
+  external_key: z.string().min(1).max(512).nullish(),
+  owner_instance_agent_id: uuidSchema.nullish(),
 }
-const thread = z.discriminatedUnion('scope_kind', [
-  scopeSchema.options[0].extend(threadFields),
-  scopeSchema.options[1].extend(threadFields),
-])
+const threadOf = <P extends z.ZodType>(participants: P) =>
+  z.discriminatedUnion('scope_kind', [
+    scopeSchema.options[0].extend({
+      ...threadFields,
+      participants: z.array(participants).max(100),
+    }),
+    scopeSchema.options[1].extend({
+      ...threadFields,
+      participants: z.array(participants).max(100),
+    }),
+  ])
+const thread = threadOf(participant)
+const agentThread = threadOf(agentParticipant)
 const participantTarget = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('human'), principal_id: opaquePrincipalSchema }),
   z.strictObject({ kind: z.literal('agent'), principal_id: uuidSchema }),
+])
+// Only an aiagent targets an external participant (index 4.3): the human routes refuse it.
+const agentParticipantTarget = z.discriminatedUnion('kind', [
+  ...participantTarget.options,
+  z.strictObject({ kind: z.literal('external'), ...externalFields }),
 ])
 const createFields = {
   routing_version: z.literal(1).optional(),
@@ -209,6 +474,30 @@ const threadPatch = z.union([
     title: z.string().min(1).max(200).optional(),
     state: z.enum(['active', 'archived']),
   }),
+])
+// Agent-only PATCH (thread.rename and thread.queue.update): "" and null remove the thread from its queue.
+// The human PATCH above has no queue branch; the agent never archives, so there is no state here.
+const agentThreadPatch = z.union([
+  z.strictObject({
+    title: z.string().min(1).max(200),
+    queue: queueName.nullable().optional(),
+  }),
+  z.strictObject({
+    title: z.string().min(1).max(200).optional(),
+    queue: queueName.nullable(),
+  }),
+])
+// Agent-only thread creation (POST /v1/agent/threads): idempotent by external_key, channel metadata allowed.
+const agentCreateFields = {
+  participants: z.array(agentParticipantTarget).max(99),
+  queue: queueName.nullish(),
+  channel: threadFields.channel,
+  channel_meta: threadFields.channel_meta,
+  external_key: z.string().min(1).max(512).optional(),
+}
+const agentThreadCreate = z.discriminatedUnion('scope_kind', [
+  threadCreate.options[0].extend(agentCreateFields),
+  threadCreate.options[1].extend(agentCreateFields),
 ])
 const page = <T extends z.ZodType>(item: T) =>
   z.strictObject({
@@ -351,7 +640,6 @@ const eventFields = {
   thread_id: uuidSchema,
   sequence: sequenceSchema,
   schema_version: protocolVersionSchema,
-  actor: actorSchema,
   created_at: timestampSchema,
   causation_event_id: uuidSchema.nullable(),
   root_event_id: uuidSchema.nullable(),
@@ -359,8 +647,9 @@ const eventFields = {
   execution_id: uuidSchema.optional(),
   output_id: outputId.optional(),
 }
-const eventOf = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
-  z.strictObject({ ...eventFields, type: z.literal(type), payload })
+// Human actor of the agent-facing context: same shape plus email and identity_ids (index 4.3.1).
+const [humanActor, ...otherActors] = actorSchema.options
+const agentActor = z.discriminatedUnion('kind', [humanActor.extend(humanIdentity), ...otherActors])
 const messagePayload = z.strictObject({
   routing: routingIntent.optional(),
   routing_decision: routingDecision.optional(),
@@ -370,6 +659,7 @@ const messagePayload = z.strictObject({
   execution_id: uuidSchema.optional(),
   output_id: outputId.optional(),
   agent_options: options.optional(),
+  ...agentMessageFields,
 })
 const executionPayload = z.strictObject({
   execution_id: uuidSchema,
@@ -382,92 +672,146 @@ const executionPayload = z.strictObject({
   deadline_at: timestampSchema,
   completed_at: timestampSchema.nullable(),
 })
-export const durableEventSchemas = {
-  'thread.created': eventOf('thread.created', z.strictObject({ thread })),
-  'thread.updated': eventOf(
-    'thread.updated',
+// The same catalog twice: browsers get the public actor/participant, agents the one with email.
+const durableEventsFor = <A extends z.ZodType, Pt extends z.ZodType, Th extends z.ZodType>(kit: {
+  actor: A
+  participant: Pt
+  thread: Th
+}) => {
+  const { participant, thread } = kit
+  const eventOf = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
     z.strictObject({
-      thread_id: uuidSchema,
-      title: z.string().max(200),
-      state: z.enum(['active', 'archived']),
-      version: versionSchema,
+      ...eventFields,
+      actor: kit.actor,
+      type: z.literal(type),
+      payload,
     })
-  ),
-  'thread.archived': eventOf(
-    'thread.archived',
-    z.strictObject({ thread_id: uuidSchema, version: versionSchema })
-  ),
-  'participant.added': eventOf(
-    'participant.added',
-    z.strictObject({ participant, history_policy: z.literal('full') })
-  ),
-  'participant.removed': eventOf(
-    'participant.removed',
-    z.strictObject({
-      participant_id: uuidSchema,
-      left_sequence: sequenceSchema,
-      reason_code: reasonCodeSchema.optional(),
-    })
-  ),
-  'message.created': eventOf('message.created', messagePayload),
-  'execution.started': eventOf(
-    'execution.started',
-    executionPayload.extend({
-      state: z.literal('running'),
-      outcome: z.null(),
-      completed_at: z.null(),
-    })
-  ),
-  'execution.completed': eventOf(
-    'execution.completed',
-    executionPayload.extend({
-      state: z.literal('completed'),
-      outcome: z.enum(['responded', 'silent']),
-      completed_at: timestampSchema,
-    })
-  ),
-  'execution.failed': eventOf(
-    'execution.failed',
-    executionPayload.extend({
-      state: z.enum(['failed', 'timed_out']),
-      outcome: z.literal('failed'),
-      completed_at: timestampSchema,
-    })
-  ),
-  'execution.canceled': eventOf(
-    'execution.canceled',
-    executionPayload.extend({
-      state: z.literal('canceled'),
-      outcome: z.literal('canceled'),
-      completed_at: timestampSchema,
-    })
-  ),
-  'delivery.updated': eventOf('delivery.updated', z.strictObject({ delivery })),
-  'root.stopped': eventOf(
-    'root.stopped',
-    z.strictObject({ root_event_id: uuidSchema, reason_code: reasonCodeSchema.optional() })
-  ),
-  'interaction.created': eventOf('interaction.created', z.strictObject({ interaction })),
-  'interaction.responded': eventOf(
-    'interaction.responded',
-    z.strictObject({
-      interaction_id: uuidSchema,
-      action: z.enum(['submit', 'cancel', 'approve', 'reject']),
-      shared_data: formData,
-      delivery_id: uuidSchema,
-      phase_id: phase,
-    })
-  ),
-  'interaction.expired': eventOf(
-    'interaction.expired',
-    z.strictObject({ interaction_id: uuidSchema, delivery_id: uuidSchema })
-  ),
-  'feedback.updated': eventOf(
-    'feedback.updated',
-    z.strictObject({ target_event_id: uuidSchema, principal_id: opaquePrincipalSchema, feedback })
-  ),
+  return {
+    'thread.created': eventOf('thread.created', z.strictObject({ thread })),
+    'thread.updated': eventOf(
+      'thread.updated',
+      z.strictObject({
+        thread_id: uuidSchema,
+        title: z.string().max(200),
+        state: z.enum(['active', 'archived']),
+        version: versionSchema,
+        queue: queueName.nullable().optional(),
+        run_id: runId.optional(),
+      })
+    ),
+    'thread.archived': eventOf(
+      'thread.archived',
+      z.strictObject({ thread_id: uuidSchema, version: versionSchema })
+    ),
+    'participant.added': eventOf(
+      'participant.added',
+      z.strictObject({ participant, history_policy: z.literal('full'), run_id: runId.optional() })
+    ),
+    'participant.removed': eventOf(
+      'participant.removed',
+      z.strictObject({
+        participant_id: uuidSchema,
+        left_sequence: sequenceSchema,
+        reason_code: reasonCodeSchema.optional(),
+      })
+    ),
+    'message.created': eventOf('message.created', messagePayload),
+    'execution.started': eventOf(
+      'execution.started',
+      executionPayload.extend({
+        state: z.literal('running'),
+        outcome: z.null(),
+        completed_at: z.null(),
+      })
+    ),
+    'execution.completed': eventOf(
+      'execution.completed',
+      executionPayload.extend({
+        state: z.literal('completed'),
+        outcome: z.enum(['responded', 'silent']),
+        completed_at: timestampSchema,
+      })
+    ),
+    'execution.failed': eventOf(
+      'execution.failed',
+      executionPayload.extend({
+        state: z.enum(['failed', 'timed_out']),
+        outcome: z.literal('failed'),
+        completed_at: timestampSchema,
+      })
+    ),
+    'execution.canceled': eventOf(
+      'execution.canceled',
+      executionPayload.extend({
+        state: z.literal('canceled'),
+        outcome: z.literal('canceled'),
+        completed_at: timestampSchema,
+      })
+    ),
+    'delivery.updated': eventOf('delivery.updated', z.strictObject({ delivery })),
+    'root.stopped': eventOf(
+      'root.stopped',
+      z.strictObject({ root_event_id: uuidSchema, reason_code: reasonCodeSchema.optional() })
+    ),
+    'interaction.created': eventOf('interaction.created', z.strictObject({ interaction })),
+    'interaction.responded': eventOf(
+      'interaction.responded',
+      z.strictObject({
+        interaction_id: uuidSchema,
+        action: z.enum(['submit', 'cancel', 'approve', 'reject']),
+        shared_data: formData,
+        delivery_id: uuidSchema,
+        phase_id: phase,
+      })
+    ),
+    'interaction.expired': eventOf(
+      'interaction.expired',
+      z.strictObject({ interaction_id: uuidSchema, delivery_id: uuidSchema })
+    ),
+    'feedback.updated': eventOf(
+      'feedback.updated',
+      z.strictObject({ target_event_id: uuidSchema, principal_id: opaquePrincipalSchema, feedback })
+    ),
+    'reasoning.created': eventOf('reasoning.created', reasoningPayload),
+    'tool_call.created': eventOf('tool_call.created', toolCallPayload),
+    'tool_result.created': eventOf('tool_result.created', toolResultPayload),
+    'tool_transaction.created': eventOf('tool_transaction.created', toolTransactionPayload),
+    'chart.created': eventOf('chart.created', chartPayload),
+    'form.created': eventOf('form.created', formPayload),
+    'form.responded': eventOf(
+      'form.responded',
+      z.strictObject({
+        form_event_id: uuidSchema,
+        values: openObject,
+        cancelled: z.boolean(),
+      })
+    ),
+    'message.updated': eventOf('message.updated', messageUpdatePayload),
+    'message.removed': eventOf('message.removed', z.strictObject({ event_id: uuidSchema })),
+    'run.updated': eventOf(
+      'run.updated',
+      runUpdatePayload.extend({ agent_id: uuidSchema, trigger_event_id: uuidSchema })
+    ),
+    'channel_delivery.updated': eventOf(
+      'channel_delivery.updated',
+      z.strictObject({
+        event_id: uuidSchema,
+        channel: z.literal('whatsapp'),
+        status: z.enum(['accepted', 'sent', 'delivered', 'read', 'failed']),
+        error: z.string().max(1000).optional(),
+        provider_message_id: z.string().min(1).max(256).optional(),
+      })
+    ),
+  }
 }
+export const durableEventSchemas = durableEventsFor({ actor: actorSchema, participant, thread })
+const agentDurableEventSchemas = durableEventsFor({
+  actor: agentActor,
+  participant: agentParticipant,
+  thread: agentThread,
+})
 const event = z.union(Object.values(durableEventSchemas))
+const agentEvent = z.union(Object.values(agentDurableEventSchemas))
 const persisted = z.strictObject({
   status: z.literal('persisted'),
   event,
@@ -557,21 +901,49 @@ const downloadMetadata = z.strictObject({
   content_disposition: z.literal('attachment'),
   x_content_type_options: z.literal('nosniff'),
 })
-const output = z.strictObject({
-  output_id: outputId,
-  type: z.literal('message.create'),
-  payload: z.strictObject({
-    content,
-    mentions: uniqueIds,
-    agent_options: options.optional(),
-    handoff: z.strictObject({ recipients: uniqueIds.min(1).max(1) }).optional(),
-  }),
-})
+const outputOf = <T extends string, P extends z.ZodRawShape, E extends z.ZodRawShape>(
+  type: T,
+  payload: P,
+  extra: E
+) =>
+  z.strictObject({
+    output_id: outputId,
+    type: z.literal(type),
+    payload: z.strictObject(payload),
+    ...extra,
+  })
+// Every agent output writes one event of the durableEventSchemas catalog (index 4.2/4.4).
+const outputUnion = <E extends z.ZodRawShape>(extra: E) =>
+  z.discriminatedUnion('type', [
+    outputOf(
+      'message.create',
+      {
+        content,
+        mentions: uniqueIds,
+        agent_options: options.optional(),
+        ...agentMessageFields,
+        handoff: z.strictObject({ recipients: uniqueIds.min(1).max(1) }).optional(),
+      },
+      extra
+    ),
+    outputOf('reasoning.create', reasoningPayload.shape, extra),
+    outputOf('tool_call.create', toolCallPayload.shape, extra),
+    outputOf('tool_result.create', toolResultPayload.shape, extra),
+    outputOf('tool_transaction.create', toolTransactionPayload.shape, extra),
+    outputOf('chart.create', chartPayload.shape, extra),
+    outputOf('form.create', formPayload.shape, extra),
+    outputOf('message.update', messageUpdatePayload.shape, extra),
+    // Maestro fills agent_id and trigger_event_id of run.updated from the execution.
+    outputOf('run.update', runUpdatePayload.shape, extra),
+    outputOf('thread.update', threadUpdatePayload.shape, extra),
+    outputOf('participant.add', participantAddPayload.shape, extra),
+  ])
+const output = outputUnion({})
 const heartbeat = z.strictObject({
   lease_fence: sequenceSchema,
   progress_code: reasonCodeSchema.optional(),
 })
-const outputRequest = output.extend({ lease_fence: sequenceSchema })
+const outputRequest = outputUnion({ lease_fence: sequenceSchema })
 const streamRequest = z.strictObject({
   lease_fence: sequenceSchema,
   output_id: outputId,
@@ -608,7 +980,7 @@ const callbackResult = z.strictObject({
   delivery_id: uuidSchema,
   execution_id: uuidSchema,
   state: z.enum(['responded', 'silent', 'failed', 'canceled', 'waiting_input']),
-  result_event_ids: uniqueIds,
+  result_event_ids: resultEventIds,
 })
 const suspend = z.strictObject({
   lease_fence: sequenceSchema,
@@ -628,11 +1000,11 @@ const brokerEvent = z.strictObject({
 })
 const contextResponse = z.strictObject({
   delivery_id: uuidSchema,
-  trigger_event: event,
-  invocation_event: event.optional(),
-  participants: z.array(participant).max(100),
+  trigger_event: agentEvent,
+  invocation_event: agentEvent.optional(),
+  participants: z.array(agentParticipant).max(100),
   context_cursor: cursorSchema,
-  history: page(event),
+  history: page(agentEvent),
 })
 const retryRequest = z.strictObject({
   reason_code: reasonCodeSchema,
@@ -861,6 +1233,8 @@ export const publicSchemas = {
     })
   ),
   'Public.ThreadPatchRequest': threadPatch,
+  'Public.AgentThreadPatchRequest': agentThreadPatch,
+  'Public.AgentThreadCreateRequest': agentThreadCreate,
   'Public.ReasonRequest': reason,
   'Public.DeleteResponse': z.strictObject({
     deletion_job_id: uuidSchema,
@@ -870,6 +1244,9 @@ export const publicSchemas = {
   'Public.ParticipantPage': page(participant),
   'Public.ParticipantAddRequest': z.union(
     participantTarget.options.map((target) => target.extend({ role: z.literal('member') }))
+  ),
+  'Public.AgentParticipantAddRequest': z.union(
+    agentParticipantTarget.options.map((target) => target.extend({ role: z.literal('member') }))
   ),
   'Public.OwnershipRequest': z.strictObject({ participant_id: uuidSchema }),
   'Public.EventsQuery': eventsQuery,

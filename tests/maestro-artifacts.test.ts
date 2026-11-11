@@ -170,7 +170,7 @@ it('an attachment cited only by another thread event (not message.created) is re
  const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher)
  env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
  const created = event(1); created.payload.content = [{ type: 'text', text: 'no attachment here' }]
- const edited = event(2); edited.type = 'message.updated'; edited.payload = { message_event_id: created.event_id, content: [attachment] }
+ const edited = event(2); edited.type = 'hologram.created'; edited.payload = { message_event_id: created.event_id, content: [attachment] }
  const t = thread('2'); t.capabilities.push('attachments.durable')
  env.socket.frame('thread.snapshot', { thread: t, events: [created, edited], watermark: '2', next_cursor: null, has_more: false }); env.socket.caught('2'); await tick()
  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:edited'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
