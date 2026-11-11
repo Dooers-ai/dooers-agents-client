@@ -15,7 +15,7 @@ import {
 } from '../protocol/maestro/vendor/public.js'
 import { MaestroApprovalOutcomes } from './approval-outcomes.js'
 import { approvalExpiry, MaestroApprovals } from './approvals.js'
-import { MaestroArtifacts } from './artifacts.js'
+import { MaestroArtifacts, payloadReferencesArtifact } from './artifacts.js'
 import { type MaestroControlInput, type MaestroControlIntent, MaestroControls } from './controls.js'
 import { inspectMaestroHumanCredential } from './credential.js'
 import { MaestroExports } from './exports.js'
@@ -515,13 +515,9 @@ export class MaestroClient {
               const id = /^\/artifacts\/([0-9a-f-]{36})\/download$/.exec(path)?.[1]
               const visible =
                 state &&
-                Object.values(state.eventsById).some(
-                  (item) =>
-                    item.known &&
-                    item.event.type === 'message.created' &&
-                    item.event.payload.content.some(
-                      (part) => part.type === 'attachment' && part.artifact_id === id
-                    )
+                id !== undefined &&
+                Object.values(state.eventsById).some((item) =>
+                  payloadReferencesArtifact(item.event.payload, id)
                 )
               if (
                 !state?.thread ||

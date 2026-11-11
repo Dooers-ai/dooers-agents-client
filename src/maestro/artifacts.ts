@@ -40,6 +40,30 @@ type Intent = {
   draft: MaestroUploadDraft
   inflight?: Promise<void>
 }
+/** Default per-file bound: same 25 MiB limit as the production chat upload policy. */
+export const MAESTRO_DEFAULT_ARTIFACT_BYTES = 25 * 1024 * 1024
+/**
+ * True when an event payload cites the artifact. Generic on purpose: it does not depend on the
+ * event type, so events added by later contracts (edits, form responses) authorize reads too.
+ */
+export function payloadReferencesArtifact(payload: unknown, artifactId: string): boolean {
+  const wanted = artifactId.toLowerCase()
+  const pending: { value: unknown; depth: number }[] = [{ value: payload, depth: 0 }]
+  for (let visited = 0; pending.length && visited < 4096; visited++) {
+    const { value, depth } = pending.pop()!
+    if (!value || typeof value !== 'object' || depth > 12) continue
+    if (Array.isArray(value)) {
+      for (const item of value) pending.push({ value: item, depth: depth + 1 })
+      continue
+    }
+    for (const [key, child] of Object.entries(value)) {
+      if (key === 'artifact_id' && typeof child === 'string' && child.toLowerCase() === wanted)
+        return true
+      if (child && typeof child === 'object') pending.push({ value: child, depth: depth + 1 })
+    }
+  }
+  return false
+}
 const failure = (code: string, retryable = false) =>
   new MaestroClientError(code, 'Artifact request unavailable', retryable)
 /** Private, bounded File intentions. These are neither canonical events nor storage references. */
@@ -54,7 +78,7 @@ export class MaestroArtifacts {
   private snapshot: readonly MaestroUploadDraft[] = Object.freeze([])
   constructor(
     private host: Host,
-    readonly maxBytes = 8 * 1024 * 1024
+    readonly maxBytes = MAESTRO_DEFAULT_ARTIFACT_BYTES
   ) {
     if (!Number.isSafeInteger(maxBytes) || maxBytes < 1 || maxBytes > 64 * 1024 * 1024)
       throw failure('INVALID_CONFIG')

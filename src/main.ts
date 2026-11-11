@@ -32,6 +32,12 @@ export { useFeedback } from './hooks/use-feedback'
 export { useForm } from './hooks/use-form'
 export type { FormFileMetadata } from './hooks/use-form-file-upload'
 export { useFormFileUpload } from './hooks/use-form-file-upload'
+export type {
+  MaestroArtifactPart,
+  MaestroArtifactUrlResult,
+  UseMaestroArtifactUrlOptions,
+} from './hooks/use-maestro-artifact-url'
+export { useMaestroArtifactUrl } from './hooks/use-maestro-artifact-url'
 export { useMessage } from './hooks/use-message'
 export { useSettings } from './hooks/use-settings'
 export type { SettingsFileMetadata } from './hooks/use-settings-file-upload'
