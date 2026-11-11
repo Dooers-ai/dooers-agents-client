@@ -77,6 +77,21 @@ it('known thread revocation releases an existing Blob and prevents new calls', a
  await expect(env.client.artifacts.open(threadId, attachment)).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(fetcher).toHaveBeenCalledTimes(1)
  create.mockRestore(); revoke.mockRestore()
 })
+it('a download that answers 404 NOT_FOUND fails that file only and keeps the thread and other media', async () => {
+ const missing = { ...attachment, artifact_id: uuid(42) }
+ const fetcher = vi.fn(async (url: string) => String(url).includes(uuid(42)) ? json({ error: { code: 'NOT_FOUND', message: 'Missing', retryable: false, request_id: uuid(99) } }, 404) : bytes())
+ const env = await setup(fetcher as never)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const e = event(1); e.payload.content = [missing, attachment]
+ const t = thread('1'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:still-works'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'NOT_FOUND' })
+ expect(env.client.store.getThread(threadId)?.phase).not.toBe('revoked')
+ const ok = await env.client.artifacts.open(threadId, attachment)
+ expect(ok.url).toBe('blob:still-works')
+ ok.release(); create.mockRestore(); revoke.mockRestore()
+})
 it('an artifact from another history cannot be retained under the wrong thread', async () => {
  const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
  await expect(env.client.artifacts.open(uuid(80), attachment)).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(fetcher).not.toHaveBeenCalled()

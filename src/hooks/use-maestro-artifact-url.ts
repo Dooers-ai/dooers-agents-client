@@ -36,6 +36,8 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000]
 /** The host revokes a resource 60 s after the read; renew before that. */
 const RENEW_BEFORE_EXPIRY_MS = 10_000
 const DROP_BEFORE_EXPIRY_MS = 1000
+/** Upper bound to keep a superseded resource when the consumer does not re-render. */
+const SUPERSEDED_RELEASE_MS = 5000
 
 interface Snapshot {
   url: string | null
@@ -68,6 +70,9 @@ class Entry {
   disposed = false
   renewTimer: ReturnType<typeof setTimeout> | null = null
   dropTimer: ReturnType<typeof setTimeout> | null = null
+  /** Superseded resources kept alive until the consumer shows the new URL. */
+  superseded: MaestroArtifactResource[] = []
+  supersededTimer: ReturnType<typeof setTimeout> | null = null
   private last: Snapshot | null = null
 
   constructor(
@@ -152,7 +157,17 @@ class ArtifactQueue {
     const resource = entry.resource
     entry.resource = null
     resource?.release()
+    this.releaseSuperseded(entry)
     this.pump()
+  }
+
+  /** The consumer rendered the current URL: the previous resources can be revoked now. */
+  releaseSuperseded(entry: Entry) {
+    if (entry.supersededTimer) clearTimeout(entry.supersededTimer)
+    entry.supersededTimer = null
+    const old = entry.superseded
+    entry.superseded = []
+    for (const resource of old) resource.release()
   }
 
   private liveCount() {
@@ -198,6 +213,7 @@ class ArtifactQueue {
     const resource = entry.resource
     entry.resource = null
     resource?.release()
+    this.releaseSuperseded(entry)
     entry.emit()
   }
 
@@ -274,8 +290,17 @@ class ArtifactQueue {
       },
       Math.max(0, remaining - DROP_BEFORE_EXPIRY_MS)
     )
-    previous?.release()
     entry.emit()
+    // Revoke the old URL only after the consumer swapped to the new one, so that an `<audio>`
+    // that is playing is not cut. The timer is a bound for a consumer that never re-renders.
+    if (previous) {
+      entry.superseded.push(previous)
+      if (!entry.supersededTimer)
+        entry.supersededTimer = setTimeout(() => {
+          entry.supersededTimer = null
+          this.releaseSuperseded(entry)
+        }, SUPERSEDED_RELEASE_MS)
+    }
   }
 
   private fail(entry: Entry, cause: unknown) {
@@ -366,6 +391,14 @@ export function useMaestroArtifactUrl(
   const url = current?.url ?? null
   const status = eligible ? (current?.status ?? (visible ? 'loading' : 'idle')) : 'idle'
   const errorCode = current?.errorCode
+
+  // Runs after the commit that shows `url`: the previous URL is no longer in the DOM.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `url` is the trigger.
+  useEffect(() => {
+    const live = entryRef.current
+    if (live) live.queue.releaseSuperseded(live.entry)
+  }, [url])
+
   return useMemo(() => {
     if (!eligible) return IDLE
     return errorCode && status === 'error' ? { url: null, status, errorCode } : { url, status }

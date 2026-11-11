@@ -887,7 +887,12 @@ export class MaestroAgentClient extends AgentClient {
         part.type === 'text'
           ? { type: 'text', text: part.text }
           : part.type === 'audio'
-            ? { type: 'audio', ...(part.mimeType ? { mimeType: part.mimeType } : {}) }
+            ? {
+                type: 'audio',
+                refId: part.refId,
+                ...(part.filename ? { filename: part.filename } : {}),
+                ...(part.mimeType ? { mimeType: part.mimeType } : {}),
+              }
             : {
                 type: part.type,
                 refId: part.refId,

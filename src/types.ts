@@ -61,6 +61,8 @@ export interface AudioDisplayPart {
   filename?: string
   /** Upload ref when present on the wire (replay / blob key correlation). */
   refId?: string
+  /** File size in bytes when known (Maestro attachments). */
+  sizeBytes?: number
 }
 
 export interface ImageDisplayPart {

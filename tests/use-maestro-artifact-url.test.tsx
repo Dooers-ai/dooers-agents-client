@@ -288,6 +288,31 @@ describe('useMaestroArtifactUrl', () => {
     expect(fake.state.live).toBe(1)
   })
 
+  it('na renovação só revoga a URL antiga depois que o consumidor trocou para a nova', async () => {
+    const fake = fakeArtifacts()
+    useFakeMaestro(fake)
+    const renders: { url: string | null; oldReleasedAtRender: boolean }[] = []
+    function Probe() {
+      const result = useMaestroArtifactUrl(T1, { refId: id(1), mimeType: 'audio/ogg', filename: 'a.ogg' })
+      renders.push({ url: result.url, oldReleasedAtRender: fake.state.resources[0]?.released ?? false })
+      return <div data-testid="p">{result.url ?? ''}</div>
+    }
+    const view = render(<Probe />)
+    await advance(100)
+    const firstUrl = view.getByTestId('p').textContent
+    expect(firstUrl).toBeTruthy()
+    await advance(50500)
+    const nextUrl = view.getByTestId('p').textContent
+    expect(nextUrl).not.toBe(firstUrl)
+    // The render that shows the new URL happened while the old resource was still alive.
+    const swap = renders.find((r) => r.url === nextUrl)!
+    expect(swap.oldReleasedAtRender).toBe(false)
+    // After the swap the old resource is released and only the new one is live.
+    expect(fake.state.resources[0]!.released).toBe(true)
+    expect(fake.state.resources[1]!.released).toBe(false)
+    expect(fake.state.live).toBe(1)
+  })
+
   it('cliente antigo (AgentClient) devolve idle e não abre nada', async () => {
     const fake = fakeArtifacts()
     holder.client = new AgentClient({} as never)

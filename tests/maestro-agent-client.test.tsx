@@ -136,6 +136,25 @@ describe('Maestro → legacy mapping', () => {
     e.payload.content = [{ type: 'attachment', artifact_id: uuid(51), filename: 'foto.png', mime_type: 'image/png', size_bytes: 10 }]
     expect(maestroEventToLegacy(toMaestroNetworkEvent(e))?.content).toEqual([{ type: 'image', refId: uuid(51), filename: 'foto.png', alt: 'foto.png', mimeType: 'image/png' }])
   })
+  it('an audio attachment keeps refId, filename and size so the client can open it', () => {
+    const e = event(4)
+    e.payload.content = [{ type: 'attachment', artifact_id: uuid(52), filename: 'voz.ogg', mime_type: 'audio/ogg', size_bytes: 321 }]
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(e))?.content).toEqual([
+      { type: 'audio', refId: uuid(52), filename: 'voz.ogg', mimeType: 'audio/ogg', sizeBytes: 321 },
+    ])
+    const bare = event(5)
+    bare.payload.content = [{ type: 'attachment', artifact_id: uuid(53), mime_type: 'audio/ogg' }]
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(bare))?.content).toEqual([{ type: 'audio', refId: uuid(53), mimeType: 'audio/ogg' }])
+  })
+  it('the optimistic echo of an audio keeps refId and filename', () => {
+    const echo = (MaestroAgentClient.prototype as any).optimistic.call(
+      { user: { userId: 'u', userName: 'U', userEmail: null, identityIds: [] } },
+      threadId,
+      { content: [{ type: 'audio', refId: uuid(54), filename: 'voz.ogg', mimeType: 'audio/ogg' }] },
+      'c1'
+    )
+    expect(echo.content).toEqual([{ type: 'audio', refId: uuid(54), filename: 'voz.ogg', mimeType: 'audio/ogg' }])
+  })
   it('durable forms become legacy form events and legacy values become Maestro data', () => {
     const fields = [
       { name: 'nome', label: 'Nome', required: true, share_response: true, type: 'text', max_length: 100 },

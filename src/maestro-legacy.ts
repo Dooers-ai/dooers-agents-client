@@ -151,9 +151,15 @@ export function maestroContentToDisplay(content: MaestroMessageContent): Display
   return content.map((part): DisplayContentPart => {
     if (part.type === 'text') return { type: 'text', text: part.text }
     const kind = attachmentKind(part.mime_type)
-    // A URL exige leitura autenticada pelo Maestro; o chat mostra o arquivo sem pré-visualização.
+    // Sem URL: o chat abre o arquivo pelo hook de artefato (leitura autenticada) usando ``refId``.
     if (kind === 'audio')
-      return { type: 'audio', ...(part.mime_type ? { mimeType: part.mime_type } : {}) }
+      return {
+        type: 'audio',
+        refId: part.artifact_id,
+        ...(part.filename ? { filename: part.filename } : {}),
+        ...(part.mime_type ? { mimeType: part.mime_type } : {}),
+        ...(part.size_bytes !== undefined ? { sizeBytes: part.size_bytes } : {}),
+      }
     if (kind === 'image')
       return {
         type: 'image',

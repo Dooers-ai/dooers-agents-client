@@ -553,10 +553,9 @@ export class MaestroClient {
           },
           failure: (failure, threadId) => {
             if (authCodes.has(failure.code)) this.invalidate(failure)
-            else if (
-              threadId &&
-              ['NOT_FOUND', 'THREAD_DELETED', 'THREAD_ACCESS_REVOKED'].includes(failure.code)
-            )
+            // A download NOT_FOUND is about the file (the URL names only the artifact), so it must
+            // not close the thread. The thread's own NOT_FOUND arrives through the thread stream.
+            else if (threadId && ['THREAD_DELETED', 'THREAD_ACCESS_REVOKED'].includes(failure.code))
               this.closeThread(threadId)
           },
         },
