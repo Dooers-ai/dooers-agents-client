@@ -809,6 +809,52 @@ export class MaestroClient {
     const grant = this.supervisionGrants.get(threadId)
     return grant ? { 'Maestro-Supervision-Grant': grant.id } : {}
   }
+  /**
+   * Answers a production form (``form.created``, ``send.form`` without suspension) through the human
+   * forms route (plan 2, task 5). Maestro records ``form.responded`` and delivers it to the agent that
+   * wrote the form. A suspended form keeps using ``interactions.request``.
+   */
+  async respondForm(
+    threadId: string,
+    formEventId: string,
+    request: { values: Record<string, unknown>; cancelled: boolean },
+    key: string
+  ) {
+    threadId = this.checkId(threadId)
+    formEventId = this.checkId(formEventId)
+    if (this.supervisionGrants.has(threadId)) throw error('FORBIDDEN', 'Supervision is read-only')
+    const headers = publicSchemas['Public.MutationHeaders'].parse({ 'Idempotency-Key': key })
+    const revision = this.threadRevisions.get(threadId) ?? 0
+    const raw = await this.http(
+      `/threads/${threadId}/forms/${formEventId}/responses`,
+      {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ values: request.values, cancelled: request.cancelled }),
+      },
+      this.token,
+      [200, 201],
+      this.maxBytes,
+      // A 403 refuses this one answer (e.g. the agent left the thread), not the session.
+      true
+    )
+    this.assertThreadRevision(threadId, revision)
+    const result = toMaestroPersistedResponse(
+      parseMaestroNetwork(publicSchemas['Public.PersistedResponse'], raw)
+    )
+    const event = result.event
+    if (
+      event.threadId !== threadId ||
+      event.type !== 'form.responded' ||
+      event.actor.kind !== 'human' ||
+      event.actor.principalId !== this.scope.principalId ||
+      event.payload.form_event_id !== formEventId ||
+      event.payload.cancelled !== request.cancelled
+    )
+      throw error('PROTOCOL_ERROR', 'Form response receipt differs from the original intention')
+    this.store.receipt(event)
+    return result
+  }
   async addParticipant(
     threadId: string,
     request: z.infer<(typeof publicSchemas)['Public.ParticipantAddRequest']>,

@@ -587,6 +587,10 @@ export class MaestroStore {
             thread: {
               ...entry.state.thread,
               ...('title' in payload ? { title: payload.title as string } : {}),
+              // The agent moved the thread to a queue (send.update_thread); null takes it out.
+              ...(event.type === 'thread.updated' && event.payload.queue !== undefined
+                ? { queue: event.payload.queue }
+                : {}),
               state: event.type === 'thread.archived' ? 'archived' : event.payload.state,
               version: event.payload.version,
               lastSequence: event.sequence,

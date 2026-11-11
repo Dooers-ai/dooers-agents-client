@@ -8,6 +8,7 @@ import type { MaestroStore, MaestroThreadState } from './maestro/store'
 import type { MaestroClientConfig, MaestroCredential, MaestroScope } from './maestro/types'
 import { MaestroClientError } from './maestro/types'
 import {
+  foldMaestroEvents,
   legacyContentToMaestro,
   legacyFormValuesToMaestro,
   type MaestroNameResolver,
@@ -15,11 +16,12 @@ import {
   maestroExecutionToRun,
   maestroLegacyServerVersion,
   maestroParticipantLegacyId,
+  maestroRunsToLegacy,
   maestroThreadHasAgent,
   maestroThreadToLegacy,
 } from './maestro-legacy'
 import { maestroMentions, maestroMentionsEveryone } from './maestro-mentions'
-import type { MaestroParticipant } from './protocol/maestro/contracts'
+import type { MaestroEvent, MaestroParticipant } from './protocol/maestro/contracts'
 import type { AgentActions } from './store'
 import type {
   ChatContext,
@@ -661,12 +663,20 @@ export class MaestroAgentClient extends AgentClient {
       .catch((cause) => this.report(cause))
   }
 
-  private legacyEvents(state: MaestroThreadState): ThreadEvent[] {
-    const events: ThreadEvent[] = []
+  private knownEvents(state: MaestroThreadState): MaestroEvent[] {
+    const events: MaestroEvent[] = []
     for (const eventId of state.eventIds) {
       const item = state.eventsById[eventId]
-      if (!item) continue
-      const mapped = maestroEventToLegacy(item, this.options.resolveName)
+      if (item?.known) events.push(item.event)
+    }
+    return events
+  }
+
+  /** Edits, removals, delivery status and run ids land on their target event before projection. */
+  private legacyEvents(state: MaestroThreadState): ThreadEvent[] {
+    const events: ThreadEvent[] = []
+    for (const event of foldMaestroEvents(this.knownEvents(state))) {
+      const mapped = maestroEventToLegacy({ known: true, event }, this.options.resolveName)
       if (mapped) events.push(mapped)
     }
     return events
@@ -689,6 +699,13 @@ export class MaestroAgentClient extends AgentClient {
         this.runStarts.get(execution.execution_id) as string
       )
       if (run.status === 'running') running = true
+      const signature = JSON.stringify(run)
+      if (this.runSignatures.get(run.id) === signature) continue
+      this.runSignatures.set(run.id, signature)
+      this.callbacks.onRunUpsert(run)
+    }
+    // Runs the agent opened and closed itself (send.run_start/run_end → run.updated), as production.
+    for (const run of maestroRunsToLegacy(this.knownEvents(state), state.executionsById)) {
       const signature = JSON.stringify(run)
       if (this.runSignatures.get(run.id) === signature) continue
       this.runSignatures.set(run.id, signature)
@@ -1071,8 +1088,25 @@ export class MaestroAgentClient extends AgentClient {
     if (!maestro) throw new Error('Not connected')
     const threadId = params.threadId.toLowerCase()
     const view = maestro.interactions.current(threadId, params.formEventId)
-    if (!view || view.interaction.definition.kind !== 'form')
-      throw new Error('Form is not available in this conversation')
+    if (!view || view.interaction.definition.kind !== 'form') {
+      // A production form (send.form without suspension) answers through the forms route.
+      const form = maestro.store.getThread(threadId)?.eventsById[params.formEventId.toLowerCase()]
+      if (!form?.known || form.event.type !== 'form.created')
+        throw new Error('Form is not available in this conversation')
+      try {
+        await maestro.respondForm(
+          threadId,
+          form.event.eventId,
+          { values: params.values, cancelled: params.cancelled },
+          crypto.randomUUID()
+        )
+        return { threadId }
+      } catch (cause) {
+        const message = errorMessage(cause)
+        this.callbacks.setSendError(message)
+        throw cause instanceof Error ? cause : new Error(message)
+      }
+    }
     try {
       await maestro.interactions.request(
         threadId,

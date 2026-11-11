@@ -190,6 +190,14 @@ export function toMaestroThread(value: unknown) {
     supervisionPolicy: thread.supervision_policy,
     policyVersion: thread.policy_version,
     ...(thread.routing_version ? { routingVersion: thread.routing_version } : {}),
+    // SDK parity fields (index 4.3): optional, so a thread of the original contract keeps its shape.
+    ...(thread.queue === undefined ? {} : { queue: thread.queue }),
+    ...(thread.channel === undefined ? {} : { channel: thread.channel }),
+    ...(thread.channel_meta === undefined ? {} : { channelMeta: thread.channel_meta }),
+    ...(thread.external_key === undefined ? {} : { externalKey: thread.external_key }),
+    ...(thread.owner_instance_agent_id === undefined
+      ? {}
+      : { ownerInstanceAgentId: thread.owner_instance_agent_id }),
     createdAt: thread.created_at,
     updatedAt: thread.updated_at,
   }
