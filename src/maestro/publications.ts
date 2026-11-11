@@ -25,6 +25,12 @@ export function immutable<T>(value: T): T {
 export function publicationKey(thread: string, key: string) {
   return JSON.stringify([thread, key])
 }
+/** Who wrote the event: the principal, or the channel id of an external contact (no principal). */
+function actorKey(actor: MaestroEvent['actor']): string {
+  return JSON.stringify(
+    actor.kind === 'external' ? [actor.kind, actor.channel, actor.externalId] : [actor.principalId]
+  )
+}
 
 /** Publication receipts only. E04-10 owns replay, contiguous cursors and the thread store. */
 export class MaestroPublicationLedger {
@@ -57,7 +63,7 @@ export class MaestroPublicationLedger {
         (item.threadId === event.threadId &&
           item.type === 'message.created' &&
           event.type === 'message.created' &&
-          item.actor.principalId === event.actor.principalId &&
+          actorKey(item.actor) === actorKey(event.actor) &&
           item.payload.client_event_id !== undefined &&
           item.payload.client_event_id === event.payload.client_event_id)
     )

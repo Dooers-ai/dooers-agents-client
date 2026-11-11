@@ -4,7 +4,7 @@
 import type { MaestroNetworkEvent } from './maestro/network'
 import type { MaestroExecution } from './maestro/store'
 import type { MaestroMessageContent } from './maestro/types'
-import type { MaestroParticipant, MaestroThread } from './protocol/maestro/contracts'
+import type { MaestroEvent, MaestroParticipant, MaestroThread } from './protocol/maestro/contracts'
 import type {
   DisplayContentPart,
   Run,
@@ -37,11 +37,34 @@ const named = (
   fallback: string
 ) => resolve?.(kind, id)?.trim() || fallback
 
+/**
+ * A contact of a messaging channel (WhatsApp number, public-chat visitor) has no Dooers principal.
+ * Production keeps it as a plain user whose id is the channel id (``User(user_id=<e164>)``).
+ */
+function externalUser(contact: { externalId: string; displayName?: string }): User {
+  return {
+    userId: contact.externalId,
+    userName: contact.displayName ?? contact.externalId,
+    userEmail: null,
+    identityIds: [],
+    systemRole: 'user',
+    organizationRole: 'member',
+    workspaceRole: 'member',
+  }
+}
+
+/** The id the legacy views show: the instance agent id, the principal, or the contact channel id. */
+export function maestroParticipantLegacyId(participant: MaestroParticipant): string {
+  if (participant.kind === 'agent') return participant.instanceAgentId
+  return participant.kind === 'external' ? participant.externalId : participant.principalId
+}
+
 export function maestroParticipantToUser(
   participant: MaestroParticipant,
   resolve?: MaestroNameResolver
 ): User {
-  const id = participant.kind === 'agent' ? participant.instanceAgentId : participant.principalId
+  if (participant.kind === 'external') return externalUser(participant)
+  const id = maestroParticipantLegacyId(participant)
   return {
     userId: id,
     userName: named(resolve, participant.kind, id, participant.displayName),
@@ -88,18 +111,28 @@ export function maestroThreadToLegacy(
     metadata: {
       authority: 'maestro',
       state: thread.state,
-      participants: active.map((p) => ({
-        kind: p.kind,
-        participantId: p.participantId,
-        principalId: p.principalId,
-        displayName: named(
-          resolve,
-          p.kind,
-          p.kind === 'agent' ? p.instanceAgentId : p.principalId,
-          p.displayName
-        ),
-        ...(p.kind === 'agent' ? { instanceAgentId: p.instanceAgentId } : {}),
-      })),
+      participants: active.map((p) =>
+        p.kind === 'external'
+          ? {
+              kind: p.kind,
+              participantId: p.participantId,
+              externalId: p.externalId,
+              channel: p.channel,
+              displayName: p.displayName ?? p.externalId,
+            }
+          : {
+              kind: p.kind,
+              participantId: p.participantId,
+              principalId: p.principalId,
+              displayName: named(
+                resolve,
+                p.kind,
+                p.kind === 'agent' ? p.instanceAgentId : p.principalId,
+                p.displayName
+              ),
+              ...(p.kind === 'agent' ? { instanceAgentId: p.instanceAgentId } : {}),
+            }
+      ),
     },
     queue: null,
     createdAt: thread.createdAt,
@@ -121,10 +154,12 @@ function actorName(actor: Actor, resolve: MaestroNameResolver | undefined): stri
   if (actor.kind === 'agent')
     return named(resolve, 'agent', actor.instanceAgentId, actor.displayName)
   if (actor.kind === 'human') return named(resolve, 'human', actor.principalId, actor.displayName)
+  if (actor.kind === 'external') return actor.displayName ?? actor.externalId
   return actor.displayName
 }
 
 function actorUser(actor: Actor, resolve: MaestroNameResolver | undefined): User | undefined {
+  if (actor.kind === 'external') return externalUser(actor)
   if (actor.kind !== 'human') return undefined
   return {
     userId: actor.principalId,
@@ -137,8 +172,13 @@ function actorUser(actor: Actor, resolve: MaestroNameResolver | undefined): User
   }
 }
 
+/** A person, Dooers user or external contact, is ``user`` in production; the agent is ``assistant``. */
 function legacyActor(actor: Actor): ThreadEvent['actor'] {
-  return actor.kind === 'human' ? 'user' : actor.kind === 'agent' ? 'assistant' : 'system'
+  return actor.kind === 'human' || actor.kind === 'external'
+    ? 'user'
+    : actor.kind === 'agent'
+      ? 'assistant'
+      : 'system'
 }
 
 function attachmentKind(mimeType: string | undefined): 'image' | 'audio' | 'document' {
@@ -147,9 +187,62 @@ function attachmentKind(mimeType: string | undefined): 'image' | 'audio' | 'docu
   return 'document'
 }
 
-export function maestroContentToDisplay(content: MaestroMessageContent): DisplayContentPart[] {
+/** Every part of a stored message: the human parts plus the agent-only ``media_link``. */
+export type MaestroEventContent = Extract<
+  MaestroEvent,
+  { type: 'message.created' }
+>['payload']['content']
+type MediaLinkPart = Extract<MaestroEventContent[number], { type: 'media_link' }>
+type ContactPart = Extract<MaestroEventContent[number], { type: 'contact' }>
+
+/** The agent kept the URL it could not download: the production part of the same kind, with the URL. */
+function mediaLinkToDisplay(part: MediaLinkPart): DisplayContentPart {
+  if (part.kind === 'image')
+    return {
+      type: 'image',
+      url: part.url,
+      ...(part.mime_type ? { mimeType: part.mime_type } : {}),
+      ...(part.alt ? { alt: part.alt } : {}),
+      ...(part.filename ? { filename: part.filename } : {}),
+    }
+  if (part.kind === 'audio')
+    return {
+      type: 'audio',
+      url: part.url,
+      ...(part.mime_type ? { mimeType: part.mime_type } : {}),
+      ...(part.duration !== undefined ? { duration: part.duration } : {}),
+      ...(part.filename ? { filename: part.filename } : {}),
+    }
+  return {
+    type: 'document',
+    url: part.url,
+    ...(part.mime_type ? { mimeType: part.mime_type } : {}),
+    ...(part.filename ? { filename: part.filename } : {}),
+  }
+}
+
+/**
+ * The contact part of the production wire (``WireS2C_ContactPart``: ``phones`` defaults to ``[]``).
+ * ``DisplayContentPart`` has no contact member (the production client does not render contacts);
+ * the chat skips parts whose type it does not know, so the value passes through as on the wire.
+ */
+function contactToDisplay(part: ContactPart): DisplayContentPart {
+  const wire = {
+    type: 'contact' as const,
+    display_name: part.display_name,
+    ...(part.vcard !== undefined ? { vcard: part.vcard } : {}),
+    phones: part.phones ?? [],
+  }
+  return wire as unknown as DisplayContentPart
+}
+
+export function maestroContentToDisplay(
+  content: MaestroEventContent | MaestroMessageContent
+): DisplayContentPart[] {
   return content.map((part): DisplayContentPart => {
     if (part.type === 'text') return { type: 'text', text: part.text }
+    if (part.type === 'media_link') return mediaLinkToDisplay(part)
+    if (part.type === 'contact') return contactToDisplay(part)
     const kind = attachmentKind(part.mime_type)
     // Sem URL: o chat abre o arquivo pelo hook de artefato (leitura autenticada) usando ``refId``.
     if (kind === 'audio')
@@ -274,7 +367,7 @@ export function maestroEventToLegacy(
     threadId: e.threadId,
     runId: e.executionId ?? null,
     actor: legacyActor(e.actor),
-    author: e.actor.kind === 'human' ? null : actorName(e.actor, resolve),
+    author: legacyActor(e.actor) === 'user' ? null : actorName(e.actor, resolve),
     createdAt: e.createdAt,
   }
   const user = actorUser(e.actor, resolve)

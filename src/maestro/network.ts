@@ -2,6 +2,7 @@ import { z } from 'zod'
 import {
   MaestroContractError,
   type MaestroEvent,
+  toMaestroActor,
   toMaestroEvent,
 } from '../protocol/maestro/contracts.js'
 import {
@@ -240,16 +241,6 @@ export function toMaestroNetworkEvent(
   const parsed = readMaestroNetworkEvent(value, onUnsupported)
   if (parsed.known) return { known: true, event: toMaestroReceivedEvent(parsed.event) }
   const e = parsed.event
-  const actor = e.actor
-  const commonActor = {
-    principalId: actor.principal_id,
-    participantId: actor.participant_id,
-    displayName: actor.display_name,
-  }
-  const publicActor =
-    actor.kind === 'agent'
-      ? { ...commonActor, kind: actor.kind, instanceAgentId: actor.instance_agent_id }
-      : { ...commonActor, kind: actor.kind }
   return {
     known: false,
     event: {
@@ -258,7 +249,7 @@ export function toMaestroNetworkEvent(
       sequence: e.sequence,
       type: e.type,
       schemaVersion: e.schema_version,
-      actor: publicActor,
+      actor: toMaestroActor(e.actor),
       payload: e.payload,
       createdAt: e.created_at,
       causationEventId: e.causation_event_id,

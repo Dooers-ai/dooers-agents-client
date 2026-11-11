@@ -100,9 +100,17 @@ export function hasMaestroCapability(
   return capabilities?.includes(capability) === true
 }
 
-function actorToPublic(actor: MaestroWireActor) {
+/** Public view of an actor. An external contact (WhatsApp, public chat) has no principal. */
+export function toMaestroActor(actor: MaestroWireActor) {
+  if (actor.kind === 'external')
+    return {
+      kind: actor.kind,
+      externalId: actor.external_id,
+      channel: actor.channel,
+      participantId: actor.participant_id ?? null,
+      ...(actor.display_name === undefined ? {} : { displayName: actor.display_name }),
+    }
   const shared = {
-    kind: actor.kind,
     principalId: actor.principal_id,
     participantId: actor.participant_id,
     displayName: actor.display_name,
@@ -116,23 +124,31 @@ export function toMaestroParticipant(value: unknown) {
   const item = parse(publicSchemas['Public.Participant'], 'Public.Participant', value)
   const shared = {
     participantId: item.participant_id,
-    principalId: item.principal_id,
-    displayName: item.display_name,
     ...(item.avatar_url === undefined ? {} : { avatarUrl: item.avatar_url }),
     state: item.state,
     joinedSequence: item.joined_sequence,
     leftSequence: item.left_sequence,
   }
+  if (item.kind === 'external')
+    return {
+      ...shared,
+      kind: item.kind,
+      role: item.role,
+      externalId: item.external_id,
+      channel: item.channel,
+      ...(item.display_name === undefined ? {} : { displayName: item.display_name }),
+    }
+  const named = { ...shared, principalId: item.principal_id, displayName: item.display_name }
   return item.kind === 'agent'
     ? {
-        ...shared,
+        ...named,
         kind: item.kind,
         role: item.role,
         instanceAgentId: item.instance_agent_id,
         capabilities: [...item.capabilities],
         availability: item.availability,
       }
-    : { ...shared, kind: item.kind, role: item.role }
+    : { ...named, kind: item.kind, role: item.role }
 }
 
 function eventToPublic(event: MaestroWireEvent) {
@@ -142,7 +158,7 @@ function eventToPublic(event: MaestroWireEvent) {
     sequence: event.sequence,
     type: event.type,
     schemaVersion: event.schema_version,
-    actor: actorToPublic(event.actor),
+    actor: toMaestroActor(event.actor),
     // Domain payloads retain their canonical, discriminated wire shape. Never
     // recursively rename arbitrary form fields, option keys, or user content.
     payload: event.payload,

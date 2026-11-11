@@ -43,8 +43,12 @@ export function maestroMentions(
   const mentionable = strict ? participants.filter((p) => p.state === 'active') : agents
   const candidates = mentionable
     .flatMap((p) => {
-      const id = p.kind === 'agent' ? p.instanceAgentId : p.principalId
-      const name = resolve?.(p.kind, id)?.trim() || p.displayName
+      // An external contact (WhatsApp, public chat) has no principal and no resolvable name.
+      const name =
+        p.kind === 'external'
+          ? (p.displayName ?? p.externalId)
+          : resolve?.(p.kind, p.kind === 'agent' ? p.instanceAgentId : p.principalId)?.trim() ||
+            p.displayName
       return aliases(name).map((alias) => ({ alias, participantId: p.participantId }))
     })
     .sort((a, b) => b.alias.length - a.alias.length)

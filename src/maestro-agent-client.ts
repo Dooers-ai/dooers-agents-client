@@ -14,6 +14,7 @@ import {
   maestroEventToLegacy,
   maestroExecutionToRun,
   maestroLegacyServerVersion,
+  maestroParticipantLegacyId,
   maestroThreadHasAgent,
   maestroThreadToLegacy,
 } from './maestro-legacy'
@@ -214,7 +215,10 @@ export class MaestroAgentClient extends AgentClient {
         : this.selected(id ?? 'new')
     const labels = recipients.map((recipient) => {
       const p = participants.find((p) => p.participantId === recipient)
-      return p ? this.options.resolveName?.('agent', p.principalId) || p.displayName : ''
+      if (!p) return ''
+      return p.kind === 'agent'
+        ? this.options.resolveName?.('agent', p.principalId) || p.displayName
+        : (p.displayName ?? '')
     })
     return {
       mode: all ? ('all' as const) : recipients.length ? ('direct' as const) : ('none' as const),
@@ -968,9 +972,7 @@ export class MaestroAgentClient extends AgentClient {
     const wanted = userId.toLowerCase()
     const state = maestro.store.getThread(id)
     const participant = Object.values(state?.participantsById ?? {}).find(
-      (p) =>
-        p.state !== 'removed' &&
-        (p.kind === 'agent' ? p.instanceAgentId : p.principalId).toLowerCase() === wanted
+      (p) => p.state !== 'removed' && maestroParticipantLegacyId(p).toLowerCase() === wanted
     )
     if (!participant) return Promise.resolve(false)
     const key = crypto.randomUUID()
@@ -1128,7 +1130,7 @@ export class MaestroAgentClient extends AgentClient {
         const mime = part.mime_type ?? ''
         artifacts.push({
           eventId: event.eventId,
-          direction: event.actor.kind === 'human' ? 'in' : 'out',
+          direction: event.actor.kind === 'human' || event.actor.kind === 'external' ? 'in' : 'out',
           kind: mime.startsWith('image/')
             ? 'image'
             : mime.startsWith('audio/')
@@ -1139,8 +1141,9 @@ export class MaestroAgentClient extends AgentClient {
           url: null,
           refId: part.artifact_id,
           createdAt: event.createdAt,
-          userId: event.actor.principalId,
-          userName: event.actor.displayName,
+          userId:
+            event.actor.kind === 'external' ? event.actor.externalId : event.actor.principalId,
+          userName: event.actor.displayName ?? null,
         })
       }
     }
