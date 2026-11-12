@@ -76,12 +76,20 @@ const INLINE_IMAGE_TYPES = new Set([
 /**
  * MIME type for the `blob:` URL of an artifact. A `blob:` URL is same-origin with the web app:
  * if a tab navigates to one of type text/html, SVG or XML, the file runs script in the app origin.
- * Only media that the production components render inline (raster images, audio) keep their real
- * type. Everything else gets `application/octet-stream`, so navigation downloads the file.
+ * Only media that the production components render inline (raster images, audio) and PDF keep
+ * their real type. Maestro inspects every PDF and refuses /JavaScript, /Launch, /EmbeddedFile and
+ * /Encrypt, and the browser PDF viewer does not run script in the page origin, so the web can show
+ * a PDF in its View panel. Everything else gets `application/octet-stream`, so navigation
+ * downloads the file.
  */
 export function maestroBlobType(mimeType: string): string {
   const type = mimeType.split(';')[0]!.trim().toLowerCase()
-  if (INLINE_IMAGE_TYPES.has(type) || /^audio\/[a-z0-9][a-z0-9.+_-]*$/.test(type)) return type
+  if (
+    type === 'application/pdf' ||
+    INLINE_IMAGE_TYPES.has(type) ||
+    /^audio\/[a-z0-9][a-z0-9.+_-]*$/.test(type)
+  )
+    return type
   return 'application/octet-stream'
 }
 const failure = (code: string, retryable = false) =>

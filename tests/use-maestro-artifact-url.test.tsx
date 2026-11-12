@@ -378,13 +378,13 @@ describe('useMaestroArtifactUrl', () => {
         view.unmount()
         return blob.type
       }
-      it.each(['text/html', 'image/svg+xml', 'application/xml', 'application/pdf'])(
+      it.each(['text/html', 'image/svg+xml', 'application/xml', 'application/json'])(
         '%s vira application/octet-stream',
         async (mime) => {
           expect(await copiedType(mime)).toBe('application/octet-stream')
         }
       )
-      it.each(['image/png', 'audio/webm'])('%s mantém o tipo', async (mime) => {
+      it.each(['application/pdf', 'image/png', 'audio/webm'])('%s mantém o tipo', async (mime) => {
         expect(await copiedType(mime)).toBe(mime)
       })
     })

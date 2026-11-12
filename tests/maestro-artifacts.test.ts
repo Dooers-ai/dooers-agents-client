@@ -189,10 +189,10 @@ describe('open() blob type: only inline-rendered media keep their real type', ()
   r.release(); create.mockRestore()
   return blob.type
  }
- it.each(['text/html', 'image/svg+xml', 'application/xml', 'text/xml', 'application/json', 'application/pdf', 'text/plain', 'application/xhtml+xml', 'application/octet-stream'])('%s becomes application/octet-stream', async (mime) => {
+ it.each(['text/html', 'image/svg+xml', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream'])('%s becomes application/octet-stream', async (mime) => {
   expect(await run(mime)).toBe('application/octet-stream')
  })
- it.each(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
+ it.each(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
   expect(await run(mime)).toBe(mime)
  })
 })
