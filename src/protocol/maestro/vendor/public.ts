@@ -126,7 +126,8 @@ const contactPart = z.strictObject({
 const mediaLinkPart = z.strictObject({
   type: z.literal('media_link'),
   kind: z.enum(['image', 'audio', 'document']),
-  url: z.url({ protocol: /^https?$/ }).max(2048),
+  // Long signed URLs (cloud storage, CDN) must not fail an agent run.
+  url: z.url({ protocol: /^https?$/ }).max(8192),
   mime_type: publicArtifact.shape.mime_type.optional(),
   filename: publicArtifact.shape.filename.optional(),
   alt: z.string().max(1024).optional(),
@@ -147,6 +148,9 @@ const content = z
   .max(32)
   .refine(nonblankParts, 'Message must contain text, an attachment, a contact or a media link')
   .meta({ 'x-maestro-semantic': 'nonblank-content' })
+// Agent messages (message.create output and the stored message.created) accept a blank text part:
+// production send.text("") stores it. Human requests keep nonblank-content.
+const agentContent = z.array(contentPart).min(1).max(32)
 // Human messages cannot carry media_link: only agents hold URLs they did not upload as artifacts.
 const humanContent = z
   .array(humanContentPart)
@@ -302,7 +306,7 @@ const messageUpdatePayload = z.strictObject({
   content,
   run_id: runId.optional(),
 })
-const threadUpdatePayload = z.strictObject({
+export const threadUpdatePayload = z.strictObject({
   title: z.string().max(200).optional(),
   queue: queueName.nullish(),
   run_id: runId.optional(),
@@ -321,6 +325,8 @@ const runUpdatePayload = z.strictObject({
   status: runStatus,
   error: longText.optional(),
 })
+// Body of the human answer to a production form (frame form.response without form_event_id, which is in the path).
+const formResponse = z.strictObject({ values: openObject, cancelled: z.boolean() })
 const options = z
   .array(
     z.strictObject({
@@ -653,7 +659,7 @@ const agentActor = z.discriminatedUnion('kind', [humanActor.extend(humanIdentity
 const messagePayload = z.strictObject({
   routing: routingIntent.optional(),
   routing_decision: routingDecision.optional(),
-  content,
+  content: agentContent,
   mentions: uniqueIds,
   client_event_id: idempotencyKeySchema.optional(),
   execution_id: uuidSchema.optional(),
@@ -782,8 +788,8 @@ const durableEventsFor = <A extends z.ZodType, Pt extends z.ZodType, Th extends 
       'form.responded',
       z.strictObject({
         form_event_id: uuidSchema,
-        values: openObject,
-        cancelled: z.boolean(),
+        values: formResponse.shape.values,
+        cancelled: formResponse.shape.cancelled,
       })
     ),
     'message.updated': eventOf('message.updated', messageUpdatePayload),
@@ -828,6 +834,16 @@ const capabilitiesResponse = z.strictObject({
 const pathId = z.strictObject({ id: uuidSchema })
 const participantPath = z.strictObject({ id: uuidSchema, participantId: uuidSchema })
 const rootPath = z.strictObject({ id: uuidSchema, eventId: uuidSchema })
+const formEventPath = z.strictObject({ id: uuidSchema, formEventId: uuidSchema })
+const executionArtifactPath = z.strictObject({ id: uuidSchema, artifactId: uuidSchema })
+// Link token: base64url(JSON payload) "." base64url(HMAC-SHA256); opaque to clients.
+const artifactLinkPath = z.strictObject({
+  token: z
+    .string()
+    .min(3)
+    .max(512)
+    .regex(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/),
+})
 const mutationHeaders = z.strictObject({ 'Idempotency-Key': idempotencyKeySchema })
 const versionedHeaders = mutationHeaders.extend({ 'If-Match': z.string().regex(/^[1-9][0-9]*$/) })
 const readHeaders = z.strictObject({ 'Maestro-Supervision-Grant': uuidSchema.optional() })
@@ -901,6 +917,11 @@ const downloadMetadata = z.strictObject({
   content_disposition: z.literal('attachment'),
   x_content_type_options: z.literal('nosniff'),
 })
+// Issued inside an execution: one artifact, no login, valid until expires_at (default 3600 s).
+const artifactLinkResponse = z.strictObject({
+  url: z.url({ protocol: /^https?$/ }).max(8192),
+  expires_at: timestampSchema,
+})
 const outputOf = <T extends string, P extends z.ZodRawShape, E extends z.ZodRawShape>(
   type: T,
   payload: P,
@@ -918,7 +939,7 @@ const outputUnion = <E extends z.ZodRawShape>(extra: E) =>
     outputOf(
       'message.create',
       {
-        content,
+        content: agentContent,
         mentions: uniqueIds,
         agent_options: options.optional(),
         ...agentMessageFields,
@@ -933,8 +954,9 @@ const outputUnion = <E extends z.ZodRawShape>(extra: E) =>
     outputOf('chart.create', chartPayload.shape, extra),
     outputOf('form.create', formPayload.shape, extra),
     outputOf('message.update', messageUpdatePayload.shape, extra),
-    // Maestro fills agent_id and trigger_event_id of run.updated from the execution.
-    outputOf('run.update', runUpdatePayload.shape, extra),
+    // Maestro fills trigger_event_id of run.updated from the execution; agent_id defaults to the
+    // executing agent (production send.run_start(agent_id=...) records the Run with that agent).
+    outputOf('run.update', { ...runUpdatePayload.shape, agent_id: uuidSchema.optional() }, extra),
     outputOf('thread.update', threadUpdatePayload.shape, extra),
     outputOf('participant.add', participantAddPayload.shape, extra),
   ])
@@ -1216,6 +1238,9 @@ export const publicSchemas = {
   'Public.IdPath': pathId,
   'Public.ParticipantPath': participantPath,
   'Public.RootPath': rootPath,
+  'Public.FormEventPath': formEventPath,
+  'Public.ExecutionArtifactPath': executionArtifactPath,
+  'Public.ArtifactLinkPath': artifactLinkPath,
   'Public.MutationHeaders': mutationHeaders,
   'Public.VersionedHeaders': versionedHeaders,
   'Public.ReadHeaders': readHeaders,
@@ -1262,11 +1287,13 @@ export const publicSchemas = {
   'Public.ExportQuery': exportQuery,
   'Public.ExportResponse': exportResponse,
   'Public.InteractionResponseRequest': interactionResponse,
+  'Public.FormResponseRequest': formResponse,
   'Public.FeedbackRequest': feedback,
   'Public.ArtifactCreateRequest': artifactCreate,
   'Public.UploadSessionResponse': uploadSession,
   'Public.ArtifactCompleteRequest': artifactComplete,
   'Public.DownloadMetadata': downloadMetadata,
+  'Public.ArtifactLinkResponse': artifactLinkResponse,
   'Public.ContextResponse': contextResponse,
   'Public.HeartbeatRequest': heartbeat,
   'Public.HeartbeatResponse': z.strictObject({ lease_until: timestampSchema }),

@@ -439,6 +439,32 @@
       }
     },
     {
+      "method": "POST",
+      "path": "/threads/:id/forms/:formEventId/responses",
+      "operation": "form.respond",
+      "request_schema": "Public.FormResponseRequest",
+      "query_schema": null,
+      "path_schema": "Public.FormEventPath",
+      "response_schema": "Public.PersistedResponse",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "production form (form.created output, no suspension); answer or cancel recorded as form.responded",
+        "form.responded opens its own causal root and one delivery to the agent author of form.created",
+        "author agent no longer an active participant: FORBIDDEN agent_not_participant, no event or delivery",
+        "body up to 2 MiB; values follow open-json-bytes"
+      ],
+      "fixtures": {
+        "request": "public.FormResponseRequest.valid",
+        "path": "public.FormEventPath.valid",
+        "response": "public.PersistedResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
       "method": "PUT",
       "path": "/events/:id/feedback",
       "operation": "feedback.write",
@@ -528,6 +554,58 @@
       ],
       "fixtures": {
         "path": "public.IdPath.valid",
+        "response": "public.DownloadMetadata.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/executions/:id/artifacts/:artifactId/links",
+      "operation": "artifact.link.issue",
+      "request_schema": "Public.Empty",
+      "query_schema": null,
+      "path_schema": "Public.ExecutionArtifactPath",
+      "response_schema": "Public.ArtifactLinkResponse",
+      "status_codes": [200],
+      "required_capability": "attachments.durable",
+      "auth": "agent_execution",
+      "headers": ["Authorization", "Maestro-Execution-Capability"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "execution capability carries artifact.link.issue for this execution; core authorizes artifact.download for the agent",
+        "artifact linked to the execution's thread up to the context cutoff; never another thread's file",
+        "url is a short-lived unauthenticated link to one artifact (default 3600 s); one link per call, no other data"
+      ],
+      "fixtures": {
+        "request": "public.Empty.valid",
+        "path": "public.ExecutionArtifactPath.valid",
+        "response": "public.ArtifactLinkResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/artifact-links/:token",
+      "operation": "artifact.link.download",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.ArtifactLinkPath",
+      "response_schema": "Public.DownloadMetadata",
+      "status_codes": [200, 206],
+      "required_capability": "attachments.durable",
+      "auth": "artifact_link",
+      "headers": [],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "actual body is binary; metadata schema describes response headers, not JSON body",
+        "no bearer, cookie or CORS; HMAC-SHA256 token binds artifact, thread, organization and expiry",
+        "token, artifact still linked, thread without tombstone: any failure is the same 404",
+        "stored MIME with Content-Disposition attachment and nosniff; Cache-Control private, no-store (revocation is immediate)",
+        "HMAC checked before any database read; per-process and per-organization stream slots, short wait then 429 with Retry-After",
+        "single byte range as the proxy; another range form gets the full body"
+      ],
+      "fixtures": {
+        "path": "public.ArtifactLinkPath.valid",
         "response": "public.DownloadMetadata.valid",
         "error": "public.Error.valid"
       }

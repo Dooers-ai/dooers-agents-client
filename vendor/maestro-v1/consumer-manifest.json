@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "10aae5ee34b06a2090795d17a1e852b6691e81dd662d521dbd3eda6df211c41a",
-  "source_revision": "sha256:d48d22d342d2a743cce26702cd5458005d007b2363a63d4ce5599c3ca0764bd2",
-  "bundle_manifest_sha256": "49bea41a05058602e88521522c5c672d1524a8e02570aea6da004cc81db92237",
+  "source_manifest_sha256": "daaa8f17e85d87be5ef6c65e3e051ecd2c3345088ec40566ba619f6e564db303",
+  "source_revision": "sha256:74fe753937a726d2759a4cd534668afa03645145ac53c313b1afe7ae0cc2ee45",
+  "bundle_manifest_sha256": "fab094442efd0c8958d0a4e59cb19d1fe1ca7408d2e7c0890d0337e6aad397ab",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -26,11 +26,11 @@
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "eca8f8f8e1dc18979693c5393d6c03ebbd3d9c17ee10917a67ecb45c3afd454f"
+      "sha256": "12d9c3e1178fceb3af4c4925d5574b316eb0809297d35dba85db55ecf5cde0e0"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public.json": {
       "source": "docs/contracts/fixtures/v1/public.json",
-      "sha256": "740f3c1e101977f157d400765a4ed592b6ee31b7de6e4a7eccddbcae7817c65a"
+      "sha256": "a6b0a444b8f34881c80f6925901550d8239f329e8b47b5eefc4fd78a71e3f034"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public-publication.json": {
       "source": "docs/contracts/fixtures/v1/public-publication.json",
@@ -42,15 +42,15 @@
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
       "source": "docs/contracts/catalog-public.json",
-      "sha256": "03ed5b43ba14c9d6bb4431e5f6887175796f0c1a33cd80bacbe7e8f46a933490"
+      "sha256": "fbfa04204627c7086bfa9d2871d65440055225dcf3f706d6004f5d5c129ba55e"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "10aae5ee34b06a2090795d17a1e852b6691e81dd662d521dbd3eda6df211c41a"
+      "sha256": "daaa8f17e85d87be5ef6c65e3e051ecd2c3345088ec40566ba619f6e564db303"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "49bea41a05058602e88521522c5c672d1524a8e02570aea6da004cc81db92237"
+      "sha256": "fab094442efd0c8958d0a4e59cb19d1fe1ca7408d2e7c0890d0337e6aad397ab"
     }
   }
 }

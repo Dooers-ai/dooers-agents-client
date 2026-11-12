@@ -497,6 +497,110 @@
           "request_id": "00000000-0000-4000-8000-000000000011"
         }
       }
+    },
+    {
+      "id": "consumer.run-update-agent-id-preserved",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "run.update",
+        "payload": {
+          "run_id": "00000000-0000-4000-8000-000000000030",
+          "status": "running",
+          "agent_id": "00000000-0000-4000-8000-000000000031"
+        },
+        "lease_fence": "1"
+      }
+    },
+    {
+      "id": "consumer.run-update-agent-id-not-uuid-rejected",
+      "schema": "Public.OutputRequest",
+      "valid": false,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "run.update",
+        "payload": {
+          "run_id": "00000000-0000-4000-8000-000000000030",
+          "status": "running",
+          "agent_id": "not-a-uuid"
+        },
+        "lease_fence": "1"
+      }
+    },
+    {
+      "id": "consumer.agent-empty-text-output",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:2",
+        "type": "message.create",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            }
+          ],
+          "mentions": []
+        },
+        "lease_fence": "1"
+      }
+    },
+    {
+      "id": "consumer.human-empty-text-rejected",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "content": [
+          {
+            "type": "text",
+            "text": ""
+          }
+        ],
+        "client_event_id": "publish-fixture-001",
+        "mentions": []
+      }
+    },
+    {
+      "id": "consumer.artifact-link-response",
+      "schema": "Public.ArtifactLinkResponse",
+      "valid": true,
+      "data": {
+        "url": "https://maestro.exemplo.com/api/v1/artifact-links/e30.AAAA",
+        "expires_at": "2026-10-13T13:00:00.000Z"
+      }
+    },
+    {
+      "id": "consumer.artifact-link-response-bad-expiry-rejected",
+      "schema": "Public.ArtifactLinkResponse",
+      "valid": false,
+      "data": {
+        "url": "https://maestro.exemplo.com/api/v1/artifact-links/e30.AAAA",
+        "expires_at": "tomorrow"
+      }
+    },
+    {
+      "id": "consumer.form-response-request",
+      "schema": "Public.FormResponseRequest",
+      "valid": true,
+      "data": {
+        "values": {
+          "nome": "Ana"
+        },
+        "cancelled": false
+      }
+    },
+    {
+      "id": "consumer.form-response-missing-cancelled-rejected",
+      "schema": "Public.FormResponseRequest",
+      "valid": false,
+      "data": {
+        "values": {
+          "nome": "Ana"
+        }
+      }
     }
   ]
 }
