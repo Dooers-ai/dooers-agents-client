@@ -45,6 +45,24 @@ const agentMessage = (content: unknown[]) => {
   return e
 }
 
+describe('run id without a production run', () => {
+  const withExecution = (payload: Record<string, unknown>) => {
+    const e = agentMessage([{ type: 'text', text: 'Olá' }])
+    e.execution_id = uuid(88)
+    e.payload = { ...e.payload, ...payload }
+    return e
+  }
+  it('an event of an execution without run_start has runId null, like production', () => {
+    const legacy = maestroEventToLegacy(toMaestroNetworkEvent(withExecution({})))
+    expect(legacy).toMatchObject({ type: 'message' })
+    expect(legacy?.runId).toBeNull()
+  })
+  it('the run id of the payload still wins over the execution', () => {
+    const run = uuid(89)
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(withExecution({ run_id: run })))?.runId).toBe(run)
+  })
+})
+
 describe('external participants (WhatsApp, public chat)', () => {
   it('a message from an external contact is a user message with the contact as user', () => {
     const e = event(1)

@@ -682,7 +682,7 @@ export class MaestroAgentClient extends AgentClient {
   }
 
   private syncRuns(id: string, state: MaestroThreadState) {
-    // A running execution already shows the agent working; only the pending indicator reads it.
+    // While an execution is running the agent already shows as working, so the pending indicator stays off.
     const running = Object.values(state.executionsById).some((e) => e.state === 'running')
     // Production has a Run only where the handler called run_start: every Run comes from run.updated.
     // An execution never makes or closes one.

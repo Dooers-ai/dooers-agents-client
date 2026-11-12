@@ -492,7 +492,8 @@ export function maestroEventToLegacy(
   const base = {
     id: e.eventId,
     threadId: e.threadId,
-    runId: payloadRun ?? fold?.runId ?? e.executionId ?? null,
+    // Production sets the run id only where the handler called run_start; an execution id is not a run.
+    runId: payloadRun ?? fold?.runId ?? null,
     actor: legacyActor(e.actor),
     author: person ? null : name,
     createdAt: e.createdAt,
