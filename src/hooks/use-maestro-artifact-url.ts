@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { MaestroArtifactResource, MaestroArtifacts } from '../maestro/artifacts'
+import {
+  type MaestroArtifactResource,
+  type MaestroArtifacts,
+  maestroBlobType,
+} from '../maestro/artifacts'
 import { MaestroClientError } from '../maestro/types'
 import { MaestroAgentClient } from '../maestro-agent-client'
 import { useAgentContext } from '../provider'
@@ -350,7 +354,9 @@ async function copyToOwnBlob(
 ): Promise<MaestroArtifactResource> {
   try {
     const response = await fetch(resource.url, { signal })
-    const blob = await response.blob()
+    const copy = await response.blob()
+    // Same rule as `MaestroArtifacts.open`: only inline media keep their real type.
+    const blob = new Blob([copy], { type: maestroBlobType(resource.mimeType) })
     signal.throwIfAborted()
     const url = URL.createObjectURL(blob)
     let revoked = false

@@ -1,4 +1,4 @@
-import { afterEach, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MaestroArtifacts, type MaestroAttachment } from '../src/maestro/artifacts'
 import type { MaestroClient } from '../src/maestro/client'
 import { event, make, thread, threadId, tick, uuid } from './fixtures/maestro-replay'
@@ -177,4 +177,22 @@ it('an attachment cited only by another thread event (not message.created) is re
  const r = await env.client.artifacts.open(threadId, attachment); expect(r.url).toBe('blob:edited'); r.release()
  await expect(env.client.artifacts.open(threadId, { ...attachment, artifact_id: uuid(41) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
  create.mockRestore(); revoke.mockRestore()
+})
+describe('open() blob type: only inline-rendered media keep their real type', () => {
+ const run = async (mime: string) => {
+  const body = 'synthetic media'
+  const fetcher = vi.fn(async () => new Response(body, { headers: { 'Content-Type': mime, 'Content-Length': String(body.length), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="f"', 'X-Content-Type-Options': 'nosniff' } }))
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:typed'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  const r = await env.client.artifacts.open(threadId, { ...attachment, mime_type: mime, size_bytes: body.length })
+  const blob = create.mock.calls[0]![0] as Blob
+  r.release(); create.mockRestore()
+  return blob.type
+ }
+ it.each(['text/html', 'image/svg+xml', 'application/xml', 'text/xml', 'application/json', 'application/pdf', 'text/plain', 'application/xhtml+xml', 'application/octet-stream'])('%s becomes application/octet-stream', async (mime) => {
+  expect(await run(mime)).toBe('application/octet-stream')
+ })
+ it.each(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
+  expect(await run(mime)).toBe(mime)
+ })
 })

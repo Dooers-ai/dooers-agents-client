@@ -64,6 +64,26 @@ export function payloadReferencesArtifact(payload: unknown, artifactId: string):
   }
   return false
 }
+/** Raster images that production components render in an `<img>`. */
+const INLINE_IMAGE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/avif',
+  'image/bmp',
+])
+/**
+ * MIME type for the `blob:` URL of an artifact. A `blob:` URL is same-origin with the web app:
+ * if a tab navigates to one of type text/html, SVG or XML, the file runs script in the app origin.
+ * Only media that the production components render inline (raster images, audio) keep their real
+ * type. Everything else gets `application/octet-stream`, so navigation downloads the file.
+ */
+export function maestroBlobType(mimeType: string): string {
+  const type = mimeType.split(';')[0]!.trim().toLowerCase()
+  if (INLINE_IMAGE_TYPES.has(type) || /^audio\/[a-z0-9][a-z0-9.+_-]*$/.test(type)) return type
+  return 'application/octet-stream'
+}
 const failure = (code: string, retryable = false) =>
   new MaestroClientError(code, 'Artifact request unavailable', retryable)
 /** Private, bounded File intentions. These are neither canonical events nor storage references. */
@@ -299,7 +319,7 @@ export class MaestroArtifacts {
         throw failure('PROTOCOL_ERROR')
       const bytes = await this.readResponse(response, Number(length), lifetime, chunks)
       if (bytes.byteLength !== Number(length) || lifetime.aborted) throw failure('PROTOCOL_ERROR')
-      const blob = new Blob([bytes], { type })
+      const blob = new Blob([bytes], { type: maestroBlobType(type) })
       bytes.fill(0)
       const url = URL.createObjectURL(blob)
       const resource: MaestroArtifactResource = Object.freeze({

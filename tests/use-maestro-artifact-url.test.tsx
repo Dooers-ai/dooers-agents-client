@@ -19,6 +19,8 @@ interface FakeOptions {
   before?: (call: number, artifactId: string) => void
   /** When true the fake ignores the abort signal (a read that finishes after abort). */
   ignoreAbort?: boolean
+  /** MIME type of the fake resource. Default: image/png. */
+  mimeType?: string
 }
 
 /** Fake `artifacts.open` that enforces the same limits as the real host (2 reads, 8 live). */
@@ -69,7 +71,7 @@ function fakeArtifacts(options: FakeOptions = {}) {
     state.resources.push(entry)
     return {
       url: entry.url,
-      mimeType: 'image/png',
+      mimeType: options.mimeType ?? 'image/png',
       filename: 'a.png',
       expiresAt: Date.now() + 60000,
       release: entry.release,
@@ -363,6 +365,28 @@ describe('useMaestroArtifactUrl', () => {
       expect(revoked).toEqual([])
       view.unmount()
       expect(revoked).toEqual(['blob:own#1'])
+    })
+
+    describe('tipo do Blob próprio', () => {
+      const copiedType = async (mimeType: string) => {
+        vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, blob: async () => new Blob(['x'], { type: mimeType }) })))
+        useFakeMaestro(fakeArtifacts({ mimeType }))
+        const view = render(<Item name="a" refId={id(1)} stable />)
+        await advance(100)
+        expect(snap(view, 'a').status).toBe('ready')
+        const blob = (URL.createObjectURL as unknown as ReturnType<typeof vi.fn>).mock.calls[0]![0] as Blob
+        view.unmount()
+        return blob.type
+      }
+      it.each(['text/html', 'image/svg+xml', 'application/xml', 'application/pdf'])(
+        '%s vira application/octet-stream',
+        async (mime) => {
+          expect(await copiedType(mime)).toBe('application/octet-stream')
+        }
+      )
+      it.each(['image/png', 'audio/webm'])('%s mantém o tipo', async (mime) => {
+        expect(await copiedType(mime)).toBe(mime)
+      })
     })
 
     it('não ocupa a conta de 8 recursos vivos e não é evictado', async () => {
