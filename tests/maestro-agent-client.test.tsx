@@ -11,7 +11,6 @@ import {
   legacyFormValuesToMaestro,
   MAESTRO_AGENT_ROLE,
   maestroEventToLegacy,
-  maestroExecutionToRun,
   maestroFormToLegacyData,
   maestroLegacyServerVersion,
   maestroThreadHasAgent,
@@ -171,10 +170,7 @@ describe('Maestro → legacy mapping', () => {
     if (created.payload.interaction.definition.kind === 'form') expect(mapped).toMatchObject({ type: 'form', id: created.payload.interaction.interaction_id })
     else expect(mapped).toBeNull()
   })
-  it('executions become runs; failures keep the reason', () => {
-    const base = { execution_id: uuid(60), delivery_id: uuid(61), participant_id: uuid(20), phase_id: 'p', outcome: null, reason_code: null, deadline_at: '2026-10-13T15:00:00Z', completed_at: null }
-    expect(maestroExecutionToRun({ ...base, state: 'running' } as never, threadId, AGENT, 'now')).toMatchObject({ status: 'running', agentId: AGENT, error: null })
-    expect(maestroExecutionToRun({ ...base, state: 'failed', outcome: 'failed', reason_code: 'RUNTIME_ERROR', completed_at: 'x' } as never, threadId, AGENT, 'now')).toMatchObject({ status: 'failed', error: 'RUNTIME_ERROR' })
+  it('reports the legacy server version', () => {
     expect(maestroLegacyServerVersion('0.1.0')).toBe('0.22.0+maestro.0.1.0')
   })
 })

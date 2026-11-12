@@ -13,7 +13,6 @@ import {
   legacyFormValuesToMaestro,
   type MaestroNameResolver,
   maestroEventToLegacy,
-  maestroExecutionToRun,
   maestroLegacyServerVersion,
   maestroParticipantLegacyId,
   maestroRunsToLegacy,
@@ -682,29 +681,11 @@ export class MaestroAgentClient extends AgentClient {
     return events
   }
 
-  private agentOfParticipant(state: MaestroThreadState, participantId: string): string | null {
-    const participant = state.participantsById[participantId]
-    return participant?.kind === 'agent' ? participant.instanceAgentId : null
-  }
-
   private syncRuns(id: string, state: MaestroThreadState) {
-    let running = false
-    for (const execution of Object.values(state.executionsById)) {
-      if (!this.runStarts.has(execution.execution_id))
-        this.runStarts.set(execution.execution_id, new Date().toISOString())
-      const run = maestroExecutionToRun(
-        execution,
-        id,
-        this.agentOfParticipant(state, execution.participant_id),
-        this.runStarts.get(execution.execution_id) as string
-      )
-      if (run.status === 'running') running = true
-      const signature = JSON.stringify(run)
-      if (this.runSignatures.get(run.id) === signature) continue
-      this.runSignatures.set(run.id, signature)
-      this.callbacks.onRunUpsert(run)
-    }
-    // Runs the agent opened and closed itself (send.run_start/run_end → run.updated), as production.
+    // A running execution already shows the agent working; only the pending indicator reads it.
+    const running = Object.values(state.executionsById).some((e) => e.state === 'running')
+    // Production has a Run only where the handler called run_start: every Run comes from run.updated.
+    // An execution never makes or closes one.
     for (const run of maestroRunsToLegacy(this.knownEvents(state))) {
       const signature = JSON.stringify(run)
       if (this.runSignatures.get(run.id) === signature) continue

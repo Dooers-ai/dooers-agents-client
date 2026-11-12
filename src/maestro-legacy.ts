@@ -2,7 +2,6 @@
 // O chat existente continua renderizando só os tipos legados; nada aqui faz I/O.
 
 import type { MaestroNetworkEvent } from './maestro/network'
-import type { MaestroExecution } from './maestro/store'
 import type { MaestroMessageContent } from './maestro/types'
 import {
   compareMaestroSequences,
@@ -10,15 +9,7 @@ import {
   type MaestroParticipant,
   type MaestroThread,
 } from './protocol/maestro/contracts'
-import type {
-  DisplayContentPart,
-  Run,
-  RunStatus,
-  SendContentPart,
-  Thread,
-  ThreadEvent,
-  User,
-} from './types'
+import type { DisplayContentPart, Run, SendContentPart, Thread, ThreadEvent, User } from './types'
 
 /** ``systemRole`` marcando um participante agente na lista legada ``Thread.users``. */
 export const MAESTRO_AGENT_ROLE = 'agent'
@@ -614,36 +605,6 @@ export function maestroEventToLegacy(
       }
     default:
       return null
-  }
-}
-
-const runStatus: Record<MaestroExecution['state'], RunStatus> = {
-  running: 'running',
-  completed: 'succeeded',
-  failed: 'failed',
-  timed_out: 'failed',
-  canceled: 'canceled',
-  // Suspensa = aguardando pessoa; não deve manter o indicador de "digitando".
-  suspended: 'succeeded',
-}
-
-export function maestroExecutionToRun(
-  execution: MaestroExecution,
-  threadId: string,
-  agentId: string | null,
-  startedAt: string
-): Run {
-  return {
-    id: execution.execution_id,
-    threadId,
-    agentId,
-    status: runStatus[execution.state],
-    startedAt,
-    endedAt: execution.completed_at ?? null,
-    error:
-      execution.state === 'failed' || execution.state === 'timed_out'
-        ? (execution.reason_code ?? execution.state)
-        : null,
   }
 }
 

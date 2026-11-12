@@ -12,7 +12,6 @@ import {
 } from '../src/maestro-legacy'
 import { MaestroAgentClient } from '../src/maestro-agent-client'
 import { toMaestroNetworkEvent } from '../src/maestro/network'
-import type { MaestroExecution } from '../src/maestro/store'
 import {
   type MaestroEvent,
   toMaestroParticipant,
@@ -414,6 +413,52 @@ describe('MaestroAgentClient with production events', () => {
         status: 'running',
         endedAt: null,
       })
+      client.disconnect()
+    }
+  )
+  it.each(['completed', 'failed', 'timed_out'] as const)(
+    'an execution that runs and %s with no run.updated publishes no Run to the legacy store',
+    async (state) => {
+      const fetcher = vi.fn(async () => listOf([]))
+      const { client, store, socket } = await setup(fetcher)
+      client.subscribe(threadId)
+      await tick()
+      socket.ackSubscribe()
+      const [start] = parity.runs[0]!.maestro
+      const base = inThread(start, 2) as Record<string, any>
+      const execution = {
+        execution_id: base.execution_id,
+        delivery_id: uuid(72),
+        participant_id: base.actor.participant_id,
+        phase_id: 'initial',
+        deadline_at: '2026-11-11T21:00:00Z',
+      }
+      const started = {
+        ...base,
+        event_id: uuid(73),
+        type: 'execution.started',
+        payload: { ...execution, state: 'running', outcome: null, reason_code: null, completed_at: null },
+      }
+      const ended = {
+        ...base,
+        event_id: uuid(74),
+        sequence: '3',
+        type: state === 'completed' ? 'execution.completed' : 'execution.failed',
+        payload: {
+          ...execution,
+          state,
+          outcome: state === 'completed' ? 'responded' : 'failed',
+          reason_code: state === 'completed' ? null : 'deadline_exceeded',
+          completed_at: '2026-11-11T21:00:00Z',
+        },
+      }
+      socket.snapshot([event(1), started], '2')
+      socket.caught('2')
+      await tick()
+      expect(store.getState().runs[threadId] ?? []).toEqual([])
+      socket.frame('event.append', { event: ended, cursor: 'three' })
+      await tick()
+      expect(store.getState().runs[threadId] ?? []).toEqual([])
       client.disconnect()
     }
   )
