@@ -80,10 +80,12 @@ const INLINE_IMAGE_TYPES = new Set([
  * their real type. Maestro inspects every PDF and refuses /JavaScript, /Launch, /EmbeddedFile and
  * /Encrypt, and the browser PDF viewer does not run script in the page origin, so the web can show
  * a PDF in its View panel. Everything else gets `application/octet-stream`, so navigation
- * downloads the file.
+ * downloads the file. Any type whose subtype ends in `+xml` also gets it, even under `audio/`.
  */
 export function maestroBlobType(mimeType: string): string {
   const type = mimeType.split(';')[0]!.trim().toLowerCase()
+  // A `+xml` suffix marks an XML document whatever the type says (audio/x+xml, image/svg+xml).
+  if (type.endsWith('+xml')) return 'application/octet-stream'
   if (
     type === 'application/pdf' ||
     INLINE_IMAGE_TYPES.has(type) ||
