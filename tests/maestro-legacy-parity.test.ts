@@ -281,18 +281,27 @@ describe('message, tool and run details of production', () => {
     wire.payload.author = ''
     expect(maestroEventToLegacy(toMaestroNetworkEvent(wire), resolve)?.author).toBe(parity.agent.name)
   })
-  it('a run still running when its execution ended takes the execution outcome', () => {
-    const [start] = parity.runs[0]!.maestro
-    const running = received(start)
-    const execution = {
-      execution_id: running.executionId!,
-      state: 'timed_out',
-      completed_at: '2026-11-11T21:00:00Z',
-      reason_code: 'deadline_exceeded',
-    } as unknown as MaestroExecution
-    expect(maestroRunsToLegacy([running], { [execution.execution_id]: execution })).toEqual([
-      expect.objectContaining({ status: 'failed', endedAt: '2026-11-11T21:00:00Z', error: 'deadline_exceeded' }),
-    ])
+  describe('run closure, strict parity with production', () => {
+    const [start, end] = parity.runs[0]!.maestro
+    const runId = (start as { payload: { run_id: string } }).payload.run_id
+    /** The run's closing event, rewritten as a plain ``run_end`` (succeeded) or a failure. */
+    const closing = (status: 'succeeded' | 'failed') => {
+      const wire = structuredClone(end) as Record<string, any>
+      wire.payload.status = status
+      if (status === 'succeeded') delete wire.payload.error
+      return received(wire)
+    }
+    it('a run with no closing run.updated stays running', () => {
+      expect(maestroRunsToLegacy([received(start)])).toEqual([
+        expect.objectContaining({ id: runId, status: 'running', endedAt: null, error: null }),
+      ])
+    })
+    it.each(['succeeded', 'failed'] as const)('a run.updated with %s closes the run', (status) => {
+      const closed = closing(status)
+      const [run] = maestroRunsToLegacy([received(start), closed])
+      expect(run).toMatchObject({ id: runId, status, endedAt: closed.createdAt })
+      expect(run?.error ?? null).toBe(status === 'failed' ? (end as any).payload.error : null)
+    })
   })
   it('the thread queue and channel reach the legacy thread', () => {
     const value = thread('1')
@@ -370,6 +379,44 @@ describe('MaestroAgentClient with production events', () => {
     })
     client.disconnect()
   })
+  it.each(['completed', 'failed', 'timed_out'] as const)(
+    'an execution that %s without a closing run.updated leaves the production run running',
+    async (state) => {
+      const fetcher = vi.fn(async () => listOf([]))
+      const { client, store, socket } = await setup(fetcher)
+      client.subscribe(threadId)
+      await tick()
+      socket.ackSubscribe()
+      const [start] = parity.runs[0]!.maestro
+      const runStart = inThread(start, 2)
+      const ended = structuredClone(runStart) as Record<string, any>
+      Object.assign(ended, {
+        event_id: uuid(70),
+        sequence: '3',
+        type: state === 'completed' ? 'execution.completed' : 'execution.failed',
+        payload: {
+          execution_id: runStart.execution_id,
+          delivery_id: uuid(71),
+          participant_id: runStart.actor.participant_id,
+          phase_id: 'initial',
+          state,
+          outcome: state === 'completed' ? 'responded' : 'failed',
+          reason_code: state === 'completed' ? null : 'deadline_exceeded',
+          deadline_at: '2026-11-11T21:00:00Z',
+          completed_at: '2026-11-11T21:00:00Z',
+        },
+      })
+      socket.snapshot([event(1), runStart, ended], '3')
+      socket.caught('3')
+      await tick()
+      const runId = (start as { payload: { run_id: string } }).payload.run_id
+      expect(store.getState().runs[threadId]?.find((r) => r.id === runId)).toMatchObject({
+        status: 'running',
+        endedAt: null,
+      })
+      client.disconnect()
+    }
+  )
   it('thread.updated with a queue moves the legacy thread to that queue', async () => {
     const fetcher = vi.fn(async () => listOf([]))
     const { client, store, socket } = await setup(fetcher)

@@ -705,7 +705,7 @@ export class MaestroAgentClient extends AgentClient {
       this.callbacks.onRunUpsert(run)
     }
     // Runs the agent opened and closed itself (send.run_start/run_end → run.updated), as production.
-    for (const run of maestroRunsToLegacy(this.knownEvents(state), state.executionsById)) {
+    for (const run of maestroRunsToLegacy(this.knownEvents(state))) {
       const signature = JSON.stringify(run)
       if (this.runSignatures.get(run.id) === signature) continue
       this.runSignatures.set(run.id, signature)

@@ -652,22 +652,16 @@ export function maestroExecutionToRun(
  * ``run_id`` with its latest status. ``startedAt`` is the ``running`` event, ``endedAt`` the end
  * event, ``agentId`` the agent the run started with.
  *
- * A run is the agent's own record; its execution is Maestro's. When the execution already ended
- * (failure, timeout, cancel, suspension or completion) while the run still says ``running``, the
- * run takes the execution outcome, so the chat never keeps a "typing" indicator of a dead execution.
+ * Strict parity with production: a run closes only through its own ``run.updated`` (``run_end``,
+ * or the handler failure the server reports as ``failed``). The execution outcome never closes it,
+ * so a run the agent left open stays ``running``, as ``pipeline.py`` leaves it.
  */
-export function maestroRunsToLegacy(
-  events: readonly MaestroEvent[],
-  executions: Readonly<Record<string, MaestroExecution>> = {}
-): Run[] {
+export function maestroRunsToLegacy(events: readonly MaestroEvent[]): Run[] {
   const runs = new Map<string, Run>()
-  const executionOf = new Map<string, string>()
   for (const event of [...events].sort(bySequence)) {
     if (event.type !== 'run.updated') continue
     const p = event.payload
     const previous = runs.get(p.run_id)
-    if (event.executionId && !executionOf.has(p.run_id))
-      executionOf.set(p.run_id, event.executionId)
     runs.set(p.run_id, {
       id: p.run_id,
       threadId: event.threadId,
@@ -678,11 +672,5 @@ export function maestroRunsToLegacy(
       error: p.error ?? null,
     })
   }
-  return [...runs.values()].map((run) => {
-    const executionId = executionOf.get(run.id)
-    const execution = executionId ? executions[executionId] : undefined
-    if (run.status !== 'running' || !execution || execution.state === 'running') return run
-    const ended = maestroExecutionToRun(execution, run.threadId, run.agentId, run.startedAt)
-    return { ...run, status: ended.status, endedAt: ended.endedAt, error: ended.error }
-  })
+  return [...runs.values()]
 }
