@@ -7,14 +7,14 @@
     "delivery-rules.json": "f451f76a6492b98a0b68c83f25b143dbccf019557f01f6039c4e602864ed4d69",
     "fixtures.json": "5001a8b466134aeaca1f7c4d8696bed19a07bdb3e5656925279e3162b23858e2",
     "openapi/core.json": "9d9ceea91220e4a692840b46d8644a89244f72385855bea551f9d6e281ccced5",
-    "openapi/internal.json": "e27b0fc822248cd98d21523d358ff8c6a9ec1c85a53ba8ab7d6629c218ef9ed6",
-    "openapi/public.json": "d8ae6befbae3e6b5b827c340d55719fffc9d07d4c245b06496e877e822f9683a",
+    "openapi/internal.json": "a222cf984221bd80a1240171b4e2a26c6e89032018a336ef6c394ac57344aa15",
+    "openapi/public.json": "a9a19a45a1ab987cc51e0f92c1c66a2e2c38efde387b341620a926c17fc15e37",
     "openapi/runtime.json": "2e76b6997abfdf2cddbaad4075617e6afb103f04a0d09d36a7b00292918e56e8",
     "python/requirements.in": "d72cfe90574d1a1ac97b91263b9b6c9ed97cbcfc9b0f10fa56a09ffbd46218f7",
     "python/requirements.lock": "004045153477d0ad4a6e8b1346535278f17e76446d00598ce79a9a659e828f23",
     "python/semantics.py": "bcafb455dc9f67b6b75f6c2c9f28f4f0a6c2dfdc3e71bb0937248909272a4dec",
     "python/validate.py": "42e5c9a3c20408720f8f18ef8202190d6c29b058b950bc1ce9ba6ccc22d24e41",
-    "schemas.json": "91895643843b4d92e807d1985ba34a22b87d9829a4a85c73605781d3d5721e35"
+    "schemas.json": "57bf21e4fc100d255834184a78c387d7905f2609864c16ffe0334bd3c66f38f5"
   },
   "generator": {
     "json_schema": "2020-12",
@@ -52,9 +52,9 @@
     "docs/contracts/v1/common.ts": "f7344cffc2d7505778da0e05dc414abbac1b3e5ccca146d932ebe2faa3d1f11c",
     "docs/contracts/v1/delivery.ts": "1fb79de2f23e72c7e352a3c8eccabee444bcd5b9e10027176def05bfe3bcfc30",
     "docs/contracts/v1/identity.ts": "5f0d4338b094fdb8a0f616cbec15f00bbf749d0ef8283bf849e3f6e365d22a08",
-    "docs/contracts/v1/public.ts": "12d9c3e1178fceb3af4c4925d5574b316eb0809297d35dba85db55ecf5cde0e0"
+    "docs/contracts/v1/public.ts": "e684844e1ca2221266960f30db84eb6899afceb7c6be3e2fc4015c6a38532449"
   },
-  "source_revision": "sha256:74fe753937a726d2759a4cd534668afa03645145ac53c313b1afe7ae0cc2ee45",
+  "source_revision": "sha256:34bff058bf176177565b0330a8526dd6aa9bf02fcaa3b7722e97a1ed373101cb",
   "validation": {
     "fixtures": {
       "invalid": 417,

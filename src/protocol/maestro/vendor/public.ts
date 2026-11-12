@@ -78,6 +78,10 @@ const publicArtifact = z.strictObject({
   expires_at: timestampSchema.nullable(),
 })
 const textPart = z.strictObject({ type: z.literal('text'), text })
+// Agent text: production does not limit message size. The contract ceiling is the callback body limit
+// (2 MiB); Maestro's operational byte limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) refuses first with
+// PAYLOAD_TOO_LARGE. Human text keeps the 64 Ki character ceiling above.
+const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string().max(2097152) })
 const attachmentPart = z.strictObject({
   type: z.literal('attachment'),
   artifact_id: uuidSchema,
@@ -135,7 +139,7 @@ const mediaLinkPart = z.strictObject({
 })
 const humanContentPart = z.discriminatedUnion('type', [textPart, attachmentPart, contactPart])
 const contentPart = z.discriminatedUnion('type', [
-  textPart,
+  agentTextPart,
   attachmentPart,
   contactPart,
   mediaLinkPart,
