@@ -290,3 +290,13 @@ Domain event payloads stay discriminated wire shapes; arbitrary content/form key
 are not recursively renamed. This local candidate retains package version 0.17.1;
 identify it by tarball SHA-256, not a registry release. No UI/provider is mounted by
 this pure adapter.
+
+### Unknown form elements (Maestro)
+
+`toFormElement` and `toFormEventData` keep the production behaviour by default: an
+element of an unknown type becomes `undefined` (the legacy transport is unchanged).
+With the Maestro transport, call them with `{ tolerateUnknown: true }`: the unknown
+element keeps its original `type`, gets `required: false` and no default, so the
+web renders the same empty element it renders for any unknown type and the form can
+still be submitted. Declared difference: production fails on such an element;
+Maestro mode shows the empty element.
