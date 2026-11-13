@@ -43,7 +43,7 @@ const consumerFixture = (id: string) => fixtures.find((c) => c.id === `consumer.
 
 // Expected digest is shared with the service consumer test, independent of SDK parser output.
 const expectedClassificationDigest =
-  'b953ba166bb7f02b23c87c21d43cc6d46f15620a54ee93dc3e68bccdb7509fc4'
+  '3cd14dc99f309f89d602b7204f75aa8c8d9fafbe49783320150be8f628c2834f'
 
 describe('Maestro v1 pinned contract consumer', () => {
   it('verifies exact source bytes and dependency pin', () => {
@@ -117,7 +117,7 @@ describe('Maestro v1 pinned contract consumer', () => {
       expectedClassificationDigest
     )
     expect(new Set(fixtures.map((c) => c.id)).size).toBe(fixtures.length)
-    expect(Object.keys(maestroPublicSchemas)).toHaveLength(149)
+    expect(Object.keys(maestroPublicSchemas)).toHaveLength(150)
   })
   it('rejects unregistered schema names including inherited object properties', () => {
     expect(validateMaestroContract('toString', {})).toBe(false)

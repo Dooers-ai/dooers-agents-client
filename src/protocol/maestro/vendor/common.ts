@@ -74,6 +74,16 @@ export const externalFields = {
   channel: externalChannelSchema,
   display_name: displayNameSchema.optional(),
 }
+// How a public chat visitor got in: anonymous (guest:<22 chars>) or signed in on the public chat link
+// (the raw production user id). Only the public_chat channel uses it.
+export const externalConnectionTypes = ['guest', 'public_authenticated'] as const
+export const externalConnectionTypeSchema = z.enum(externalConnectionTypes)
+// Actor and participant of a stored thread: the external fields plus the visitor connection type.
+// Profile fields (email, phone, roles) are not here: they stay in the agent-only schemas (index 4.3.1).
+export const externalActorFields = {
+  ...externalFields,
+  connection_type: externalConnectionTypeSchema.optional(),
+}
 export const actorSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('human'),
@@ -96,7 +106,7 @@ export const actorSchema = z.discriminatedUnion('kind', [
   }),
   z.strictObject({
     kind: z.literal('external'),
-    ...externalFields,
+    ...externalActorFields,
     participant_id: uuidSchema.optional(),
   }),
 ])

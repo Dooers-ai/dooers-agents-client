@@ -6,7 +6,7 @@ import path from 'node:path'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const read = (name) => readFileSync(path.join(root, name))
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex')
-const pin = '4e7b108b4235f3134e71c7da45db62595881de941d6c3c6cb7e8b8ba5e318f5b'
+const pin = 'e0b2cd5857d42306468d88af5825bd95b28c3020217b97b05c9ac7d9e3007558'
 const consumer = JSON.parse(read('vendor/maestro-v1/consumer-manifest.json'))
 const manifestBytes = read('vendor/maestro-v1/contracts/manifest.json')
 if (hash(manifestBytes) !== pin || consumer.source_manifest_sha256 !== pin) {
@@ -15,6 +15,7 @@ if (hash(manifestBytes) !== pin || consumer.source_manifest_sha256 !== pin) {
 const manifest = JSON.parse(manifestBytes)
 const expectedFiles = {
   'src/protocol/maestro/vendor/common.ts': 'docs/contracts/v1/common.ts',
+  'src/protocol/maestro/vendor/identity.ts': 'docs/contracts/v1/identity.ts',
   'src/protocol/maestro/vendor/public.ts': 'docs/contracts/v1/public.ts',
   'vendor/maestro-v1/contracts/fixtures/v1/public.json': 'docs/contracts/fixtures/v1/public.json',
   'vendor/maestro-v1/contracts/fixtures/v1/public-publication.json': 'docs/contracts/fixtures/v1/public-publication.json',

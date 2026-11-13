@@ -1032,7 +1032,8 @@
         "own delivery and current read/fence/deadline",
         "direction forward (default): first event up to the cutoff, ascending sequence",
         "direction backward: from the cutoff back to the first event, descending sequence; next_cursor continues before the oldest item",
-        "a next_cursor is valid only in its own direction, delivery and execution; contiguous pages, a gap is DEPENDENCY_UNAVAILABLE"
+        "a next_cursor is valid only in its own direction, delivery and execution; contiguous pages, a gap is DEPENDENCY_UNAVAILABLE",
+        "thread (agent-only, every page): the thread at the cutoff; title and queue from the last thread.created/thread.updated up to the cutoff, channel, channel_meta, created_at and owner_instance_agent_id from the thread"
       ],
       "fixtures": {
         "query": "public.ContextQuery.valid",

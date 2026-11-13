@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "4e7b108b4235f3134e71c7da45db62595881de941d6c3c6cb7e8b8ba5e318f5b",
-  "source_revision": "sha256:072784189cb88166fa0e6dc62f48626f6005b1850400d539954325afe25bb9df",
-  "bundle_manifest_sha256": "2b13a7a4a78fb50866b622393dbeb3fc78fb489ab402846cc489a5f420afa3cb",
+  "source_manifest_sha256": "e0b2cd5857d42306468d88af5825bd95b28c3020217b97b05c9ac7d9e3007558",
+  "source_revision": "sha256:687c9284e7160ff648b38d93e54a3b5cb92987c8c8865f39fdecec5f8617f596",
+  "bundle_manifest_sha256": "0d362ca29c425d80f81449d9421630d59038da9ee6d7076bed371a24b743ec51",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -22,15 +22,19 @@
   "files": {
     "src/protocol/maestro/vendor/common.ts": {
       "source": "docs/contracts/v1/common.ts",
-      "sha256": "f7344cffc2d7505778da0e05dc414abbac1b3e5ccca146d932ebe2faa3d1f11c"
+      "sha256": "ac68dcf82cd5e7925ef7363ea40abbc5c11518f5024c4ab2014b65cc363267d7"
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "45bf730359fc944843da4c1b485f36776d3f021229267d8c98834de15f03d716"
+      "sha256": "855aee2992f5243ae2118f91a1cc36bbaa46d50315b6597ce8c4d265288a19b8"
+    },
+    "src/protocol/maestro/vendor/identity.ts": {
+      "source": "docs/contracts/v1/identity.ts",
+      "sha256": "5afed0578fc1f11a0b495d2f8f1fc4037e774db45d9f83ddae3c7f434ee12b34"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public.json": {
       "source": "docs/contracts/fixtures/v1/public.json",
-      "sha256": "6419d26597e37542b15e30ed7a994c13a89719aee01b11a7c05aef1fb5e44823"
+      "sha256": "61ac27a28b076ca44344fce492fcbbe475f8fa7e354a6270b5b650eeb4a78d11"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public-publication.json": {
       "source": "docs/contracts/fixtures/v1/public-publication.json",
@@ -42,15 +46,15 @@
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
       "source": "docs/contracts/catalog-public.json",
-      "sha256": "1fd69760e1f13411660a2e7e9dad7a5d92e68f3fa744bf0874a1e506e74862a8"
+      "sha256": "6c6b349bd318cb2e73d63ff7bc9a5c82fc5d012590628e20b2d78f5303112833"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "4e7b108b4235f3134e71c7da45db62595881de941d6c3c6cb7e8b8ba5e318f5b"
+      "sha256": "e0b2cd5857d42306468d88af5825bd95b28c3020217b97b05c9ac7d9e3007558"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "2b13a7a4a78fb50866b622393dbeb3fc78fb489ab402846cc489a5f420afa3cb"
+      "sha256": "0d362ca29c425d80f81449d9421630d59038da9ee6d7076bed371a24b743ec51"
     }
   }
 }

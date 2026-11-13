@@ -6,6 +6,7 @@ import {
   displayNameSchema,
   errorResponseSchema,
   errorSchema,
+  externalActorFields,
   externalFields,
   idempotencyKeySchema,
   opaquePrincipalSchema,
@@ -17,6 +18,7 @@ import {
   uuidSchema,
   versionSchema,
 } from './common.js'
+import { connectionContextSchema } from './identity.js'
 
 // These are v1 contract ceilings, not production quotas (G04/G05).
 const empty = z.strictObject({})
@@ -118,6 +120,10 @@ const boundedJson = <T extends z.ZodType>(schema: T) =>
     .refine(withinOpenJsonBytes, 'Open JSON must not exceed 1 MiB serialized')
     .meta({ 'x-maestro-semantic': 'open-json-bytes' })
 const openObject = boundedJson(z.record(z.string(), jsonValue))
+// Production never checks the type of tool args and results (the dict annotation is not enforced: handlers send
+// None, "", 0, False, [], "ok"). Any JSON value, null and scalars included, with the same size ceiling.
+// The lazy wrapper keeps the exported schema a plain $ref to JsonValue instead of inlining the union at each use.
+const openValue = boundedJson(z.lazy(() => jsonValue))
 // Production ContactPart.phones is list[dict[str, Any]]: open objects, passed through as-is.
 const contactPhone = z.record(z.string(), jsonValue)
 const contactPart = z.strictObject({
@@ -184,43 +190,61 @@ const agentMessageFields = {
 }
 // Free text the agent writes (reasoning, form/chart messages, run error): same 1 MiB ceiling as open JSON.
 const longText = z.string().max(OPEN_JSON_MAX_BYTES)
+// Ids, names, labels and titles the agent writes in tool, form, chart and reasoning events. Production types them
+// str and enforces no length (there is no column or model limit), so the contract ceiling is generous: 64 Ki
+// characters, far above any tool name, form label or chart title. The callback body limit (2 MiB) bounds the sum.
+const AGENT_LABEL_MAX = 65536
+const agentLabel = z.string().max(AGENT_LABEL_MAX)
+// Title a thread keeps after an agent thread.update. Production stores TEXT with no length rule; 4096 characters
+// keeps a page of thread titles small. The agent routes (create and PATCH) take the same limit; the human
+// create and rename keep 200.
+const THREAD_TITLE_MAX = 4096
+export const threadTitle = z.string().max(THREAD_TITLE_MAX)
 const queueName = z.string().max(200)
 const runStatus = z.enum(['running', 'succeeded', 'failed'])
 // Status of a message on a channel (production data.delivery.status); failed is final.
 const channelDeliveryStatus = z.enum(['accepted', 'sent', 'delivered', 'read', 'failed'])
 // Provider error code as the provider sends it (WhatsApp: an integer such as 131047, or a text code).
 const providerErrorCode = z.union([z.string().min(1).max(64), z.number().int()])
+// Production writes display_name None when the handler gives none, so null is as valid as absent.
 const toolFields = {
-  id: z.string().max(1024),
-  name: z.string().max(1024),
-  display_name: z.string().max(4096).optional(),
+  id: agentLabel,
+  name: agentLabel,
+  display_name: agentLabel.nullish(),
 }
 const reasoningPayload = z.strictObject({
   text: longText,
-  author: z.string().max(200).optional(),
+  author: agentLabel.nullish(),
   run_id: runId.optional(),
 })
 const toolCallPayload = z.strictObject({
   ...toolFields,
-  args: openObject,
+  args: openValue,
   run_id: runId.optional(),
 })
 const toolResultPayload = z.strictObject({
   ...toolFields,
-  args: openObject.optional(),
-  result: openObject,
+  args: openValue.optional(),
+  result: openValue,
   run_id: runId.optional(),
 })
 const toolTransactionPayload = z.strictObject({
   ...toolFields,
-  args: openObject,
-  result: openObject,
+  args: openValue,
+  result: openValue,
   run_id: runId.optional(),
 })
 const panelSize = z.enum(['small', 'medium', 'large'])
 // WireS2C_ChartEventData (protocol/models.py): AgentEvent.data of send.chart always carries title, message, size and series.
-const chartPayload = z.strictObject({
-  title: z.string().max(4096),
+// The model ignores extra keys (pydantic) and model_dump drops them, so the chart and its series accept them here and
+// the execution drops them before storing (`withoutProductionExtras`), as production does.
+const chartSeries = z.looseObject({
+  key: agentLabel,
+  label: agentLabel.nullish(),
+  color: agentLabel.nullish(),
+})
+const chartPayload = z.looseObject({
+  title: agentLabel,
   message: longText,
   chart_type: z.enum([
     'bar',
@@ -233,83 +257,105 @@ const chartPayload = z.strictObject({
     'scatter',
   ]),
   size: panelSize,
-  x_key: z.string().max(1024),
-  y_keys: z.array(z.string().max(1024)).max(1000),
+  x_key: agentLabel,
+  y_keys: z.array(agentLabel),
   data: boundedJson(z.array(z.record(z.string(), jsonValue))),
-  series: z
-    .array(
-      z.strictObject({
-        key: z.string().max(1024),
-        label: z.string().max(4096).nullish(),
-        color: z.string().max(256).nullish(),
-      })
-    )
-    .max(1000),
-  x_label: z.string().max(4096).optional(),
-  y_label: z.string().max(4096).optional(),
+  series: z.array(chartSeries),
+  x_label: agentLabel.nullish(),
+  y_label: agentLabel.nullish(),
   run_id: runId.optional(),
 })
 // WireS2C_Form*Element (protocol/models.py): order, required, disabled and the per-element variants default in the wire model.
 const formElementBase = {
-  name: z.string().max(1024),
-  label: z.string().max(4096),
+  name: agentLabel,
+  label: agentLabel,
   order: z.number().int().optional(),
   required: z.boolean().optional(),
   disabled: z.boolean().optional(),
 }
-const formOptions = z
-  .array(z.strictObject({ value: z.string().max(4096), label: z.string().max(4096) }))
-  .max(5000)
-const formElement = z.discriminatedUnion('type', [
-  z.strictObject({
+const formOptions = z.array(z.strictObject({ value: agentLabel, label: agentLabel }))
+const knownFormElements = [
+  z.looseObject({
     ...formElementBase,
     type: z.literal('text_input'),
-    placeholder: z.string().max(4096).nullish(),
+    placeholder: agentLabel.nullish(),
     default: longText.nullish(),
     input_type: z.enum(['text', 'password', 'email', 'number', 'date']).optional(),
   }),
-  z.strictObject({
+  z.looseObject({
     ...formElementBase,
     type: z.literal('textarea_input'),
-    placeholder: z.string().max(4096).nullish(),
+    placeholder: agentLabel.nullish(),
     default: longText.nullish(),
-    rows: z.number().int().min(1).nullish(),
+    rows: z.number().int().nullish(),
   }),
-  z.strictObject({
+  z.looseObject({
     ...formElementBase,
     type: z.literal('select_input'),
     options: formOptions,
     default: longText.nullish(),
-    placeholder: z.string().max(4096).nullish(),
+    placeholder: agentLabel.nullish(),
   }),
-  z.strictObject({
+  z.looseObject({
     ...formElementBase,
     type: z.literal('radio_input'),
     options: formOptions,
     default: longText.nullish(),
     variant: z.enum(['native', 'button']).optional(),
   }),
-  z.strictObject({
+  z.looseObject({
     ...formElementBase,
     type: z.literal('checkbox_input'),
     options: formOptions,
-    default: z.array(z.string().max(4096)).max(5000).nullish(),
+    default: z.array(agentLabel).nullish(),
     variant: z.enum(['native', 'button']).optional(),
   }),
-  z.strictObject({
+  z.looseObject({
     ...formElementBase,
     type: z.literal('file_input'),
-    upload_url: z.string().max(8192),
-    accept: z.string().max(4096).nullish(),
+    upload_url: agentLabel,
+    accept: agentLabel.nullish(),
     multiple: z.boolean().optional(),
   }),
-])
+] as const
+const KNOWN_FORM_ELEMENT_TYPES: readonly string[] = knownFormElements.map((e) => e.shape.type.value)
+// Production passes an element of any other type through as it came (a warning in the log, no failure) and fails on
+// one that is not a dict. A known type is never an open object: its own model validates it (semantic rule
+// unknown-form-element, mirrored in semantics.py). The list of elements is bounded as a whole (open-json-bytes).
+const unknownFormElement = z
+  .record(z.string(), jsonValue)
+  .refine((element) => !KNOWN_FORM_ELEMENT_TYPES.includes(element['type'] as string))
+  .meta({ 'x-maestro-semantic': 'unknown-form-element' })
+const formElement = z.union([z.discriminatedUnion('type', knownFormElements), unknownFormElement])
+const keepKnown = (value: Record<string, unknown>, shape: z.ZodRawShape) =>
+  Object.fromEntries(Object.entries(value).filter(([key]) => key in shape))
+const formElementShapes = new Map<string, z.ZodRawShape>(
+  knownFormElements.map((element) => [element.shape.type.value, element.shape])
+)
+/**
+ * What production stores of a chart: WireS2C_ChartEventData ignores extra keys and model_dump drops them, for the
+ * chart and for each series. The execution applies this to the parsed output, so no extra key reaches an event.
+ */
+export const withoutChartExtras = <C extends { series: Record<string, unknown>[] }>(
+  chart: C
+): C => ({
+  ...(keepKnown(chart, chartPayload.shape) as C),
+  series: chart.series.map((item) => keepKnown(item, chartSeries.shape)),
+})
+/** Known form elements keep only the fields of their model; an element of another type is stored as it came. */
+export const withoutFormElementExtras = (elements: Record<string, unknown>[]) =>
+  elements.map((element) => {
+    const shape =
+      typeof element['type'] === 'string' ? formElementShapes.get(element['type']) : undefined
+    return shape === undefined ? element : keepKnown(element, shape)
+  })
 const formPayload = z.strictObject({
   message: longText,
-  elements: z.array(formElement).max(1000),
-  submit_label: z.string().max(4096),
-  cancel_label: z.string().max(4096),
-  size: panelSize,
+  elements: boundedJson(z.array(formElement)),
+  submit_label: agentLabel,
+  cancel_label: agentLabel,
+  // Production reads .get("size", "medium") and never checks it (only the chart size is a pydantic Literal).
+  size: agentLabel.nullish(),
   run_id: runId.optional(),
 })
 const messageUpdatePayload = z.strictObject({
@@ -318,7 +364,7 @@ const messageUpdatePayload = z.strictObject({
   run_id: runId.optional(),
 })
 export const threadUpdatePayload = z.strictObject({
-  title: z.string().max(200).optional(),
+  title: threadTitle.optional(),
   queue: queueName.nullish(),
   run_id: runId.optional(),
 })
@@ -382,10 +428,19 @@ const participantFields = {
   joined_sequence: sequenceSchema,
   left_sequence: sequenceSchema.nullable(),
 }
-// Email and identity ids of a human reach only the agent-facing context (index 4.3.1), never a browser.
-const humanIdentity = {
+// Email, identity ids and roles of a human reach only the agent-facing context (index 4.3.1), never a
+// browser. They come from the core ConnectionContext (or, for an event actor, from the profile the
+// publishing agent declared); the roles keep the production values (system_role, organization_role,
+// workspace_role).
+const humanContact = {
   email: z.string().max(320).nullish(),
-  identity_ids: z.array(z.string().min(1).max(256)).max(64).optional(),
+  identity_ids: z.array(z.string().min(1).max(256)).max(256).optional(),
+}
+const humanIdentity = {
+  ...humanContact,
+  system_role: z.string().min(1).max(64).optional(),
+  organization_role: z.string().min(1).max(64).optional(),
+  workspace_role: z.string().min(1).max(64).optional(),
 }
 const participantOf = <H extends z.ZodRawShape>(humanExtra: H) =>
   z.discriminatedUnion('kind', [
@@ -407,7 +462,7 @@ const participantOf = <H extends z.ZodRawShape>(humanExtra: H) =>
     }),
     z.strictObject({
       ...participantFields,
-      ...externalFields,
+      ...externalActorFields,
       kind: z.literal('external'),
       role: z.literal('member'),
     }),
@@ -429,7 +484,7 @@ const threadFields = {
   routing_version: z.literal(1).optional(),
   thread_id: uuidSchema,
   mode: z.literal('maestro'),
-  title: z.string().max(200),
+  title: threadTitle,
   state: threadState,
   version: versionSchema,
   permissions,
@@ -496,17 +551,18 @@ const threadPatch = z.union([
 // The human PATCH above has no queue branch; the agent never archives, so there is no state here.
 const agentThreadPatch = z.union([
   z.strictObject({
-    title: z.string().min(1).max(200),
+    title: threadTitle.min(1),
     queue: queueName.nullable().optional(),
   }),
   z.strictObject({
-    title: z.string().min(1).max(200).optional(),
+    title: threadTitle.min(1).optional(),
     queue: queueName.nullable(),
   }),
 ])
 // Agent-only thread creation (POST /v1/agent/threads): idempotent by external_key, channel metadata allowed.
 // owner: the human the SDK caller names (production Thread.owner); the core authorizes it like any target.
 const agentCreateFields = {
+  title: threadTitle.optional(),
   participants: z.array(agentParticipantTarget).max(99),
   queue: queueName.nullish(),
   channel: threadFields.channel,
@@ -741,7 +797,7 @@ const durableEventsFor = <
       'thread.updated',
       z.strictObject({
         thread_id: uuidSchema,
-        title: z.string().max(200),
+        title: threadTitle,
         state: z.enum(['active', 'archived']),
         version: versionSchema,
         queue: queueName.nullable().optional(),
@@ -879,7 +935,8 @@ const agentPublicationActor = z.discriminatedUnion('kind', [
     kind: z.literal('human'),
     principal_id: opaquePrincipalSchema,
     display_name: displayNameSchema.optional(),
-    ...humanIdentity,
+    // The agent declares email and identity_ids only; the roles come from the core, in responses.
+    ...humanContact,
   }),
   z.strictObject({ kind: z.literal('external'), ...externalFields }),
 ])
@@ -1081,12 +1138,13 @@ const artifactLinkResponse = z.strictObject({
 const outputOf = <T extends string, P extends z.ZodRawShape, E extends z.ZodRawShape>(
   type: T,
   payload: P,
-  extra: E
+  extra: E,
+  tolerant = false
 ) =>
   z.strictObject({
     output_id: outputId,
     type: z.literal(type),
-    payload: z.strictObject(payload),
+    payload: tolerant ? z.looseObject(payload) : z.strictObject(payload),
     ...extra,
   })
 // Every agent output writes one event of the durableEventSchemas catalog (index 4.2/4.4).
@@ -1107,7 +1165,7 @@ const outputUnion = <E extends z.ZodRawShape>(extra: E) =>
     outputOf('tool_call.create', toolCallPayload.shape, extra),
     outputOf('tool_result.create', toolResultPayload.shape, extra),
     outputOf('tool_transaction.create', toolTransactionPayload.shape, extra),
-    outputOf('chart.create', chartPayload.shape, extra),
+    outputOf('chart.create', chartPayload.shape, extra, true),
     outputOf('form.create', formPayload.shape, extra),
     outputOf('message.update', messageUpdatePayload.shape, extra),
     // Maestro fills trigger_event_id of run.updated from the execution; agent_id defaults to the
@@ -1176,11 +1234,31 @@ const brokerEvent = z.strictObject({
   destination_kind: z.enum(['deliveries', 'gateway']),
   occurred_at: timestampSchema,
 })
+// Current thread view of a delivery context (agent-only). Values are the state at the context cutoff:
+// title and queue come from the last thread.created/thread.updated at or below the cutoff; channel,
+// channel_meta, created_at and owner_instance_agent_id never change after creation. Same field
+// definitions as Public.AgentThread, so the SDK reads the thread row of production unchanged.
+const contextThread = z.strictObject({
+  thread_id: threadFields.thread_id,
+  title: threadFields.title,
+  queue: queueName.nullable(),
+  channel: threadFields.channel.unwrap(),
+  channel_meta: z.union([openObject, z.null()]),
+  created_at: threadFields.created_at,
+  owner_instance_agent_id: threadFields.owner_instance_agent_id,
+})
 const contextResponse = z.strictObject({
   delivery_id: uuidSchema,
+  // Present on every page (first and later, forward and backward) of the same delivery, always
+  // with the same values: the thread at the cutoff. Optional only so responses of a Maestro that
+  // predates this field stay valid; the Maestro always emits it.
+  thread: contextThread.optional(),
   trigger_event: agentEvent,
   invocation_event: agentEvent.optional(),
   participants: z.array(agentParticipant).max(100),
+  // Production allowed_queues and queues (the workspace queue catalog from the core); empty in a
+  // personal scope. Agent-only: absent when the Maestro has no core connection context.
+  workspace: connectionContextSchema.shape.workspace.optional(),
   context_cursor: cursorSchema,
   history: page(agentEvent),
 })
@@ -1408,7 +1486,7 @@ export const publicSchemas = {
     z.strictObject({
       thread_id: uuidSchema,
       scope: scopeSchema,
-      title: z.string().max(200),
+      title: threadTitle,
       state: threadState,
       updated_at: timestampSchema,
     })
@@ -1473,6 +1551,7 @@ export const publicSchemas = {
   'Public.DownloadMetadata': downloadMetadata,
   'Public.ArtifactLinkResponse': artifactLinkResponse,
   'Public.ContextQuery': contextQuery,
+  'Public.ContextThread': contextThread,
   'Public.ContextResponse': contextResponse,
   'Public.HeartbeatRequest': heartbeat,
   'Public.HeartbeatResponse': z.strictObject({ lease_until: timestampSchema }),
