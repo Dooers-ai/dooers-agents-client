@@ -465,6 +465,53 @@
       }
     },
     {
+      "method": "GET",
+      "path": "/public-chat/thread",
+      "operation": "public_chat.thread.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.Thread",
+      "status_codes": [200],
+      "required_capability": null,
+      "auth": "external",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "visitor thread found by the key derived from the token (link, connection type, external_id), never from the request",
+        "404 when the visitor has no thread, with the same answer for any other thread"
+      ],
+      "fixtures": {
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/public-chat/thread",
+      "operation": "public_chat.thread.ensure",
+      "request_schema": "Public.PublicChatThreadRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.Thread",
+      "status_codes": [200, 201],
+      "required_capability": null,
+      "auth": "external",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "idempotent ensure of the visitor thread on the first message: 201 when created, 200 when it already exists",
+        "owner agent, channel dooers-public-chat and channel_meta.public_chat_label come from the token and the core decision, never from the body",
+        "participants are exactly the visitor and the agent of the link",
+        "pre-chat guest profile is kept for the agent only"
+      ],
+      "fixtures": {
+        "request": "public.PublicChatThreadRequest.valid",
+        "response": "public.Thread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
       "method": "PUT",
       "path": "/events/:id/feedback",
       "operation": "feedback.write",

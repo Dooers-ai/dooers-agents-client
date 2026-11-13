@@ -6,9 +6,9 @@ import { publicSchemas, wsAckSchemas, wsCommandSchemas } from './vendor/public.j
 export { publicSchemas as maestroPublicSchemas } from './vendor/public.js'
 export const MAESTRO_PROTOCOL_VERSION = 1 as const
 export const MAESTRO_CONTRACT_MANIFEST_SHA256 =
-  '1bb74395c15b5078f8e7b90fed3c02ac274276a3f2a0cb17a3a31acc3d4b4149'
+  'c395e04754668bcbd39509e588e0d34c474d11c3c14ed14060daeac08e697276'
 export const MAESTRO_CONTRACT_SOURCE_REVISION =
-  'sha256:b9e601bbe0cd41ccc8fb1ce0f3790fa6502f97e6077b93bb45c556351679ea4c'
+  'sha256:d6d52ea2b567806ebd7fbcf693298ea3ad3b6f90a899a06fd5267e405917f126'
 
 export type MaestroWireEvent = z.infer<(typeof publicSchemas)['Public.Event']>
 export type MaestroWireThread = z.infer<(typeof publicSchemas)['Public.Thread']>

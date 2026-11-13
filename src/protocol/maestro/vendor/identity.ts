@@ -643,12 +643,16 @@ export const connectionContextSchema = z.strictObject({
  * connection context of the session (validate-connection): the visitor as one person (principal_id is the
  * external_id, the production user_id) and the workspace queue catalog. Authenticated: name, e-mail,
  * identity_ids and the roles of the signed-in user. Guest: no name, no e-mail, no identity_ids and the
- * `guest` role in the three roles. Agent-only, like connectionContextSchema: it answers
+ * `guest` role in the three roles, and the label of the link. Agent-only, like connectionContextSchema: it answers
  * thread.create.public_chat inside the allowed decision and never reaches a browser (index 4.3.1).
  */
 export const visitorContextSchema = z.strictObject({
   person: connectionHumanSchema,
   workspace: connectionContextSchema.shape.workspace,
+  // Label of the public chat link (public_chat_link.label, NOT NULL and 1 to 200 characters in production). The
+  // production web sends it as channel_meta.public_chat_label of the thread; the Maestro takes it from here,
+  // never from the browser.
+  public_chat_label: z.string().min(1).max(200),
 })
 
 export const authorizeRequestSchema = z

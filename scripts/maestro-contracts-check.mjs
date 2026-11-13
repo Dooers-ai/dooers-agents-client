@@ -6,7 +6,7 @@ import path from 'node:path'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const read = (name) => readFileSync(path.join(root, name))
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex')
-const pin = '1bb74395c15b5078f8e7b90fed3c02ac274276a3f2a0cb17a3a31acc3d4b4149'
+const pin = 'c395e04754668bcbd39509e588e0d34c474d11c3c14ed14060daeac08e697276'
 const consumer = JSON.parse(read('vendor/maestro-v1/consumer-manifest.json'))
 const manifestBytes = read('vendor/maestro-v1/contracts/manifest.json')
 if (hash(manifestBytes) !== pin || consumer.source_manifest_sha256 !== pin) {

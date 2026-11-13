@@ -460,7 +460,21 @@ const humanIdentity = {
   organization_role: z.string().min(1).max(64).optional(),
   workspace_role: z.string().min(1).max(64).optional(),
 }
-const participantOf = <H extends z.ZodRawShape>(humanExtra: H) =>
+// Pre-chat form of the production public chat (guest_name, guest_email, guest_phone of the metadata of the first
+// message). Declared by the visitor, never verified: the agent reads it next to the identity the core gave.
+// Lengths are the ones of the core person (name 200, e-mail 320) and 64 for the phone; empty values are dropped.
+const guestProfile = z.strictObject({
+  name: z.string().max(200).optional(),
+  email: z.string().max(320).optional(),
+  phone: z.string().max(64).optional(),
+})
+// What only the agent reads of a public chat visitor: the core person (e-mail, identity_ids and the three
+// production roles, the same names as the human) and the pre-chat form. Never in a browser shape (index 4.3.1).
+const visitorAgentFields = { ...humanIdentity, guest_profile: guestProfile.optional() }
+const participantOf = <H extends z.ZodRawShape, E extends z.ZodRawShape>(
+  humanExtra: H,
+  externalExtra: E
+) =>
   z.discriminatedUnion('kind', [
     z.strictObject({
       ...participantFields,
@@ -481,12 +495,13 @@ const participantOf = <H extends z.ZodRawShape>(humanExtra: H) =>
     z.strictObject({
       ...participantFields,
       ...externalActorFields,
+      ...externalExtra,
       kind: z.literal('external'),
       role: z.literal('member'),
     }),
   ])
-const participant = participantOf({})
-const agentParticipant = participantOf(humanIdentity)
+const participant = participantOf({}, {})
+const agentParticipant = participantOf(humanIdentity, visitorAgentFields)
 const permissions = z.strictObject({
   read: z.boolean(),
   write: z.boolean(),
@@ -555,6 +570,9 @@ const threadCreate = z.discriminatedUnion('scope_kind', [
   }),
   z.strictObject({ scope_kind: z.literal('workspace'), workspace_id: uuidSchema, ...createFields }),
 ])
+// First message of a public chat visitor: ensures the visitor's thread (idempotent). The visitor, the link, the
+// agent, the channel and its label come from the token and the core, never from this body. Returns Public.Thread.
+const publicChatThreadRequest = z.strictObject({ guest: guestProfile.optional() })
 const threadPatch = z.union([
   z.strictObject({
     title: z.string().min(1).max(200),
@@ -1497,6 +1515,7 @@ export const publicSchemas = {
   'Public.VersionedHeaders': versionedHeaders,
   'Public.ReadHeaders': readHeaders,
   'Public.ThreadCreateRequest': threadCreate,
+  'Public.PublicChatThreadRequest': publicChatThreadRequest,
   'Public.ThreadListQuery': threadListQuery,
   'Public.ThreadPage': page(thread),
   'Public.SupervisionListQuery': supervisionListQuery,

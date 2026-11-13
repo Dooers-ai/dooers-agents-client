@@ -11602,6 +11602,367 @@
         "lease_fence": "1"
       },
       "description": "Saída chart.create sem title, message, size e series: o modelo da produção tem padrão para eles."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.valid",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": true,
+      "data": {
+        "guest": {
+          "name": "Maria Souza",
+          "email": "maria@example.com",
+          "phone": "+5511999990000"
+        }
+      },
+      "description": "Primeira mensagem do visitante com o pré-chat de produção."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.empty",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": true,
+      "data": {},
+      "description": "Sem pré-chat: o visitante e a thread vêm do token."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.unknown-field",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "guest": {
+          "name": "Maria"
+        },
+        "public_chat_label": "Outro"
+      },
+      "description": "O rótulo do canal vem do core, nunca do navegador."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.guest-unknown-field",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "guest": {
+          "name": "Maria",
+          "role": "admin"
+        }
+      },
+      "description": "O pré-chat só tem nome, e-mail e telefone."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.name-too-long",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "guest": {
+          "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn"
+        }
+      },
+      "description": "Nome com até 200 caracteres."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.email-too-long",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "guest": {
+          "email": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      },
+      "description": "E-mail com até 320 caracteres."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.phone-too-long",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "guest": {
+          "phone": "11111111111111111111111111111111111111111111111111111111111111111"
+        }
+      },
+      "description": "Telefone com até 64 caracteres."
+    },
+    {
+      "id": "public.PublicChatThreadRequest.visitor-id",
+      "schema": "Public.PublicChatThreadRequest",
+      "valid": false,
+      "data": {
+        "external_id": "guest:AbCdEfGhIjKlMnOpQrStUv"
+      },
+      "description": "O visitante vem do token, nunca do corpo."
+    },
+    {
+      "id": "public.AgentThread.public-chat-visitor",
+      "schema": "Public.AgentThread",
+      "valid": true,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000011",
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000010",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+            "display_name": "Agente",
+            "role": "member",
+            "capabilities": [],
+            "availability": "unknown",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000020",
+            "kind": "external",
+            "external_id": "raw_user_id_from_core",
+            "channel": "public_chat",
+            "connection_type": "public_authenticated",
+            "display_name": "Maria Souza",
+            "email": "maria@example.com",
+            "identity_ids": ["aad-maria"],
+            "system_role": "user",
+            "organization_role": "member",
+            "workspace_role": "member",
+            "guest_profile": {
+              "name": "Maria S.",
+              "email": "maria.pre@example.com",
+              "phone": "+5511999990000"
+            },
+            "role": "member",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": false,
+          "write": false,
+          "manage": false,
+          "supervise": false,
+          "export": false,
+          "cancel": false,
+          "feedback": false,
+          "archive": false,
+          "remove_participants": false
+        },
+        "capabilities": [],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "queue": null,
+        "channel": "dooers-public-chat",
+        "channel_meta": {
+          "public_chat_label": "Atendimento ao cliente"
+        },
+        "external_key": "public:00000000-0000-4000-8000-000000000030:public_authenticated:raw_user_id_from_core",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "Thread do visitante para o agente: o perfil do core e o pré-chat ficam só nos schemas do agente."
+    },
+    {
+      "id": "public.AgentThread.public-chat-visitor-unknown-guest-key",
+      "schema": "Public.AgentThread",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000011",
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000010",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+            "display_name": "Agente",
+            "role": "member",
+            "capabilities": [],
+            "availability": "unknown",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000020",
+            "kind": "external",
+            "external_id": "raw_user_id_from_core",
+            "channel": "public_chat",
+            "connection_type": "public_authenticated",
+            "display_name": "Maria Souza",
+            "email": "maria@example.com",
+            "identity_ids": ["aad-maria"],
+            "system_role": "user",
+            "organization_role": "member",
+            "workspace_role": "member",
+            "guest_profile": {
+              "name": "Maria S.",
+              "email": "maria.pre@example.com",
+              "phone": "+5511999990000",
+              "company": "Acme"
+            },
+            "role": "member",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": false,
+          "write": false,
+          "manage": false,
+          "supervise": false,
+          "export": false,
+          "cancel": false,
+          "feedback": false,
+          "archive": false,
+          "remove_participants": false
+        },
+        "capabilities": [],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "queue": null,
+        "channel": "dooers-public-chat",
+        "channel_meta": {
+          "public_chat_label": "Atendimento ao cliente"
+        },
+        "external_key": "public:00000000-0000-4000-8000-000000000030:public_authenticated:raw_user_id_from_core",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "O pré-chat só tem nome, e-mail e telefone."
+    },
+    {
+      "id": "public.AgentThread.public-chat-visitor-name-too-long",
+      "schema": "Public.AgentThread",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000011",
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000010",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+            "display_name": "Agente",
+            "role": "member",
+            "capabilities": [],
+            "availability": "unknown",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000020",
+            "kind": "external",
+            "external_id": "raw_user_id_from_core",
+            "channel": "public_chat",
+            "connection_type": "public_authenticated",
+            "display_name": "Maria Souza",
+            "email": "maria@example.com",
+            "identity_ids": ["aad-maria"],
+            "system_role": "user",
+            "organization_role": "member",
+            "workspace_role": "member",
+            "guest_profile": {
+              "name": "nnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnn",
+              "email": "maria.pre@example.com",
+              "phone": "+5511999990000"
+            },
+            "role": "member",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": false,
+          "write": false,
+          "manage": false,
+          "supervise": false,
+          "export": false,
+          "cancel": false,
+          "feedback": false,
+          "archive": false,
+          "remove_participants": false
+        },
+        "capabilities": [],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "queue": null,
+        "channel": "dooers-public-chat",
+        "channel_meta": {
+          "public_chat_label": "Atendimento ao cliente"
+        },
+        "external_key": "public:00000000-0000-4000-8000-000000000030:public_authenticated:raw_user_id_from_core",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "Nome do pré-chat com até 200 caracteres."
+    },
+    {
+      "id": "public.Participant.external-guest-profile-leak",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000020",
+        "kind": "external",
+        "external_id": "guest:AbCdEfGhIjKlMnOpQrStUv",
+        "channel": "public_chat",
+        "display_name": "Cliente",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "2",
+        "left_sequence": null,
+        "connection_type": "guest",
+        "guest_profile": {
+          "name": "Maria"
+        }
+      },
+      "description": "O pré-chat do visitante fica só nos schemas do agente."
+    },
+    {
+      "id": "public.Participant.external-identity-ids-leak",
+      "schema": "Public.Participant",
+      "valid": false,
+      "data": {
+        "participant_id": "00000000-0000-4000-8000-000000000020",
+        "kind": "external",
+        "external_id": "guest:AbCdEfGhIjKlMnOpQrStUv",
+        "channel": "public_chat",
+        "display_name": "Cliente",
+        "role": "member",
+        "state": "active",
+        "joined_sequence": "2",
+        "left_sequence": null,
+        "connection_type": "guest",
+        "identity_ids": ["aad-maria"]
+      },
+      "description": "Os identity_ids do visitante ficam só nos schemas do agente."
     }
   ]
 }
