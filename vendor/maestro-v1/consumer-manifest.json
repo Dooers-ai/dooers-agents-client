@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "e0b2cd5857d42306468d88af5825bd95b28c3020217b97b05c9ac7d9e3007558",
-  "source_revision": "sha256:687c9284e7160ff648b38d93e54a3b5cb92987c8c8865f39fdecec5f8617f596",
-  "bundle_manifest_sha256": "0d362ca29c425d80f81449d9421630d59038da9ee6d7076bed371a24b743ec51",
+  "source_manifest_sha256": "1bb74395c15b5078f8e7b90fed3c02ac274276a3f2a0cb17a3a31acc3d4b4149",
+  "source_revision": "sha256:b9e601bbe0cd41ccc8fb1ce0f3790fa6502f97e6077b93bb45c556351679ea4c",
+  "bundle_manifest_sha256": "ee0161e2608bec50fd0775a3ad022af9cc6bd22533879d6dabab76cc11fcabef",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -26,7 +26,7 @@
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "855aee2992f5243ae2118f91a1cc36bbaa46d50315b6597ce8c4d265288a19b8"
+      "sha256": "e8b97a33f4c2286addd03ffc0d91569da8b58dc753e02b469477680c84ae3943"
     },
     "src/protocol/maestro/vendor/identity.ts": {
       "source": "docs/contracts/v1/identity.ts",
@@ -34,7 +34,7 @@
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public.json": {
       "source": "docs/contracts/fixtures/v1/public.json",
-      "sha256": "61ac27a28b076ca44344fce492fcbbe475f8fa7e354a6270b5b650eeb4a78d11"
+      "sha256": "dbe211c41d8ab8da5b98f3de6d26ae8212959be555e0ddea08adb42943e34b61"
     },
     "vendor/maestro-v1/contracts/fixtures/v1/public-publication.json": {
       "source": "docs/contracts/fixtures/v1/public-publication.json",
@@ -50,11 +50,11 @@
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "e0b2cd5857d42306468d88af5825bd95b28c3020217b97b05c9ac7d9e3007558"
+      "sha256": "1bb74395c15b5078f8e7b90fed3c02ac274276a3f2a0cb17a3a31acc3d4b4149"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "0d362ca29c425d80f81449d9421630d59038da9ee6d7076bed371a24b743ec51"
+      "sha256": "ee0161e2608bec50fd0775a3ad022af9cc6bd22533879d6dabab76cc11fcabef"
     }
   }
 }

@@ -235,17 +235,19 @@ const toolTransactionPayload = z.strictObject({
   run_id: runId.optional(),
 })
 const panelSize = z.enum(['small', 'medium', 'large'])
-// WireS2C_ChartEventData (protocol/models.py): AgentEvent.data of send.chart always carries title, message, size and series.
-// The model ignores extra keys (pydantic) and model_dump drops them, so the chart and its series accept them here and
-// the execution drops them before storing (`withoutProductionExtras`), as production does.
+// WireS2C_ChartEventData (protocol/models.py): title, message, size and series have defaults there (send.chart always
+// sends them, a handler that builds the AgentEvent by hand may not), so they are optional here and stored as sent
+// (production dumps with exclude_unset; the browser applies the defaults). The model ignores extra keys (pydantic)
+// and model_dump drops them, so the chart and its series accept them here and the execution drops them before
+// storing (`withoutChartExtras`), as production does.
 const chartSeries = z.looseObject({
   key: agentLabel,
   label: agentLabel.nullish(),
   color: agentLabel.nullish(),
 })
 const chartPayload = z.looseObject({
-  title: agentLabel,
-  message: longText,
+  title: agentLabel.optional(),
+  message: longText.optional(),
   chart_type: z.enum([
     'bar',
     'bar_horizontal',
@@ -256,11 +258,11 @@ const chartPayload = z.looseObject({
     'donut',
     'scatter',
   ]),
-  size: panelSize,
+  size: panelSize.optional(),
   x_key: agentLabel,
   y_keys: z.array(agentLabel),
   data: boundedJson(z.array(z.record(z.string(), jsonValue))),
-  series: z.array(chartSeries),
+  series: z.array(chartSeries).optional(),
   x_label: agentLabel.nullish(),
   y_label: agentLabel.nullish(),
   run_id: runId.optional(),
@@ -273,7 +275,9 @@ const formElementBase = {
   required: z.boolean().optional(),
   disabled: z.boolean().optional(),
 }
-const formOptions = z.array(z.strictObject({ value: agentLabel, label: agentLabel }))
+// FormOption(BaseModel) ignores extra keys like the other form models: accepted here, dropped before storing.
+const formOption = z.looseObject({ value: agentLabel, label: agentLabel })
+const formOptions = z.array(formOption)
 const knownFormElements = [
   z.looseObject({
     ...formElementBase,
@@ -327,8 +331,9 @@ const unknownFormElement = z
   .refine((element) => !KNOWN_FORM_ELEMENT_TYPES.includes(element['type'] as string))
   .meta({ 'x-maestro-semantic': 'unknown-form-element' })
 const formElement = z.union([z.discriminatedUnion('type', knownFormElements), unknownFormElement])
+// Own keys only: `key in shape` would also keep an extra named constructor, toString, valueOf or hasOwnProperty.
 const keepKnown = (value: Record<string, unknown>, shape: z.ZodRawShape) =>
-  Object.fromEntries(Object.entries(value).filter(([key]) => key in shape))
+  Object.fromEntries(Object.entries(value).filter(([key]) => Object.hasOwn(shape, key)))
 const formElementShapes = new Map<string, z.ZodRawShape>(
   knownFormElements.map((element) => [element.shape.type.value, element.shape])
 )
@@ -336,18 +341,31 @@ const formElementShapes = new Map<string, z.ZodRawShape>(
  * What production stores of a chart: WireS2C_ChartEventData ignores extra keys and model_dump drops them, for the
  * chart and for each series. The execution applies this to the parsed output, so no extra key reaches an event.
  */
-export const withoutChartExtras = <C extends { series: Record<string, unknown>[] }>(
+export const withoutChartExtras = <C extends { series?: Record<string, unknown>[] | undefined }>(
   chart: C
 ): C => ({
   ...(keepKnown(chart, chartPayload.shape) as C),
-  series: chart.series.map((item) => keepKnown(item, chartSeries.shape)),
+  ...(chart.series === undefined
+    ? {}
+    : { series: chart.series.map((item) => keepKnown(item, chartSeries.shape)) }),
 })
-/** Known form elements keep only the fields of their model; an element of another type is stored as it came. */
+/**
+ * Known form elements keep only the fields of their model, and so do their options (FormOption); an element of
+ * another type is stored as it came.
+ */
 export const withoutFormElementExtras = (elements: Record<string, unknown>[]) =>
   elements.map((element) => {
     const shape =
       typeof element['type'] === 'string' ? formElementShapes.get(element['type']) : undefined
-    return shape === undefined ? element : keepKnown(element, shape)
+    if (shape === undefined) return element
+    const kept = keepKnown(element, shape)
+    const options = kept['options']
+    return Array.isArray(options)
+      ? {
+          ...kept,
+          options: options.map((o) => keepKnown(o as Record<string, unknown>, formOption.shape)),
+        }
+      : kept
   })
 const formPayload = z.strictObject({
   message: longText,

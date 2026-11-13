@@ -11516,6 +11516,92 @@
         }
       },
       "description": "chart.created com chave extra no gráfico e na série: WireS2C_ChartEventData da produção ignora chave extra."
+    },
+    {
+      "id": "public.OutputRequest.form.create.option-extra-key",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "form.create",
+        "payload": {
+          "message": "Preencha",
+          "elements": [
+            {
+              "type": "select_input",
+              "name": "pais",
+              "label": "País",
+              "options": [
+                {
+                  "value": "br",
+                  "label": "Brasil",
+                  "description": "extra"
+                }
+              ]
+            }
+          ],
+          "submit_label": "Enviar",
+          "cancel_label": "Cancelar",
+          "size": "medium"
+        },
+        "lease_fence": "1"
+      },
+      "description": "Saída form.create com chave extra em uma opção: FormOption da produção a ignora, o Maestro a descarta ao gravar."
+    },
+    {
+      "id": "public.OutputRequest.form.create.option-missing-label",
+      "schema": "Public.OutputRequest",
+      "valid": false,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "form.create",
+        "payload": {
+          "message": "Preencha",
+          "elements": [
+            {
+              "type": "select_input",
+              "name": "pais",
+              "label": "País",
+              "options": [
+                {
+                  "value": "br"
+                }
+              ]
+            }
+          ],
+          "submit_label": "Enviar",
+          "cancel_label": "Cancelar",
+          "size": "medium"
+        },
+        "lease_fence": "1"
+      },
+      "description": "Opção de form sem label: FormOption da produção exige value e label."
+    },
+    {
+      "id": "public.OutputRequest.chart.create.minimal",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "chart.create",
+        "payload": {
+          "chart_type": "bar",
+          "x_key": "mes",
+          "y_keys": ["total"],
+          "data": [
+            {
+              "mes": "jan",
+              "total": 10
+            },
+            {
+              "mes": "fev",
+              "total": 12.5
+            }
+          ]
+        },
+        "lease_fence": "1"
+      },
+      "description": "Saída chart.create sem title, message, size e series: o modelo da produção tem padrão para eles."
     }
   ]
 }
