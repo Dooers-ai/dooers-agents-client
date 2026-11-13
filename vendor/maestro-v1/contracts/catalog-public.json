@@ -560,6 +560,410 @@
     },
     {
       "method": "POST",
+      "path": "/agent/threads",
+      "operation": "agent.thread.create",
+      "request_schema": "Public.AgentThreadCreateRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.AgentThread",
+      "status_codes": [200, 201],
+      "required_capability": "threads.shared",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "aiagent token with runtime and threads:manage; without a thread for external_key: core thread.create with the participants and the owner as targets",
+        "201 new thread owned by the agent (owner_instance_agent_id); 200 with the existing thread when the same agent already has external_key in the token scope, after core thread.read of that thread (owner and participants are not authorized again)",
+        "concurrent creations with the same external_key return one thread"
+      ],
+      "fixtures": {
+        "request": "public.AgentThreadCreateRequest.channel-thread",
+        "response": "public.AgentThread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/threads",
+      "operation": "agent.thread.list",
+      "request_schema": null,
+      "query_schema": "Public.AgentThreadListQuery",
+      "path_schema": null,
+      "response_schema": "Public.AgentThreadPage",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.list; only threads where the agent is an active participant, in the token scope",
+        "each item passes core thread.read; a denied item is left out and the page continues to the limit",
+        "external_key matches only threads owned by the agent; queue \"\" lists threads without queue",
+        "order by last activity (updated_at, id), desc by default"
+      ],
+      "fixtures": {
+        "query": "public.AgentThreadListQuery.valid",
+        "response": "public.AgentThreadPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/threads/:id",
+      "operation": "agent.thread.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentThread",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "path id: the agent's external_key in the token scope, then the Maestro thread id",
+        "core thread.read; the agent is an active participant; thread being deleted is THREAD_DELETING"
+      ],
+      "fixtures": {
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentThread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "PATCH",
+      "path": "/agent/threads/:id",
+      "operation": "agent.thread.update",
+      "request_schema": "Public.AgentThreadPatchRequest",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentThread",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "one core decision per present field: thread.rename (title), thread.queue.update (queue)",
+        "agent is the only agent of the thread (active or suspended), otherwise FORBIDDEN multi_agent_thread; not an active participant: agent_not_participant"
+      ],
+      "fixtures": {
+        "request": "public.AgentThreadPatchRequest.title-and-queue",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentThread.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/agent/threads/:id",
+      "operation": "agent.thread.delete",
+      "request_schema": "Public.ReasonRequest",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.DeleteResponse",
+      "status_codes": [202],
+      "required_capability": "threads.shared",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.delete; same multi-agent rule as PATCH",
+        "external_key is released in the same transaction: the same key creates a new thread"
+      ],
+      "fixtures": {
+        "request": "public.ReasonRequest.valid",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.DeleteResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/threads/:id/events",
+      "operation": "agent.event.list",
+      "request_schema": null,
+      "query_schema": "Public.AgentEventListQuery",
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentEventPage",
+      "status_codes": [200],
+      "required_capability": "history.replay",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.read; the agent is an active participant; thread being deleted is THREAD_DELETING",
+        "Maestro event log in sequence order (asc by default); events removed by message.removed are left out (production remove_event)",
+        "filters server-side: type (one or a comma-separated list), actor_kind, actor_id, run_id",
+        "cursor is a thread position: the next page, or the cursor returned by POST .../events to follow the events after a publication",
+        "a message published through the agent API carries published_by_instance_agent_id; the email and identity_ids declared for a human come back only to that publishing agent"
+      ],
+      "fixtures": {
+        "query": "public.AgentEventListQuery.valid",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentEventPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/agent/threads/:id/events",
+      "operation": "agent.event.create",
+      "request_schema": "Public.AgentEventCreateRequest",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentEventCreateResponse",
+      "status_codes": [200, 201],
+      "required_capability": "messages.text",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core message.publish without resource or targets: the core does not see the published actor",
+        "actor self, or a human (any user_id) or external contact only when the agent is the single agent of the thread (active or suspended), otherwise FORBIDDEN multi_agent_thread; in a set without humans only the single agent publishes",
+        "the command belongs to the publishing agent (idempotency_key, audit, published_by_instance_agent_id); the event carries the declared actor; client_event_id = idempotency_key",
+        "trigger true opens a causal root and one delivery for the publishing agent; trigger with actor self is VALIDATION_FAILED self_trigger",
+        "201 new event; 200 with the stored response for the same idempotency_key; the agent message limit (AGENT_MESSAGE_MAX_BYTES) applies, not the human one",
+        "trigger true is limited per thread (MAESTRO_AGENT_TRIGGER_RATE_PER_MINUTE in 60 s): above it 429 RATE_LIMITED with Retry-After and no event"
+      ],
+      "fixtures": {
+        "request": "public.AgentEventCreateRequest.external-trigger",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentEventCreateResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "DELETE",
+      "path": "/agent/threads/:id/events/:eventId",
+      "operation": "agent.event.remove",
+      "request_schema": "Public.Empty",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadEventPath",
+      "response_schema": "Public.AgentEvent",
+      "status_codes": [200],
+      "required_capability": "messages.text",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core message.remove with resource.event_id only",
+        "writes message.removed {event_id}; the event leaves reads and lists; a removed event is NOT_FOUND",
+        "only content events (message, reasoning, tool, chart, form); control events are VALIDATION_FAILED event_not_removable",
+        "in a thread with more than one agent only the agent's own event, and only with a human in the set, otherwise FORBIDDEN multi_agent_thread"
+      ],
+      "fixtures": {
+        "request": "public.Empty.valid",
+        "path": "public.AgentThreadEventPath.valid",
+        "response": "public.AgentEvent.external",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/agent/threads/:id/participants",
+      "operation": "agent.participant.add",
+      "request_schema": "Public.AgentParticipantAddRequest",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentEvent",
+      "status_codes": [200, 201],
+      "required_capability": "participants.humans",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core participant.add with the target (human or external; the core denies another agent)",
+        "agent is the only agent of the thread, otherwise FORBIDDEN multi_agent_thread",
+        "response is the participant.added event; the external display_name stays on the participant and comes back only in agent schemas"
+      ],
+      "fixtures": {
+        "request": "public.AgentParticipantAddRequest.external",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentEvent.external",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/events/:id",
+      "operation": "agent.event.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.AgentEventPath",
+      "response_schema": "Public.AgentEvent",
+      "status_codes": [200],
+      "required_capability": "history.replay",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "path id: the Maestro event_id or the client_event_id the agent chose when it published",
+        "core thread.read of the event thread; only threads where the agent is an active participant, in the token scope",
+        "a removed event is NOT_FOUND (production get_event after remove_event)",
+        "the declared email and identity_ids come back only to the publishing agent (published_by_instance_agent_id)"
+      ],
+      "fixtures": {
+        "path": "public.AgentEventPath.client-event-id",
+        "response": "public.AgentEvent.human-profile",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/agent/threads/:id/artifacts",
+      "operation": "agent.artifact.upload",
+      "request_schema": "Public.AgentArtifactCreateRequest",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentArtifact",
+      "status_codes": [201],
+      "required_capability": "attachments.durable",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "multipart as the execution upload: the metadata part (Public.AgentArtifactCreateRequest) first, then the file part; bytes are bounded outside JSON",
+        "core artifact.upload on the thread without resource (no delivery or execution); the agent is an active participant of an active thread",
+        "production file policy: same allowlist, size limit and quotas; mime_type is the canonical type stored (inspected extension, or the extension type when the declared type is generic)",
+        "the file is bound to the thread of the path: an attachment part links it only in a message of that thread published through the agent API, with the returned mime_type when the part names one",
+        "in a thread with more than one agent (active or suspended) and no human in the core set: FORBIDDEN multi_agent_thread before the core",
+        "the same Idempotency-Key returns the same artifact"
+      ],
+      "fixtures": {
+        "request": "public.AgentArtifactCreateRequest.valid",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentArtifact.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/agent/threads/:id/artifacts/:artifactId/links",
+      "operation": "agent.artifact.link.issue",
+      "request_schema": "Public.Empty",
+      "query_schema": null,
+      "path_schema": "Public.AgentThreadArtifactPath",
+      "response_schema": "Public.ArtifactLinkResponse",
+      "status_codes": [200],
+      "required_capability": "attachments.durable",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core artifact.link.issue with resource.artifact_id only",
+        "artifact linked to this thread by a message (no context cutoff outside a delivery); a file of another thread, unbound or unknown is NOT_FOUND before the core",
+        "url is a short-lived unauthenticated link to one artifact (MAESTRO_ARTIFACT_LINK_TTL_SECONDS, default 3600 s); an issued link stays valid until it expires after message.removed, as a production signed URL",
+        "in a thread with more than one agent (active or suspended) and no human in the core set: FORBIDDEN multi_agent_thread before the core"
+      ],
+      "fixtures": {
+        "request": "public.Empty.valid",
+        "path": "public.AgentThreadArtifactPath.valid",
+        "response": "public.ArtifactLinkResponse.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/threads/:id/runs",
+      "operation": "agent.run.list",
+      "request_schema": null,
+      "query_schema": "Public.AgentRunListQuery",
+      "path_schema": "Public.AgentThreadPath",
+      "response_schema": "Public.AgentRunPage",
+      "status_codes": [200],
+      "required_capability": "history.replay",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.read; the agent is an active participant; thread being deleted is THREAD_DELETING",
+        "one item per run_id (case-insensitive) folded from run.updated as the production Run: agent_id, started_at and trigger_event_id of the first event; status and error of the last; ended_at of the last when it is terminal",
+        "production order: started_at descending; cursor is a thread position"
+      ],
+      "fixtures": {
+        "query": "public.AgentRunListQuery.valid",
+        "path": "public.AgentThreadPath.valid",
+        "response": "public.AgentRunPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/runs/:id",
+      "operation": "agent.run.read",
+      "request_schema": null,
+      "query_schema": null,
+      "path_schema": "Public.AgentRunPath",
+      "response_schema": "Public.AgentRun",
+      "status_codes": [200],
+      "required_capability": "history.replay",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "path id is a run_id; the run thread is the one of its newest run.updated among the threads of the token scope where the agent is an active participant",
+        "core thread.read of that thread; same item as the thread run list; unknown run is NOT_FOUND"
+      ],
+      "fixtures": {
+        "path": "public.AgentRunPath.valid",
+        "response": "public.AgentRun.failed",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/agent/channel-deliveries",
+      "operation": "agent.channel_delivery.write",
+      "request_schema": "Public.AgentChannelDeliveryRequest",
+      "query_schema": null,
+      "path_schema": null,
+      "response_schema": "Public.AgentChannelDeliveryResponse",
+      "status_codes": [200, 201],
+      "required_capability": "messages.text",
+      "auth": "agent",
+      "headers": ["Authorization", "Idempotency-Key"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core channel_delivery.write with resource.event_id only: the target is a visible message.created of the thread (thread_id is the agent's external_key or the Maestro id)",
+        "production _receipt_moves_forward: status trimmed and lower-cased, error is failed; ranks accepted 1, sent 1, delivered 2, read 3, failed 4; equal rank applies; a current failed is final; an empty or unknown status does not apply",
+        "applied: 201 with the channel_delivery.updated written (error trimmed, cut at 500 characters and left out when blank, as production error_message; error_code and provider_message_id as received); not applied: 200 {applied: false} and nothing is written; the same Idempotency-Key returns the stored response with 200",
+        "an archived thread still records the receipt (production applies every receipt of the agent thread); a thread being deleted is THREAD_DELETING",
+        "the receipt gets its own sequence and created_at but does not change the thread activity (updated_at and the agent thread list order), active or archived, as production data.delivery",
+        "in a thread with more than one agent only the agent's own message, and only with a human in the core set, otherwise FORBIDDEN multi_agent_thread before the core"
+      ],
+      "fixtures": {
+        "request": "public.AgentChannelDeliveryRequest.valid",
+        "response": "public.AgentChannelDeliveryResponse.applied",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
+      "path": "/agent/channel-deliveries",
+      "operation": "agent.channel_delivery.read",
+      "request_schema": null,
+      "query_schema": "Public.AgentChannelDeliveryQuery",
+      "path_schema": null,
+      "response_schema": "Public.AgentChannelDelivery",
+      "status_codes": [200],
+      "required_capability": "messages.text",
+      "auth": "agent",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.list; only threads of the token scope where the agent is an active participant; the thread found passes core thread.read",
+        "the newest channel_delivery.updated with provider_message_id; status is the current status of that message (its last channel_delivery.updated)",
+        "unknown provider_message_id or a removed message is NOT_FOUND (production: receipt pending)"
+      ],
+      "fixtures": {
+        "query": "public.AgentChannelDeliveryQuery.valid",
+        "response": "public.AgentChannelDelivery.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
       "path": "/executions/:id/artifacts/:artifactId/links",
       "operation": "artifact.link.issue",
       "request_schema": "Public.Empty",
@@ -615,7 +1019,7 @@
       "path": "/deliveries/:id/context",
       "operation": "delivery.context",
       "request_schema": null,
-      "query_schema": "Public.PageQuery",
+      "query_schema": "Public.ContextQuery",
       "path_schema": "Public.IdPath",
       "response_schema": "Public.ContextResponse",
       "status_codes": [200],
@@ -625,10 +1029,13 @@
       "error_schema": "Public.Error",
       "semantic_checks": [
         "history cutoff fixed to context_cursor",
-        "own delivery and current read/fence/deadline"
+        "own delivery and current read/fence/deadline",
+        "direction forward (default): first event up to the cutoff, ascending sequence",
+        "direction backward: from the cutoff back to the first event, descending sequence; next_cursor continues before the oldest item",
+        "a next_cursor is valid only in its own direction, delivery and execution; contiguous pages, a gap is DEPENDENCY_UNAVAILABLE"
       ],
       "fixtures": {
-        "query": "public.PageQuery.valid",
+        "query": "public.ContextQuery.valid",
         "path": "public.IdPath.valid",
         "response": "public.ContextResponse.valid",
         "error": "public.Error.valid"

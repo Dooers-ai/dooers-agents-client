@@ -173,16 +173,23 @@ const messageWhatsapp = z.strictObject({
 })
 // Run that produced the event (production run_id, handlers/pipeline.py); every agent output may carry it.
 const runId = uuidSchema
+// data: production ThreadEvent.data (ingest/create_event data, data.source of an inbound channel message,
+// data.delivery of the reply), one open JSON value. Only the agent writes it (agent API and agent outputs).
 const agentMessageFields = {
   author: z.string().max(200).optional(),
   template: messageTemplate.optional(),
   whatsapp: messageWhatsapp.optional(),
   run_id: runId.optional(),
+  data: openObject.optional(),
 }
 // Free text the agent writes (reasoning, form/chart messages, run error): same 1 MiB ceiling as open JSON.
 const longText = z.string().max(OPEN_JSON_MAX_BYTES)
 const queueName = z.string().max(200)
 const runStatus = z.enum(['running', 'succeeded', 'failed'])
+// Status of a message on a channel (production data.delivery.status); failed is final.
+const channelDeliveryStatus = z.enum(['accepted', 'sent', 'delivered', 'read', 'failed'])
+// Provider error code as the provider sends it (WhatsApp: an integer such as 131047, or a text code).
+const providerErrorCode = z.union([z.string().min(1).max(64), z.number().int()])
 const toolFields = {
   id: z.string().max(1024),
   name: z.string().max(1024),
@@ -498,12 +505,14 @@ const agentThreadPatch = z.union([
   }),
 ])
 // Agent-only thread creation (POST /v1/agent/threads): idempotent by external_key, channel metadata allowed.
+// owner: the human the SDK caller names (production Thread.owner); the core authorizes it like any target.
 const agentCreateFields = {
   participants: z.array(agentParticipantTarget).max(99),
   queue: queueName.nullish(),
   channel: threadFields.channel,
   channel_meta: threadFields.channel_meta,
   external_key: z.string().min(1).max(512).optional(),
+  owner: participantTarget.options[0].optional(),
 }
 const agentThreadCreate = z.discriminatedUnion('scope_kind', [
   threadCreate.options[0].extend(agentCreateFields),
@@ -521,6 +530,20 @@ const pagination = {
   limit: z.number().int().min(1).max(100).optional(),
 }
 const pageQuery = z.strictObject(pagination)
+// Delivery context (GET /deliveries/:id/context): direction "backward" reads from the cutoff back to
+// the first event, newest first; each next_cursor works only in its own direction and delivery.
+const contextQuery = z.strictObject({
+  ...pagination,
+  direction: z.enum(['forward', 'backward']).optional(),
+})
+// Agent list (GET /v1/agent/threads): only threads where the agent is an active participant, in the
+// token scope. queue "" lists threads without queue (production's "__none__" filter).
+const agentThreadListQuery = z.strictObject({
+  external_key: z.string().min(1).max(512).optional(),
+  queue: queueName.optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+  ...pagination,
+})
 const listFields = { state: threadState.optional(), ...pagination }
 const threadListQuery = z.discriminatedUnion('scope_kind', [
   z.strictObject({
@@ -683,15 +706,31 @@ const executionPayload = z.strictObject({
   completed_at: timestampSchema.nullable(),
 })
 // The same catalog twice: browsers get the public actor/participant, agents the one with email.
-const durableEventsFor = <A extends z.ZodType, Pt extends z.ZodType, Th extends z.ZodType>(kit: {
+const durableEventsFor = <
+  A extends z.ZodType,
+  Pt extends z.ZodType,
+  Th extends z.ZodType,
+  M extends z.ZodRawShape,
+>(kit: {
   actor: A
   participant: Pt
   thread: Th
+  /** Extra envelope fields of message.created (the agent catalog adds its origin mark). */
+  message: M
 }) => {
   const { participant, thread } = kit
-  const eventOf = <T extends string, P extends z.ZodType>(type: T, payload: P) =>
+  const eventOf = <
+    T extends string,
+    P extends z.ZodType,
+    E extends z.ZodRawShape = Record<never, never>,
+  >(
+    type: T,
+    payload: P,
+    extra?: E
+  ) =>
     z.strictObject({
       ...eventFields,
+      ...(extra ?? ({} as E)),
       actor: kit.actor,
       type: z.literal(type),
       payload,
@@ -725,7 +764,7 @@ const durableEventsFor = <A extends z.ZodType, Pt extends z.ZodType, Th extends 
         reason_code: reasonCodeSchema.optional(),
       })
     ),
-    'message.created': eventOf('message.created', messagePayload),
+    'message.created': eventOf('message.created', messagePayload, kit.message),
     'execution.started': eventOf(
       'execution.started',
       executionPayload.extend({
@@ -807,21 +846,127 @@ const durableEventsFor = <A extends z.ZodType, Pt extends z.ZodType, Th extends 
       z.strictObject({
         event_id: uuidSchema,
         channel: z.literal('whatsapp'),
-        status: z.enum(['accepted', 'sent', 'delivered', 'read', 'failed']),
+        status: channelDeliveryStatus,
         error: z.string().max(1000).optional(),
         provider_message_id: z.string().min(1).max(256).optional(),
+        error_code: providerErrorCode.optional(),
       })
     ),
   }
 }
-export const durableEventSchemas = durableEventsFor({ actor: actorSchema, participant, thread })
+export const durableEventSchemas = durableEventsFor({
+  actor: actorSchema,
+  participant,
+  thread,
+  message: {},
+})
+// Agent catalog: a message published through the agent API carries the publishing agent (origin mark).
+// Only that agent reads back the email and identity_ids it declared for a human (index 4.3.1).
 const agentDurableEventSchemas = durableEventsFor({
   actor: agentActor,
   participant: agentParticipant,
   thread: agentThread,
+  message: { published_by_instance_agent_id: uuidSchema.optional() },
 })
 const event = z.union(Object.values(durableEventSchemas))
 const agentEvent = z.union(Object.values(agentDurableEventSchemas))
+// Agent API outside a delivery (plan 5, task 2). The agent publishes as itself or, only in a thread where
+// it is the single agent, as a human (any user_id, as production create_event/dispatch) or as an external
+// contact. email and identity_ids of the declared human come back only in agent schemas (index 4.3.1).
+const agentPublicationActor = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('self') }),
+  z.strictObject({
+    kind: z.literal('human'),
+    principal_id: opaquePrincipalSchema,
+    display_name: displayNameSchema.optional(),
+    ...humanIdentity,
+  }),
+  z.strictObject({ kind: z.literal('external'), ...externalFields }),
+])
+// trigger: true opens a delivery for the publishing agent itself (only for a human or external actor).
+const agentEventCreate = z.strictObject({
+  type: z.literal('message.created'),
+  actor: agentPublicationActor,
+  payload: z.strictObject({ content: agentContent, ...agentMessageFields }),
+  trigger: z.boolean(),
+  idempotency_key: idempotencyKeySchema,
+})
+// cursor: position of the published event, to follow the next events with GET .../events?cursor=.
+const agentEventCreated = z.strictObject({
+  event: agentEvent,
+  delivery_id: uuidSchema.optional(),
+  cursor: cursorSchema,
+})
+// Agent event list: Maestro event log of one thread; removed events are left out (production remove_event).
+// type is one event type or a comma-separated list; actor_kind, actor_id and run_id filter server-side.
+const agentEventListQuery = z.strictObject({
+  cursor: cursorSchema.optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+  order: z.enum(['asc', 'desc']).optional(),
+  type: z
+    .string()
+    .max(4096)
+    .regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*(,[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*){0,63}$/)
+    .optional(),
+  actor_kind: z.enum(['human', 'agent', 'system', 'external']).optional(),
+  actor_id: z.string().min(1).max(256).optional(),
+  run_id: uuidSchema.optional(),
+})
+// Agent API side routes outside a delivery (plan 5, task 3). Upload: multipart with this metadata part
+// first and the file after it, as the execution upload; the thread comes from the path.
+const agentArtifactCreate = z.strictObject({
+  filename: publicArtifact.shape.filename,
+  mime_type: publicArtifact.shape.mime_type,
+  size_bytes: count,
+  sha256: publicArtifact.shape.sha256,
+})
+// Production chat_upload fields (ref_id = artifact_id). mime_type is the canonical type stored by the
+// file policy: an attachment part that names a type must use this one.
+const agentArtifact = z.strictObject({
+  artifact_id: uuidSchema,
+  filename: publicArtifact.shape.filename,
+  mime_type: publicArtifact.shape.mime_type,
+  size_bytes: count,
+})
+// Production Run folded from run.updated: agent_id, started_at and trigger_event_id of the first event of
+// the run; status and error of the last; ended_at of the last when it is terminal.
+const agentRun = z.strictObject({
+  run_id: runId,
+  thread_id: uuidSchema,
+  agent_id: uuidSchema,
+  status: runStatus,
+  error: longText.nullable(),
+  started_at: timestampSchema,
+  ended_at: timestampSchema.nullable(),
+  trigger_event_id: uuidSchema,
+})
+const agentRunListQuery = z.strictObject({
+  cursor: cursorSchema.optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+})
+// status is the provider status as received: one that is not a channel status is answered
+// {applied: false} (production _receipt_moves_forward), not refused.
+const agentChannelDeliveryCreate = z.strictObject({
+  thread_id: z.string().min(1).max(512),
+  event_id: uuidSchema,
+  channel: z.literal('whatsapp'),
+  status: z.string().min(1).max(64),
+  error: z.string().max(1000).optional(),
+  error_code: providerErrorCode.optional(),
+  provider_message_id: z.string().min(1).max(256).optional(),
+})
+const agentChannelDeliveryCreated = z.union([
+  z.strictObject({ applied: z.literal(true), event: agentEvent }),
+  z.strictObject({ applied: z.literal(false) }),
+])
+const agentChannelDeliveryQuery = z.strictObject({
+  provider_message_id: z.string().min(1).max(256),
+})
+const agentChannelDelivery = z.strictObject({
+  thread_id: uuidSchema,
+  event_id: uuidSchema,
+  status: channelDeliveryStatus,
+})
 const persisted = z.strictObject({
   status: z.literal('persisted'),
   event,
@@ -836,6 +981,13 @@ const capabilitiesResponse = z.strictObject({
   capabilities: capabilitiesSchema,
 })
 const pathId = z.strictObject({ id: uuidSchema })
+// Agent routes: the agent's external_key (the SDK thread id) first, then the Maestro thread id.
+const agentThreadPath = z.strictObject({ id: z.string().min(1).max(512) })
+const agentThreadEventPath = agentThreadPath.extend({ eventId: uuidSchema })
+// GET /agent/events/:id: the Maestro event_id or the client_event_id the agent chose when it published.
+const agentEventPath = z.strictObject({ id: idempotencyKeySchema })
+const agentThreadArtifactPath = agentThreadPath.extend({ artifactId: uuidSchema })
+const agentRunPath = z.strictObject({ id: runId })
 const participantPath = z.strictObject({ id: uuidSchema, participantId: uuidSchema })
 const rootPath = z.strictObject({ id: uuidSchema, eventId: uuidSchema })
 const formEventPath = z.strictObject({ id: uuidSchema, formEventId: uuidSchema })
@@ -1264,6 +1416,28 @@ export const publicSchemas = {
   'Public.ThreadPatchRequest': threadPatch,
   'Public.AgentThreadPatchRequest': agentThreadPatch,
   'Public.AgentThreadCreateRequest': agentThreadCreate,
+  'Public.AgentThread': agentThread,
+  'Public.AgentThreadPage': page(agentThread),
+  'Public.AgentThreadListQuery': agentThreadListQuery,
+  'Public.AgentThreadPath': agentThreadPath,
+  'Public.AgentThreadEventPath': agentThreadEventPath,
+  'Public.AgentEventPath': agentEventPath,
+  'Public.AgentEvent': agentEvent,
+  'Public.AgentEventPage': page(agentEvent),
+  'Public.AgentEventListQuery': agentEventListQuery,
+  'Public.AgentEventCreateRequest': agentEventCreate,
+  'Public.AgentEventCreateResponse': agentEventCreated,
+  'Public.AgentThreadArtifactPath': agentThreadArtifactPath,
+  'Public.AgentArtifactCreateRequest': agentArtifactCreate,
+  'Public.AgentArtifact': agentArtifact,
+  'Public.AgentRun': agentRun,
+  'Public.AgentRunPage': page(agentRun),
+  'Public.AgentRunListQuery': agentRunListQuery,
+  'Public.AgentRunPath': agentRunPath,
+  'Public.AgentChannelDeliveryRequest': agentChannelDeliveryCreate,
+  'Public.AgentChannelDeliveryResponse': agentChannelDeliveryCreated,
+  'Public.AgentChannelDeliveryQuery': agentChannelDeliveryQuery,
+  'Public.AgentChannelDelivery': agentChannelDelivery,
   'Public.ReasonRequest': reason,
   'Public.DeleteResponse': z.strictObject({
     deletion_job_id: uuidSchema,
@@ -1298,6 +1472,7 @@ export const publicSchemas = {
   'Public.ArtifactCompleteRequest': artifactComplete,
   'Public.DownloadMetadata': downloadMetadata,
   'Public.ArtifactLinkResponse': artifactLinkResponse,
+  'Public.ContextQuery': contextQuery,
   'Public.ContextResponse': contextResponse,
   'Public.HeartbeatRequest': heartbeat,
   'Public.HeartbeatResponse': z.strictObject({ lease_until: timestampSchema }),

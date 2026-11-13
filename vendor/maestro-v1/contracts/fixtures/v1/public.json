@@ -8060,6 +8060,36 @@
       "description": "Canal do alvo external fora de whatsapp e public_chat."
     },
     {
+      "id": "public.AgentThreadCreateRequest.owner",
+      "schema": "Public.AgentThreadCreateRequest",
+      "valid": true,
+      "data": {
+        "scope_kind": "personal",
+        "title": "Chat",
+        "owner": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture"
+        },
+        "participants": [],
+        "external_key": "00000000-0000-4000-8000-000000000020"
+      },
+      "description": "Dono humano informado pelo SDK (Thread.owner de produção); o core autoriza o principal."
+    },
+    {
+      "id": "public.AgentThreadCreateRequest.agent-owner",
+      "schema": "Public.AgentThreadCreateRequest",
+      "valid": false,
+      "data": {
+        "scope_kind": "personal",
+        "owner": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000010"
+        },
+        "participants": []
+      },
+      "description": "O dono informado é sempre humano."
+    },
+    {
       "id": "public.AgentParticipantAddRequest.external",
       "schema": "Public.AgentParticipantAddRequest",
       "valid": true,
@@ -8318,6 +8348,1582 @@
         "url": "https://cdn.exemplo.com/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       },
       "description": "URL acima de 8192 caracteres."
+    },
+    {
+      "id": "public.AgentThread.valid",
+      "schema": "Public.AgentThread",
+      "valid": true,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000011",
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000010",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+            "display_name": "Agente",
+            "role": "member",
+            "capabilities": [],
+            "availability": "unknown",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000012",
+            "kind": "external",
+            "external_id": "+5511999990000",
+            "channel": "whatsapp",
+            "role": "member",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "email": "pessoa@example.test",
+            "identity_ids": ["auth0|human-fixture"],
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": false,
+          "write": false,
+          "manage": false,
+          "supervise": false,
+          "export": false,
+          "cancel": false,
+          "feedback": false,
+          "archive": false,
+          "remove_participants": false
+        },
+        "capabilities": [],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "queue": "suporte",
+        "channel": "whatsapp",
+        "channel_meta": {
+          "instance_id": "inst-1"
+        },
+        "external_key": "wa:inst-1:+5511999990000",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "Thread na resposta da API do agente: e-mail e identity_ids do humano só aqui (índice 4.3.1)."
+    },
+    {
+      "id": "public.AgentThread.unknown-field",
+      "schema": "Public.AgentThread",
+      "valid": false,
+      "data": {
+        "organization_id": "00000000-0000-4000-8000-000000000001",
+        "scope_kind": "personal",
+        "workspace_id": null,
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "mode": "maestro",
+        "title": "Thread de contrato",
+        "state": "active",
+        "version": 1,
+        "participants": [
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000011",
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000010",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+            "display_name": "Agente",
+            "role": "member",
+            "capabilities": [],
+            "availability": "unknown",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000012",
+            "kind": "external",
+            "external_id": "+5511999990000",
+            "channel": "whatsapp",
+            "role": "member",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          },
+          {
+            "participant_id": "00000000-0000-4000-8000-000000000004",
+            "kind": "human",
+            "principal_id": "auth0|human-fixture",
+            "display_name": "Pessoa",
+            "email": "pessoa@example.test",
+            "identity_ids": ["auth0|human-fixture"],
+            "role": "owner",
+            "state": "active",
+            "joined_sequence": "1",
+            "left_sequence": null
+          }
+        ],
+        "permissions": {
+          "read": false,
+          "write": false,
+          "manage": false,
+          "supervise": false,
+          "export": false,
+          "cancel": false,
+          "feedback": false,
+          "archive": false,
+          "remove_participants": false
+        },
+        "capabilities": [],
+        "last_sequence": "9007199254740993",
+        "cursor": "fixture.cursor.opaque",
+        "supervision_policy": "strict",
+        "policy_version": 1,
+        "created_at": "2026-10-13T15:00:00Z",
+        "updated_at": "2026-10-13T15:00:00Z",
+        "queue": "suporte",
+        "channel": "whatsapp",
+        "channel_meta": {
+          "instance_id": "inst-1"
+        },
+        "external_key": "wa:inst-1:+5511999990000",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadPage.valid",
+      "schema": "Public.AgentThreadPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "organization_id": "00000000-0000-4000-8000-000000000001",
+            "scope_kind": "personal",
+            "workspace_id": null,
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "mode": "maestro",
+            "title": "Thread de contrato",
+            "state": "active",
+            "version": 1,
+            "participants": [
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000011",
+                "kind": "agent",
+                "principal_id": "00000000-0000-4000-8000-000000000010",
+                "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+                "display_name": "Agente",
+                "role": "member",
+                "capabilities": [],
+                "availability": "unknown",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              },
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000012",
+                "kind": "external",
+                "external_id": "+5511999990000",
+                "channel": "whatsapp",
+                "role": "member",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              },
+              {
+                "participant_id": "00000000-0000-4000-8000-000000000004",
+                "kind": "human",
+                "principal_id": "auth0|human-fixture",
+                "display_name": "Pessoa",
+                "email": "pessoa@example.test",
+                "identity_ids": ["auth0|human-fixture"],
+                "role": "owner",
+                "state": "active",
+                "joined_sequence": "1",
+                "left_sequence": null
+              }
+            ],
+            "permissions": {
+              "read": false,
+              "write": false,
+              "manage": false,
+              "supervise": false,
+              "export": false,
+              "cancel": false,
+              "feedback": false,
+              "archive": false,
+              "remove_participants": false
+            },
+            "capabilities": [],
+            "last_sequence": "9007199254740993",
+            "cursor": "fixture.cursor.opaque",
+            "supervision_policy": "strict",
+            "policy_version": 1,
+            "created_at": "2026-10-13T15:00:00Z",
+            "updated_at": "2026-10-13T15:00:00Z",
+            "queue": "suporte",
+            "channel": "whatsapp",
+            "channel_meta": {
+              "instance_id": "inst-1"
+            },
+            "external_key": "wa:inst-1:+5511999990000",
+            "owner_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+          }
+        ],
+        "next_cursor": "mql1.fixture-cursor",
+        "has_more": true,
+        "watermark": "0"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.AgentThreadPage.unknown-field",
+      "schema": "Public.AgentThreadPage",
+      "valid": false,
+      "data": {
+        "items": [],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "0",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadListQuery.valid",
+      "schema": "Public.AgentThreadListQuery",
+      "valid": true,
+      "data": {
+        "external_key": "wa:inst-1:+5511999990000",
+        "queue": "suporte",
+        "order": "desc",
+        "limit": 50
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.AgentThreadListQuery.unqueued",
+      "schema": "Public.AgentThreadListQuery",
+      "valid": true,
+      "data": {
+        "queue": ""
+      },
+      "description": "queue \"\" lista as threads sem fila (filtro \"__none__\" da produção)."
+    },
+    {
+      "id": "public.AgentThreadListQuery.unknown-field",
+      "schema": "Public.AgentThreadListQuery",
+      "valid": false,
+      "data": {
+        "state": "active"
+      },
+      "description": "A lista do agente não filtra por estado nem aceita escopo no pedido: o escopo vem do token."
+    },
+    {
+      "id": "public.AgentThreadListQuery.unknown-order",
+      "schema": "Public.AgentThreadListQuery",
+      "valid": false,
+      "data": {
+        "order": "newest"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadPath.valid",
+      "schema": "Public.AgentThreadPath",
+      "valid": true,
+      "data": {
+        "id": "wa:inst-1:+5511999990000"
+      },
+      "description": "Caminho da API do agente: a external_key do agente ou o id do Maestro."
+    },
+    {
+      "id": "public.AgentThreadPath.empty",
+      "schema": "Public.AgentThreadPath",
+      "valid": false,
+      "data": {
+        "id": ""
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadPath.too-long",
+      "schema": "Public.AgentThreadPath",
+      "valid": false,
+      "data": {
+        "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+      },
+      "description": "Acima do teto da external_key (512)."
+    },
+    {
+      "id": "public.Event.message.created.data",
+      "schema": "Public.Event.message.created",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000010",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+          "participant_id": "00000000-0000-4000-8000-000000000011",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Enviado"
+            }
+          ],
+          "mentions": [],
+          "data": {
+            "delivery": {
+              "channel": "whatsapp",
+              "status": "accepted",
+              "wa_message_id": "wamid.2"
+            }
+          }
+        }
+      },
+      "description": "ThreadEvent.data de produção (data.delivery da resposta) no message.created do agente."
+    },
+    {
+      "id": "public.Event.message.created.data-not-object",
+      "schema": "Public.Event.message.created",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000010",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000010",
+          "participant_id": "00000000-0000-4000-8000-000000000011",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "x"
+            }
+          ],
+          "mentions": [],
+          "data": ["lista"]
+        }
+      },
+      "description": "data é um objeto JSON aberto, como ThreadEvent.data."
+    },
+    {
+      "id": "public.OutputRequest.message.create.data",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "message.create",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "mentions": [],
+          "data": {
+            "delivery": {
+              "status": "accepted"
+            }
+          }
+        },
+        "lease_fence": "1"
+      },
+      "description": "A saída message.create do agente grava data no message.created."
+    },
+    {
+      "id": "public.MessageCreateRequest.data",
+      "schema": "Public.MessageCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.create",
+        "client_event_id": "00000000-0000-4000-8000-000000000041",
+        "content": [
+          {
+            "type": "text",
+            "text": "Olá"
+          }
+        ],
+        "data": {
+          "x": 1
+        }
+      },
+      "description": "Só o agente grava data: o pedido humano recusa o campo."
+    },
+    {
+      "id": "public.AgentEvent.external",
+      "schema": "Public.AgentEvent",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "external",
+          "external_id": "+5511999990000",
+          "channel": "whatsapp",
+          "display_name": "Maria",
+          "participant_id": "00000000-0000-4000-8000-000000000012"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Oi"
+            }
+          ],
+          "mentions": [],
+          "client_event_id": "sdk-event-1",
+          "data": {
+            "source": {
+              "channel": "whatsapp",
+              "wa_message_id": "wamid.1"
+            }
+          }
+        }
+      },
+      "description": "Mensagem de contato external publicada pela API do agente (data.source da entrada)."
+    },
+    {
+      "id": "public.AgentEvent.human-profile",
+      "schema": "Public.AgentEvent",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "legacy-user-1",
+          "participant_id": null,
+          "display_name": "Usuária",
+          "email": "usuaria@example.test",
+          "identity_ids": ["auth0|legacy-user-1"]
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "mentions": [],
+          "client_event_id": "sdk-event-2"
+        }
+      },
+      "description": "Humano declarado pelo agente com e-mail e identity_ids: só nos schemas do agente (índice 4.3.1)."
+    },
+    {
+      "id": "public.Event.human-profile",
+      "schema": "Public.Event",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "legacy-user-1",
+          "participant_id": null,
+          "display_name": "Usuária",
+          "email": "usuaria@example.test",
+          "identity_ids": ["auth0|legacy-user-1"]
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "mentions": [],
+          "client_event_id": "sdk-event-2"
+        }
+      },
+      "description": "O schema enviado ao navegador recusa o e-mail e os identity_ids do humano."
+    },
+    {
+      "id": "public.AgentEvent.unknown-field",
+      "schema": "Public.AgentEvent",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "external",
+          "external_id": "+5511999990000",
+          "channel": "whatsapp",
+          "display_name": "Maria",
+          "participant_id": "00000000-0000-4000-8000-000000000012"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Oi"
+            }
+          ],
+          "mentions": [],
+          "client_event_id": "sdk-event-1",
+          "data": {
+            "source": {
+              "channel": "whatsapp",
+              "wa_message_id": "wamid.1"
+            }
+          }
+        },
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentEventPage.valid",
+      "schema": "Public.AgentEventPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "external",
+              "external_id": "+5511999990000",
+              "channel": "whatsapp",
+              "display_name": "Maria",
+              "participant_id": "00000000-0000-4000-8000-000000000012"
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Oi"
+                }
+              ],
+              "mentions": [],
+              "client_event_id": "sdk-event-1",
+              "data": {
+                "source": {
+                  "channel": "whatsapp",
+                  "wa_message_id": "wamid.1"
+                }
+              }
+            }
+          },
+          {
+            "event_id": "00000000-0000-4000-8000-000000000005",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "sequence": "9007199254740993",
+            "schema_version": 1,
+            "actor": {
+              "kind": "human",
+              "principal_id": "legacy-user-1",
+              "participant_id": null,
+              "display_name": "Usuária",
+              "email": "usuaria@example.test",
+              "identity_ids": ["auth0|legacy-user-1"]
+            },
+            "created_at": "2026-10-13T15:00:00Z",
+            "causation_event_id": null,
+            "root_event_id": "00000000-0000-4000-8000-000000000005",
+            "type": "message.created",
+            "payload": {
+              "content": [
+                {
+                  "type": "text",
+                  "text": "Olá"
+                }
+              ],
+              "mentions": [],
+              "client_event_id": "sdk-event-2"
+            }
+          }
+        ],
+        "next_cursor": "mev1.fixture-cursor.opaque",
+        "has_more": true,
+        "watermark": "9007199254740993"
+      },
+      "description": "Página de eventos da API do agente, na ordem da sequência."
+    },
+    {
+      "id": "public.AgentEventPage.unknown-field",
+      "schema": "Public.AgentEventPage",
+      "valid": false,
+      "data": {
+        "items": [],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "0",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentEventListQuery.valid",
+      "schema": "Public.AgentEventListQuery",
+      "valid": true,
+      "data": {
+        "cursor": "mev1.fixture-cursor.opaque",
+        "limit": 50,
+        "order": "desc",
+        "type": "message.created,run.updated",
+        "actor_kind": "external",
+        "actor_id": "+5511999990000",
+        "run_id": "00000000-0000-4000-8000-000000000030"
+      },
+      "description": "Filtros de Repository.list_events de produção: tipo, ator, user_id e run_id."
+    },
+    {
+      "id": "public.AgentEventListQuery.bad-type",
+      "schema": "Public.AgentEventListQuery",
+      "valid": false,
+      "data": {
+        "type": "Message"
+      },
+      "description": "O tipo segue o nome de evento do Maestro (um ponto, minúsculas)."
+    },
+    {
+      "id": "public.AgentEventListQuery.unknown-field",
+      "schema": "Public.AgentEventListQuery",
+      "valid": false,
+      "data": {
+        "state": "active"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.external-trigger",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.created",
+        "actor": {
+          "kind": "external",
+          "external_id": "+5511999990000",
+          "channel": "whatsapp",
+          "display_name": "Maria"
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Oi"
+            }
+          ],
+          "data": {
+            "source": {
+              "channel": "whatsapp"
+            }
+          }
+        },
+        "trigger": true,
+        "idempotency_key": "sdk-event-1"
+      },
+      "description": "Entrada do WhatsApp: a mensagem do contato dispara o próprio agente."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.human-profile",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.created",
+        "actor": {
+          "kind": "human",
+          "principal_id": "legacy-user-1",
+          "display_name": "Usuária",
+          "email": "usuaria@example.test",
+          "identity_ids": ["auth0|legacy-user-1"]
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ]
+        },
+        "trigger": true,
+        "idempotency_key": "sdk-event-2"
+      },
+      "description": "dispatch(user=...) de produção: humano com qualquer user_id, só na thread de um agente."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.self",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": true,
+      "data": {
+        "type": "message.created",
+        "actor": {
+          "kind": "self"
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": ""
+            },
+            {
+              "type": "media_link",
+              "kind": "image",
+              "url": "https://cdn.exemplo.com/a.png"
+            }
+          ],
+          "author": "Bot",
+          "run_id": "00000000-0000-4000-8000-000000000030"
+        },
+        "trigger": false,
+        "idempotency_key": "sdk-event-3"
+      },
+      "description": "create_event(actor=\"assistant\") de produção: o agente como ele mesmo, com as partes do agente."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.agent-actor",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.created",
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000010"
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "x"
+            }
+          ]
+        },
+        "trigger": false,
+        "idempotency_key": "k"
+      },
+      "description": "O agente não publica como outro agente: o ator é self, human ou external."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.other-type",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "reasoning.created",
+        "actor": {
+          "kind": "self"
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "x"
+            }
+          ]
+        },
+        "trigger": false,
+        "idempotency_key": "k"
+      },
+      "description": "Só message.created é publicado fora de uma entrega."
+    },
+    {
+      "id": "public.AgentEventCreateRequest.missing-trigger",
+      "schema": "Public.AgentEventCreateRequest",
+      "valid": false,
+      "data": {
+        "type": "message.created",
+        "actor": {
+          "kind": "self"
+        },
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "x"
+            }
+          ]
+        },
+        "idempotency_key": "k"
+      },
+      "description": "trigger é obrigatório."
+    },
+    {
+      "id": "public.AgentEventCreateResponse.valid",
+      "schema": "Public.AgentEventCreateResponse",
+      "valid": true,
+      "data": {
+        "event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "external",
+            "external_id": "+5511999990000",
+            "channel": "whatsapp",
+            "display_name": "Maria",
+            "participant_id": "00000000-0000-4000-8000-000000000012"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Oi"
+              }
+            ],
+            "mentions": [],
+            "client_event_id": "sdk-event-1",
+            "data": {
+              "source": {
+                "channel": "whatsapp",
+                "wa_message_id": "wamid.1"
+              }
+            }
+          }
+        },
+        "delivery_id": "00000000-0000-4000-8000-000000000040",
+        "cursor": "mev1.fixture-cursor.opaque"
+      },
+      "description": "Evento publicado, a entrega do próprio agente (trigger) e o cursor para seguir os eventos seguintes."
+    },
+    {
+      "id": "public.AgentEventCreateResponse.missing-cursor",
+      "schema": "Public.AgentEventCreateResponse",
+      "valid": false,
+      "data": {
+        "event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "external",
+            "external_id": "+5511999990000",
+            "channel": "whatsapp",
+            "display_name": "Maria",
+            "participant_id": "00000000-0000-4000-8000-000000000012"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "message.created",
+          "payload": {
+            "content": [
+              {
+                "type": "text",
+                "text": "Oi"
+              }
+            ],
+            "mentions": [],
+            "client_event_id": "sdk-event-1",
+            "data": {
+              "source": {
+                "channel": "whatsapp",
+                "wa_message_id": "wamid.1"
+              }
+            }
+          }
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadEventPath.valid",
+      "schema": "Public.AgentThreadEventPath",
+      "valid": true,
+      "data": {
+        "id": "wa:inst-1:+5511999990000",
+        "eventId": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Caminho do evento: a thread pela external_key do agente ou pelo id do Maestro."
+    },
+    {
+      "id": "public.AgentThreadEventPath.not-uuid",
+      "schema": "Public.AgentThreadEventPath",
+      "valid": false,
+      "data": {
+        "id": "wa:inst-1:+5511999990000",
+        "eventId": "sdk-event-1"
+      },
+      "description": "O evento do caminho é o event_id do Maestro."
+    },
+    {
+      "id": "public.AgentEventPath.client-event-id",
+      "schema": "Public.AgentEventPath",
+      "valid": true,
+      "data": {
+        "id": "sdk-event-1"
+      },
+      "description": "GET /agent/events/:id aceita o client_event_id escolhido pelo agente ou o event_id do Maestro."
+    },
+    {
+      "id": "public.AgentEventPath.space",
+      "schema": "Public.AgentEventPath",
+      "valid": false,
+      "data": {
+        "id": "sdk event"
+      },
+      "description": "Mesmo alfabeto da chave de idempotência."
+    },
+    {
+      "id": "public.AgentEvent.published-by",
+      "schema": "Public.AgentEvent",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "external",
+          "external_id": "+5511999990000",
+          "channel": "whatsapp",
+          "display_name": "Maria",
+          "participant_id": "00000000-0000-4000-8000-000000000012"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Oi"
+            }
+          ],
+          "mentions": [],
+          "client_event_id": "sdk-event-1",
+          "data": {
+            "source": {
+              "channel": "whatsapp",
+              "wa_message_id": "wamid.1"
+            }
+          }
+        },
+        "published_by_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "Marca de origem da mensagem publicada pela API do agente (só nos schemas do agente)."
+    },
+    {
+      "id": "public.Event.message.created.published-by",
+      "schema": "Public.Event.message.created",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "message.created",
+        "payload": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Olá"
+            }
+          ],
+          "client_event_id": "publish-fixture-001",
+          "mentions": []
+        },
+        "published_by_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "O evento enviado ao navegador não leva a marca de origem do agente que publicou."
+    },
+    {
+      "id": "public.AgentEvent.published-by-other-type",
+      "schema": "Public.AgentEvent",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "human",
+          "principal_id": "auth0|human-fixture",
+          "participant_id": "00000000-0000-4000-8000-000000000004",
+          "display_name": "Pessoa"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "thread.archived",
+        "payload": {
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "version": 2
+        },
+        "published_by_instance_agent_id": "00000000-0000-4000-8000-000000000010"
+      },
+      "description": "A marca de origem só existe em message.created."
+    },
+    {
+      "id": "public.ContextQuery.valid",
+      "schema": "Public.ContextQuery",
+      "valid": true,
+      "data": {
+        "cursor": "mcx1.fixture-cursor.opaque",
+        "limit": 60,
+        "direction": "backward"
+      },
+      "description": "Contexto da entrega lido de trás para frente a partir do corte: o mais novo primeiro; o next_cursor continua antes do mais antigo."
+    },
+    {
+      "id": "public.ContextQuery.forward",
+      "schema": "Public.ContextQuery",
+      "valid": true,
+      "data": {
+        "direction": "forward",
+        "limit": 50
+      },
+      "description": "Para frente é o padrão: sem direction a leitura é igual."
+    },
+    {
+      "id": "public.ContextQuery.page-query",
+      "schema": "Public.ContextQuery",
+      "valid": true,
+      "data": {
+        "cursor": "mcx1.fixture-cursor.opaque",
+        "limit": 50
+      },
+      "description": "Todo PageQuery válido continua válido no contexto da entrega (o contrato só cresce)."
+    },
+    {
+      "id": "public.ContextQuery.unknown-field",
+      "schema": "Public.ContextQuery",
+      "valid": false,
+      "data": {
+        "limit": 50,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.ContextQuery.unknown-direction",
+      "schema": "Public.ContextQuery",
+      "valid": false,
+      "data": {
+        "direction": "desc"
+      },
+      "description": "A direção é forward ou backward; asc/desc da lista de eventos do agente não vale aqui."
+    },
+    {
+      "id": "public.Event.channel_delivery.updated.error-code",
+      "schema": "Public.Event.channel_delivery.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000011",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+          "participant_id": "00000000-0000-4000-8000-000000000013",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "channel_delivery.updated",
+        "payload": {
+          "event_id": "00000000-0000-4000-8000-000000000023",
+          "channel": "whatsapp",
+          "status": "failed",
+          "error": "Recipient unavailable",
+          "error_code": 131047
+        }
+      },
+      "description": "Recibo do WhatsApp com error_code inteiro do provedor (data.delivery.error_code de produção)."
+    },
+    {
+      "id": "public.Event.channel_delivery.updated.text-error-code",
+      "schema": "Public.Event.channel_delivery.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000011",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+          "participant_id": "00000000-0000-4000-8000-000000000013",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "channel_delivery.updated",
+        "payload": {
+          "event_id": "00000000-0000-4000-8000-000000000023",
+          "channel": "whatsapp",
+          "status": "failed",
+          "error_code": "rate_limit_hit"
+        }
+      },
+      "description": "error_code também aceita texto."
+    },
+    {
+      "id": "public.Event.channel_delivery.updated.empty-error-code",
+      "schema": "Public.Event.channel_delivery.updated",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000011",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+          "participant_id": "00000000-0000-4000-8000-000000000013",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "channel_delivery.updated",
+        "payload": {
+          "event_id": "00000000-0000-4000-8000-000000000023",
+          "channel": "whatsapp",
+          "status": "failed",
+          "error_code": ""
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.Event.channel_delivery.updated.fractional-error-code",
+      "schema": "Public.Event.channel_delivery.updated",
+      "valid": false,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000011",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+          "participant_id": "00000000-0000-4000-8000-000000000013",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "channel_delivery.updated",
+        "payload": {
+          "event_id": "00000000-0000-4000-8000-000000000023",
+          "channel": "whatsapp",
+          "status": "failed",
+          "error_code": 1.5
+        }
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentThreadArtifactPath.valid",
+      "schema": "Public.AgentThreadArtifactPath",
+      "valid": true,
+      "data": {
+        "id": "wa:inst-1:+5511999990000",
+        "artifactId": "00000000-0000-4000-8000-000000000009"
+      },
+      "description": "Arquivo de uma thread do agente: a external_key do agente ou o id do Maestro, e o artefato."
+    },
+    {
+      "id": "public.AgentThreadArtifactPath.not-uuid",
+      "schema": "Public.AgentThreadArtifactPath",
+      "valid": false,
+      "data": {
+        "id": "wa:inst-1:+5511999990000",
+        "artifactId": "ref-local-1"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentArtifactCreateRequest.valid",
+      "schema": "Public.AgentArtifactCreateRequest",
+      "valid": true,
+      "data": {
+        "filename": "nota.txt",
+        "mime_type": "application/octet-stream",
+        "size_bytes": 12,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "description": "Metadata do multipart do upload fora da entrega; a thread vem do caminho."
+    },
+    {
+      "id": "public.AgentArtifactCreateRequest.execution-fields",
+      "schema": "Public.AgentArtifactCreateRequest",
+      "valid": false,
+      "data": {
+        "filename": "nota.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 12,
+        "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "execution_id": "00000000-0000-4000-8000-000000000007",
+        "lease_fence": "1"
+      },
+      "description": "Fora da entrega não há execução nem lease."
+    },
+    {
+      "id": "public.AgentArtifact.valid",
+      "schema": "Public.AgentArtifact",
+      "valid": true,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "nota.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 12
+      },
+      "description": "Campos do chat_upload de produção (ref_id = artifact_id) com o MIME canônico gravado."
+    },
+    {
+      "id": "public.AgentArtifact.public-url",
+      "schema": "Public.AgentArtifact",
+      "valid": false,
+      "data": {
+        "artifact_id": "00000000-0000-4000-8000-000000000009",
+        "filename": "nota.txt",
+        "mime_type": "text/plain",
+        "size_bytes": 12,
+        "public_url": "https://exemplo.com/nota.txt"
+      },
+      "description": "O upload não devolve URL; o link é pedido à parte."
+    },
+    {
+      "id": "public.AgentRun.valid",
+      "schema": "Public.AgentRun",
+      "valid": true,
+      "data": {
+        "run_id": "00000000-0000-4000-8000-000000000030",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "agent_id": "00000000-0000-4000-8000-000000000012",
+        "status": "running",
+        "error": null,
+        "started_at": "2026-10-13T15:00:00.000Z",
+        "ended_at": null,
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Run aberto: sem ended_at nem error."
+    },
+    {
+      "id": "public.AgentRun.failed",
+      "schema": "Public.AgentRun",
+      "valid": true,
+      "data": {
+        "run_id": "00000000-0000-4000-8000-000000000030",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "agent_id": "00000000-0000-4000-8000-000000000012",
+        "status": "failed",
+        "error": "content_policy",
+        "started_at": "2026-10-13T15:00:00.000Z",
+        "ended_at": "2026-10-13T15:00:03.000Z",
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Run terminal: status e error do último run.updated, ended_at do terminal."
+    },
+    {
+      "id": "public.AgentRun.unknown-status",
+      "schema": "Public.AgentRun",
+      "valid": false,
+      "data": {
+        "run_id": "00000000-0000-4000-8000-000000000030",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "agent_id": "00000000-0000-4000-8000-000000000012",
+        "status": "canceled",
+        "error": null,
+        "started_at": "2026-10-13T15:00:00.000Z",
+        "ended_at": null,
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentRunPage.valid",
+      "schema": "Public.AgentRunPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "run_id": "00000000-0000-4000-8000-000000000030",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "agent_id": "00000000-0000-4000-8000-000000000012",
+            "status": "failed",
+            "error": "content_policy",
+            "started_at": "2026-10-13T15:00:00.000Z",
+            "ended_at": "2026-10-13T15:00:03.000Z",
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+          },
+          {
+            "run_id": "00000000-0000-4000-8000-000000000030",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "agent_id": "00000000-0000-4000-8000-000000000012",
+            "status": "running",
+            "error": null,
+            "started_at": "2026-10-13T15:00:00.000Z",
+            "ended_at": null,
+            "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "12"
+      },
+      "description": "Runs da thread, do mais novo para o mais antigo (started_at decrescente, como produção)."
+    },
+    {
+      "id": "public.AgentRunListQuery.valid",
+      "schema": "Public.AgentRunListQuery",
+      "valid": true,
+      "data": {
+        "cursor": "mev1.fixture-cursor.opaque",
+        "limit": 50
+      },
+      "description": "Página de runs da thread."
+    },
+    {
+      "id": "public.AgentRunListQuery.limit-too-large",
+      "schema": "Public.AgentRunListQuery",
+      "valid": false,
+      "data": {
+        "limit": 101
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentRunPath.valid",
+      "schema": "Public.AgentRunPath",
+      "valid": true,
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000030"
+      },
+      "description": "run_id do Repository.get_run de produção."
+    },
+    {
+      "id": "public.AgentRunPath.not-uuid",
+      "schema": "Public.AgentRunPath",
+      "valid": false,
+      "data": {
+        "id": "run-1"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentChannelDeliveryRequest.valid",
+      "schema": "Public.AgentChannelDeliveryRequest",
+      "valid": true,
+      "data": {
+        "thread_id": "wa:inst-1:+5511999990000",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "channel": "whatsapp",
+        "status": "delivered",
+        "provider_message_id": "wamid.HBgL"
+      },
+      "description": "Recibo do WhatsApp para a mensagem enviada."
+    },
+    {
+      "id": "public.AgentChannelDeliveryRequest.failed-code",
+      "schema": "Public.AgentChannelDeliveryRequest",
+      "valid": true,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "channel": "whatsapp",
+        "status": "failed",
+        "error": "Recipient unavailable",
+        "error_code": 131047
+      },
+      "description": "Falha com o código do provedor."
+    },
+    {
+      "id": "public.AgentChannelDeliveryRequest.unknown-status",
+      "schema": "Public.AgentChannelDeliveryRequest",
+      "valid": true,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "channel": "whatsapp",
+        "status": "deleted"
+      },
+      "description": "Status que não é do canal: aceito e respondido com {applied: false}, como em produção."
+    },
+    {
+      "id": "public.AgentChannelDeliveryRequest.other-channel",
+      "schema": "Public.AgentChannelDeliveryRequest",
+      "valid": false,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "channel": "sms",
+        "status": "sent"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentChannelDeliveryResponse.applied",
+      "schema": "Public.AgentChannelDeliveryResponse",
+      "valid": true,
+      "data": {
+        "applied": true,
+        "event": {
+          "event_id": "00000000-0000-4000-8000-000000000005",
+          "thread_id": "00000000-0000-4000-8000-000000000003",
+          "sequence": "9007199254740993",
+          "schema_version": 1,
+          "actor": {
+            "kind": "agent",
+            "principal_id": "00000000-0000-4000-8000-000000000011",
+            "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+            "participant_id": "00000000-0000-4000-8000-000000000013",
+            "display_name": "Agente"
+          },
+          "created_at": "2026-10-13T15:00:00Z",
+          "causation_event_id": null,
+          "root_event_id": "00000000-0000-4000-8000-000000000005",
+          "type": "channel_delivery.updated",
+          "payload": {
+            "event_id": "00000000-0000-4000-8000-000000000023",
+            "channel": "whatsapp",
+            "status": "failed",
+            "error": "Recipient unavailable",
+            "error_code": 131047,
+            "provider_message_id": "wamid.HBgL"
+          }
+        }
+      },
+      "description": "O status avançou: o channel_delivery.updated gravado."
+    },
+    {
+      "id": "public.AgentChannelDeliveryResponse.not-applied",
+      "schema": "Public.AgentChannelDeliveryResponse",
+      "valid": true,
+      "data": {
+        "applied": false
+      },
+      "description": "O status não avança (regra de produção): nada é gravado."
+    },
+    {
+      "id": "public.AgentChannelDeliveryResponse.applied-without-event",
+      "schema": "Public.AgentChannelDeliveryResponse",
+      "valid": false,
+      "data": {
+        "applied": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentChannelDeliveryQuery.valid",
+      "schema": "Public.AgentChannelDeliveryQuery",
+      "valid": true,
+      "data": {
+        "provider_message_id": "wamid.HBgL"
+      },
+      "description": "Busca pelo wamid do recibo."
+    },
+    {
+      "id": "public.AgentChannelDeliveryQuery.empty",
+      "schema": "Public.AgentChannelDeliveryQuery",
+      "valid": false,
+      "data": {
+        "provider_message_id": ""
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.AgentChannelDelivery.valid",
+      "schema": "Public.AgentChannelDelivery",
+      "valid": true,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "status": "read"
+      },
+      "description": "Mensagem do recibo e o status atual dela."
+    },
+    {
+      "id": "public.AgentChannelDelivery.unknown-status",
+      "schema": "Public.AgentChannelDelivery",
+      "valid": false,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "event_id": "00000000-0000-4000-8000-000000000023",
+        "status": "pending"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
     }
   ]
 }
