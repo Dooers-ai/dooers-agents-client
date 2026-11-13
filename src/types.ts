@@ -508,7 +508,17 @@ export function toDisplayContentPart(w: WireS2C_ContentPart): DisplayContentPart
 // Backward-compatible alias
 export const toContentPart = toDisplayContentPart
 
-export function toFormElement(w: WireS2C_FormElement): FormElement {
+export interface FormParseOptions {
+  /**
+   * Maestro transport: an element of a type this client does not know is kept as its base element
+   * (name, label, order, disabled) with its original `type`, never required, so a renderer that has no
+   * case for the type shows nothing and the form can still be submitted. Without it (legacy runtime) an
+   * unknown element yields `undefined`, exactly as the production client does.
+   */
+  tolerateUnknown?: boolean
+}
+
+export function toFormElement(w: WireS2C_FormElement, options?: FormParseOptions): FormElement {
   const base = {
     name: w.name,
     label: w.label,
@@ -565,25 +575,20 @@ export function toFormElement(w: WireS2C_FormElement): FormElement {
         accept: w.accept ?? null,
         multiple: w.multiple ?? false,
       }
-    default:
-      // A newer runtime may send an element this client does not know. Production built `undefined`
-      // here, which broke the render. The element is kept as a plain text field with its own name, so
-      // the value is still collected and no element disappears.
-      return {
-        ...base,
-        type: 'text_input',
-        placeholder: null,
-        default: null,
-        inputType: 'text',
-      }
   }
+  // Not reached for a known type. Production fell through here and returned `undefined`.
+  if (!options?.tolerateUnknown) return undefined as unknown as FormElement
+  return { ...base, required: false, type: (w as { type: string }).type } as unknown as FormElement
 }
 
-export function toFormEventData(data: Record<string, unknown>): FormEventData {
+export function toFormEventData(
+  data: Record<string, unknown>,
+  options?: FormParseOptions
+): FormEventData {
   const elements = (data.elements as WireS2C_FormElement[]) ?? []
   return {
     message: (data.message as string) ?? '',
-    elements: elements.map(toFormElement),
+    elements: elements.map((element) => toFormElement(element, options)),
     submitLabel: (data.submit_label as string) ?? 'Send',
     cancelLabel: (data.cancel_label as string) ?? 'Cancel',
     size: ((data.size as string) ?? 'medium') as FormSize,

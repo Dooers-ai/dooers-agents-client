@@ -354,13 +354,55 @@ describe('visitor mode: thread lifecycle', () => {
     client.disconnect()
   })
 
-  it('an ensure refused with 429 surfaces RATE_LIMITED with the Retry-After seconds', async () => {
+  it('an ensure refused with 429 and a long Retry-After surfaces RATE_LIMITED with the seconds and is not retried', async () => {
     const server = maestroServer({ ensure: () => failure(429, 'RATE_LIMITED', undefined, { 'Retry-After': '7' }) })
     const { client, store } = await setup(server)
     const failed = await client.sendMessage({ text: 'Oi' }).catch((cause: unknown) => cause)
     expect(failed).toBeInstanceOf(MaestroClientError)
     expect(failed).toMatchObject({ code: 'RATE_LIMITED', retryable: true, retryAfterSeconds: 7 })
     expect(store.getState().connection.sendError).toBeTruthy()
+    expect(server.calls.filter((c) => c.method === 'POST' && c.path === '/public-chat/thread')).toHaveLength(1)
+    client.disconnect()
+  })
+
+  it('an ensure refused with 429 and Retry-After up to 3 s waits and retries once with the same Idempotency-Key', async () => {
+    let attempts = 0
+    const server = maestroServer({ ensure: () => (++attempts === 1 ? failure(429, 'RATE_LIMITED', undefined, { 'Retry-After': '1' }) : json(visitorThread(), 201)) })
+    const { client, socket } = await setup(server)
+    const startedAt = Date.now()
+    const sending = client.sendMessage({ text: 'Oi' })
+    await new Promise((resolve) => setTimeout(resolve, 1100))
+    await tick()
+    ackPublish(socket, 'Oi')
+    await expect(sending).resolves.toEqual({ threadId })
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(1000)
+    const posts = server.calls.filter((c) => c.method === 'POST' && c.path === '/public-chat/thread')
+    expect(posts).toHaveLength(2)
+    expect(posts[1]!.headers['Idempotency-Key']).toBe(posts[0]!.headers['Idempotency-Key'])
+    client.disconnect()
+  })
+
+  it('an ensure that is still 429 after the one retry surfaces the error', async () => {
+    const server = maestroServer({ ensure: () => failure(429, 'RATE_LIMITED', undefined, { 'Retry-After': '0' }) })
+    const { client } = await setup(server)
+    await expect(client.sendMessage({ text: 'Oi' })).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 0 })
+    expect(server.calls.filter((c) => c.method === 'POST' && c.path === '/public-chat/thread')).toHaveLength(2)
+    client.disconnect()
+  })
+
+  it('trims the pre-chat, drops control characters and omits a field that ends up empty', async () => {
+    const server = maestroServer()
+    const { client, socket } = await setup(server)
+    const sending = client.sendMessage({
+      text: 'Oi',
+      metadata: { guest_name: '\t Ana\u0000 Maria\n ', guest_email: ' ana@example.com\r\n', guest_phone: '\u0001\u001f \t' },
+    })
+    await tick()
+    await tick()
+    const post = server.calls.find((c) => c.method === 'POST' && c.path === '/public-chat/thread')!
+    expect(post.body).toEqual({ guest: { name: 'Ana Maria', email: 'ana@example.com' } })
+    ackPublish(socket)
+    await sending
     client.disconnect()
   })
 })
@@ -447,6 +489,47 @@ describe('visitor mode: publish, forms and 429 on the Maestro client', () => {
     expect(post.headers['Idempotency-Key']).toMatch(/^[0-9a-f-]{36}$/)
     expect(socket.sent.some((f) => f.type === 'interaction.respond')).toBe(false)
     client.disconnect()
+  })
+})
+
+describe('visitor mode: pending outbox', () => {
+  const outboxKeys = () => Object.keys(localStorage).filter((key) => key.startsWith('maestro.outbox.'))
+  async function leavePending() {
+    const server = maestroServer({ existing: true })
+    const first = await setup(server)
+    const send = vi.spyOn(MaestroClient.prototype, 'send').mockRejectedValue(new Error('connection lost'))
+    await expect(first.client.sendMessage({ text: 'Pendente', threadId })).rejects.toThrow()
+    first.client.disconnect()
+    expect(outboxKeys()).toHaveLength(1)
+    return { server, send }
+  }
+  it('drops an entry whose thread is gone (404) with a visible failure and does not replay it on the next connection', async () => {
+    const { server, send } = await leavePending()
+    send.mockRejectedValue(new MaestroClientError('NOT_FOUND', 'Thread not found', false, undefined, threadId, 'x', 'rejected'))
+    const errors: string[] = []
+    const second = await setup(server, { onError: undefined })
+    second.client.setOnError((error) => errors.push(error.code))
+    await tick()
+    expect(send).toHaveBeenCalledTimes(2)
+    expect(outboxKeys()).toHaveLength(0)
+    expect(second.store.getState().connection.sendError).toContain('descartada')
+    second.client.disconnect()
+    send.mockClear()
+    const third = await setup(server)
+    await tick()
+    expect(send).not.toHaveBeenCalled()
+    expect(third.store.getState().connection.sendError).toBeNull()
+    third.client.disconnect()
+    send.mockRestore()
+  })
+  it('keeps an entry that failed for another reason', async () => {
+    const { server, send } = await leavePending()
+    const second = await setup(server)
+    await tick()
+    expect(outboxKeys()).toHaveLength(1)
+    expect(second.store.getState().connection.sendError).toContain('preservado')
+    second.client.disconnect()
+    send.mockRestore()
   })
 })
 

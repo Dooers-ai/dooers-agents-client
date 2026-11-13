@@ -125,6 +125,37 @@ async function onceMore<T>(operation: () => Promise<T>): Promise<T> {
   }
 }
 
+/** The longest `Retry-After` the visitor's ensure waits for before its one retry. */
+const ENSURE_RETRY_AFTER_MAX_S = 3
+
+/**
+ * Ensure of the visitor's thread: a 429 with `Retry-After` up to 3 s waits that long and retries once
+ * with the same key; a longer wait is surfaced (with `retryAfterSeconds`) and not retried. Any other
+ * transient failure follows the ordinary single retry.
+ */
+async function ensureWithRetryAfter<T>(operation: () => Promise<T>): Promise<T> {
+  try {
+    return await operation()
+  } catch (cause) {
+    if (
+      cause instanceof MaestroClientError &&
+      cause.code === 'RATE_LIMITED' &&
+      cause.retryAfterSeconds !== undefined
+    ) {
+      if (cause.retryAfterSeconds > ENSURE_RETRY_AFTER_MAX_S) throw cause
+      await new Promise((resolve) => setTimeout(resolve, cause.retryAfterSeconds! * 1000))
+      return operation()
+    }
+    if (
+      !(cause instanceof MaestroClientError) ||
+      !(cause.retryable || cause.code === 'CORE_UNAVAILABLE')
+    )
+      throw cause
+    await new Promise((resolve) => setTimeout(resolve, 750))
+    return operation()
+  }
+}
+
 function titleFrom(params: { text?: string; content?: SendContentPart[] }): string {
   const text =
     params.text ??
@@ -180,6 +211,19 @@ export class MaestroAgentClient extends AgentClient {
           await maestro.send(input)
           this.outbox().remove(input.clientEventId!)
         } catch (cause) {
+          if (this.visitor && cause instanceof MaestroClientError && cause.code === 'NOT_FOUND') {
+            // The guest thread is gone (idle guest cleanup): the pending message can never be
+            // delivered. Drop it with a visible failure instead of replaying it on every connection.
+            this.outbox().remove(input.clientEventId!)
+            this.callbacks.onThreadDeleted(input.threadId.toLowerCase())
+            if (this.visitorThreadId === input.threadId.toLowerCase()) {
+              this.visitorEnsured = false
+              this.visitorThreadId = null
+            }
+            this.callbacks.setSendError('Mensagem pendente descartada: a conversa não existe mais')
+            this.report(cause)
+            continue
+          }
           this.callbacks.setSendError(`Envio pendente preservado: ${errorMessage(cause)}`)
           break
         }
@@ -877,8 +921,15 @@ export class MaestroAgentClient extends AgentClient {
   private visitorGuest(
     metadata: Record<string, unknown> | undefined
   ): { name?: string; email?: string; phone?: string } | undefined {
+    // Same rule as the server: edges trimmed, no control character (\x00-\x1f); empty means omitted.
     const pick = (value: unknown, limit: number) =>
-      typeof value === 'string' ? value.trim().slice(0, limit) : ''
+      typeof value === 'string'
+        ? [...value]
+            .filter((character) => (character.codePointAt(0) ?? 0) >= 0x20)
+            .join('')
+            .trim()
+            .slice(0, limit)
+        : ''
     const base = this.visitor?.guest
     const name = pick(metadata?.guest_name, 200) || pick(base?.name, 200)
     const email = pick(metadata?.guest_email, 320) || pick(base?.email, 320)
@@ -903,7 +954,7 @@ export class MaestroAgentClient extends AgentClient {
     if (this.visitorEnsuring) return this.visitorEnsuring
     const key = crypto.randomUUID()
     const guest = this.visitorGuest(metadata)
-    const ensuring = onceMore(() => maestro.ensurePublicChatThread(guest, key))
+    const ensuring = ensureWithRetryAfter(() => maestro.ensurePublicChatThread(guest, key))
       .then((thread) => {
         if (this.maestro !== maestro || this.closed) throw new Error('Not connected')
         this.visitorEnsured = true

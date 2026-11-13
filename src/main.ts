@@ -86,6 +86,7 @@ export type {
   FormEventData,
   FormFileElement,
   FormOption,
+  FormParseOptions,
   FormRadioElement,
   FormResponseEventData,
   FormSelectElement,
