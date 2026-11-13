@@ -58,6 +58,8 @@ function maestroKey(maestro: AgentMaestroOptions | undefined): string {
     maestro.scope.principalId,
     maestro.scope.organizationId,
     maestro.scope.workspaceId,
+    maestro.scope.actorType ?? null,
+    Boolean(maestro.visitor),
   ])
 }
 

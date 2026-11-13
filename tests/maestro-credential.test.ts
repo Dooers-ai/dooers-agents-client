@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { inspectMaestroHumanCredential } from '../src/maestro/credential'
 import { MaestroClient } from '../src/maestro/client'
-import { credential } from './fixtures/maestro-credential'
+import { credential, visitorCredential, visitorExternalId, visitorLink, visitorPrincipalId } from './fixtures/maestro-credential'
 import corpus from './fixtures/maestro-human-claims.json'
 const org = '00000000-0000-4000-8000-000000000001'
 const other = '00000000-0000-4000-8000-000000000002'
@@ -47,5 +47,57 @@ describe('human credential binding filter', () => {
     const fetcher = vi.fn(async () => new Response(JSON.stringify({ error: { code: 'UNAUTHENTICATED', message: 'Unverified signature', request_id: other, retryable: false } }), { status: 401, headers: { 'content-type': 'application/json' } }))
     const client = new MaestroClient({ ...config, authToken: credential('human', org), fetch: fetcher }); clients.push(client)
     await expect(client.connect()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' }); expect(fetcher).toHaveBeenCalledOnce(); expect(client.getConnection().status).toBe('unauthenticated')
+  })
+})
+
+describe('public chat visitor credential (external)', () => {
+  const visitor = { principalId: visitorPrincipalId, organizationId: org, workspaceId: null, actorType: 'external' as const }
+  const strip = (claims: Record<string, unknown>) => ({ ...claims })
+  it('accepts an external token whose sub is the visitor id of the exchange', () => {
+    const exp = inspectMaestroHumanCredential(visitorCredential(org), visitor)
+    expect(exp).toBeGreaterThan(Date.now())
+  })
+  it('accepts public_authenticated and the optional message rate', () => {
+    const principal = `public_chat:${visitorLink}:user-123`
+    const claims = { sub: principal, external_id: 'user-123', connection_type: 'public_authenticated', rate_limit_msgs_per_min: 20 }
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims), { ...visitor, principalId: principal })).not.toThrow()
+  })
+  it.each([
+    ['sub differs from the visitor id of the exchange', { sub: `public_chat:${visitorLink}:guest:BBBBBBBBBBBBBBBBBBBBBB` }],
+    ['sub without the link namespace', { sub: visitorExternalId }],
+    ['another organization', { organization_id: other }],
+    ['workspace set', { workspace_id: other }],
+    ['a human scope', { scopes: ['threads:read'] }],
+    ['an extra scope', { scopes: ['public_chat:converse', 'messages:write'] }],
+    ['duplicate scope', { scopes: ['public_chat:converse', 'public_chat:converse'] }],
+    ['no scopes', { scopes: [] }],
+    ['another channel', { channel: 'whatsapp' }],
+    ['guest id with the wrong format', { sub: `public_chat:${visitorLink}:guest:short`, external_id: 'guest:short' }],
+    ['public_authenticated claiming the guest prefix', { connection_type: 'public_authenticated' }],
+    ['human actor type', { actor_type: 'human' }],
+    ['unknown claim', { user_id: visitorPrincipalId }],
+    ['too long lifetime', { exp: Math.floor(Date.now() / 1000) + 600 }],
+    ['expired', { iat: Math.floor(Date.now() / 1000) - 400, exp: Math.floor(Date.now() / 1000) - 100 }],
+    ['wrong issuer', { iss: 'legacy' }],
+    ['instance agent not a uuid', { instance_agent_id: 'agent' }],
+    ['rate limit zero', { rate_limit_msgs_per_min: 0 }],
+  ])('rejects %s', (_label, claims) => {
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, strip(claims)), visitor)).toThrow()
+  })
+  it('a human scope refuses the external token and an external scope refuses a human token', () => {
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org), { ...scope, principalId: visitorPrincipalId })).toThrow()
+    expect(() => inspectMaestroHumanCredential(credential('human', org), visitor)).toThrow()
+  })
+  it('the client checks sub against the visitor id before any request and on refresh', async () => {
+    const fetcher = vi.fn(async () => caps())
+    const wrong = new MaestroClient({ ...config, scope: visitor, authToken: visitorCredential(org, { sub: `public_chat:${visitorLink}:guest:BBBBBBBBBBBBBBBBBBBBBB` }), fetch: fetcher }); clients.push(wrong)
+    await expect(wrong.connect()).rejects.toMatchObject({ code: 'UNAUTHENTICATED' }); expect(fetcher).not.toHaveBeenCalled()
+    const client = new MaestroClient({ ...config, scope: visitor, authToken: visitorCredential(org), fetch: fetcher }); clients.push(client); await client.connect()
+    expect(client.getConnection().status).toBe('connected')
+    await expect(client.refreshAuth(visitorCredential(org, { sub: `public_chat:${visitorLink}:guest:BBBBBBBBBBBBBBBBBBBBBB` }))).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+    expect(client.getConnection().status).toBe('unauthenticated')
+  })
+  it('rejects an invalid actorType in the scope', () => {
+    expect(() => new MaestroClient({ ...config, scope: { ...scope, actorType: 'agent' as never } })).toThrow()
   })
 })

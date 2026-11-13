@@ -1,9 +1,13 @@
 // Transporte Maestro atrás da API legada (AgentProvider + hooks). O chat existente
 // continua chamando os mesmos métodos; aqui eles viram HTTP/WS do Maestro e o
 // estado canônico do MaestroStore é projetado no store legado.
-import { AgentClient, type AgentConnectionConfig, type PublicSettingsSchemaResult, type UploadResult } from './client'
+import {
+  AgentClient,
+  type AgentConnectionConfig,
+  type PublicSettingsSchemaResult,
+  type UploadResult,
+} from './client'
 import { MaestroClient } from './maestro/client'
-import { MaestroOutbox } from './maestro-outbox'
 import type { MaestroStore, MaestroThreadState } from './maestro/store'
 import type { MaestroClientConfig, MaestroCredential, MaestroScope } from './maestro/types'
 import { MaestroClientError } from './maestro/types'
@@ -20,6 +24,7 @@ import {
   maestroThreadToLegacy,
 } from './maestro-legacy'
 import { maestroMentions, maestroMentionsEveryone } from './maestro-mentions'
+import { MaestroOutbox } from './maestro-outbox'
 import type { MaestroEvent, MaestroParticipant } from './protocol/maestro/contracts'
 import type { AgentActions } from './store'
 import type {
@@ -53,9 +58,26 @@ export interface AgentMaestroOptions {
   forms?: boolean
   /** Intervalo de releitura da lista de threads do agente (ms). 0 desliga. Padrão 15 s. */
   threadListPollMs?: number
+  /**
+   * Modo visitante do chat público (credencial `external`, `scope.actorType: 'external'`). Desligado por
+   * padrão. Ligado: sem lista de threads, sem resolvedor de nomes, sem supervisão, sem participantes,
+   * formulários só por HTTP; a thread do visitante vem de `GET/POST /public-chat/thread`.
+   * `true` ou um objeto; `guest` é o pré-chat conhecido na carga (o `metadata` da primeira mensagem o substitui).
+   */
+  visitor?: boolean | AgentMaestroVisitorOptions
   /** Injeção para testes/ambientes sem browser. */
   fetch?: MaestroClientConfig['fetch']
   socketFactory?: MaestroClientConfig['socketFactory']
+}
+
+/** Pré-chat declarado pelo visitante (nunca verificado). Campos vazios são omitidos. */
+export interface AgentMaestroVisitorGuest {
+  name?: string | null
+  email?: string | null
+  phone?: string | null
+}
+export interface AgentMaestroVisitorOptions {
+  guest?: AgentMaestroVisitorGuest
 }
 
 const LIST_PAGE_SIZE = 100
@@ -138,6 +160,16 @@ export class MaestroAgentClient extends AgentClient {
     )
   }
   private recoveringOutbox = false
+  /** Visitante: sem resolvedor de nomes (o nome vem do próprio Maestro). */
+  private readonly resolveName: MaestroNameResolver | undefined
+  private readonly visitor: AgentMaestroVisitorOptions | null
+  /** Visitante: a thread já foi aberta (POST ensure) nesta sessão do cliente. */
+  private visitorEnsured = false
+  private visitorEnsuring: Promise<string> | null = null
+  private visitorThreadId: string | null = null
+  /** Visitante: o GET da thread no início da sessão já respondeu (200 ou 404). */
+  private visitorResolved = false
+  private visitorOpening: Promise<void> | null = null
   private async recoverOutbox(maestro: MaestroClient) {
     if (this.recoveringOutbox) return
     this.recoveringOutbox = true
@@ -153,8 +185,12 @@ export class MaestroAgentClient extends AgentClient {
         }
       }
     } catch (cause) {
-      this.callbacks.setSendError(`Não foi possível recuperar os envios pendentes: ${errorMessage(cause)}`)
-    } finally { this.recoveringOutbox = false }
+      this.callbacks.setSendError(
+        `Não foi possível recuperar os envios pendentes: ${errorMessage(cause)}`
+      )
+    } finally {
+      this.recoveringOutbox = false
+    }
   }
   private selectionKey(threadId: string) {
     return `maestro.invocation.v1:${JSON.stringify([this.options.scope.principalId, this.options.scope.organizationId, this.options.scope.workspaceId, threadId])}`
@@ -189,7 +225,7 @@ export class MaestroAgentClient extends AgentClient {
         : {
             mode: 'direct' as const,
             recipients: [this.agentPrincipalId],
-            labels: [this.options.resolveName?.('agent', this.agentPrincipalId)].filter(
+            labels: [this.resolveName?.('agent', this.agentPrincipalId)].filter(
               (name): name is string => Boolean(name)
             ),
             invalid: false,
@@ -198,7 +234,7 @@ export class MaestroAgentClient extends AgentClient {
     const participants = this.participantsByThread.get(id ?? '') ?? []
     let mentions: string[]
     try {
-      mentions = maestroMentions(text, participants, this.options.resolveName, true)
+      mentions = maestroMentions(text, participants, this.resolveName, true)
     } catch {
       return { mode: 'none' as const, recipients: [], labels: [], invalid: true }
     }
@@ -218,7 +254,7 @@ export class MaestroAgentClient extends AgentClient {
       const p = participants.find((p) => p.participantId === recipient)
       if (!p) return ''
       return p.kind === 'agent'
-        ? this.options.resolveName?.('agent', p.principalId) || p.displayName
+        ? this.resolveName?.('agent', p.principalId) || p.displayName
         : (p.displayName ?? '')
     })
     return {
@@ -247,6 +283,8 @@ export class MaestroAgentClient extends AgentClient {
     private readonly options: AgentMaestroOptions
   ) {
     super(callbacks)
+    this.visitor = options.visitor ? (options.visitor === true ? {} : options.visitor) : null
+    this.resolveName = this.visitor ? undefined : options.resolveName
   }
 
   /** Reprojeta threads e eventos já exibidos (ex.: nomes resolvidos depois da carga). */
@@ -285,12 +323,13 @@ export class MaestroAgentClient extends AgentClient {
       ...(this.options.apiPrefix ? { apiPrefix: this.options.apiPrefix } : {}),
       scope: this.options.scope,
       authToken: this.options.authToken,
-      ...(this.options.supervisionAuthToken
+      ...(this.options.supervisionAuthToken && !this.visitor
         ? { supervisionAuthToken: this.options.supervisionAuthToken }
         : {}),
       allowInsecureLocalhost: this.options.allowInsecureLocalhost === true,
-      durableForms: this.options.forms === true,
-      perAgentOptions: Boolean(this.options.turnModels?.length),
+      // The visitor answers forms over HTTP and has no per-agent options.
+      durableForms: this.options.forms === true && !this.visitor,
+      perAgentOptions: Boolean(this.options.turnModels?.length) && !this.visitor,
       maxThreads: 1000,
       maxReconnectAttempts: 8,
       ...(this.options.fetch ? { fetch: this.options.fetch } : {}),
@@ -334,6 +373,11 @@ export class MaestroAgentClient extends AgentClient {
     this.feedbackSignatures.clear()
     this.pendingClientEvents.clear()
     this.listCursor = null
+    this.visitorEnsured = false
+    this.visitorEnsuring = null
+    this.visitorThreadId = null
+    this.visitorResolved = false
+    this.visitorOpening = null
     this.maestro?.dispose()
     this.maestro = null
   }
@@ -361,6 +405,7 @@ export class MaestroAgentClient extends AgentClient {
         this.startPolling()
         void this.recoverOutbox(maestro)
         this.requestThreadList()
+        void this.openVisitorThread(maestro)
         break
       }
       case 'refreshing':
@@ -380,6 +425,9 @@ export class MaestroAgentClient extends AgentClient {
           this.callbacks.setConnectionStatus('connecting')
           void maestro.connect().catch(() => {})
         } else {
+          // The visitor token is re-issued by the application (silent re-resolve or login): the
+          // chat shows the existing reconnect-failed state and the application decides.
+          if (this.visitor) this.callbacks.setReconnectFailed()
           this.callbacks.setConnectionStatus('error', 'Maestro: authentication required')
         }
         break
@@ -402,7 +450,7 @@ export class MaestroAgentClient extends AgentClient {
   }
 
   private startPolling() {
-    const interval = this.options.threadListPollMs ?? 15_000
+    const interval = this.visitor ? 0 : (this.options.threadListPollMs ?? 15_000)
     if (this.pollTimer || interval <= 0) return
     this.pollTimer = setInterval(() => {
       if (this.isConnected()) this.requestThreadList()
@@ -415,7 +463,7 @@ export class MaestroAgentClient extends AgentClient {
     // Participantes vistos por último, para transformar "@Nome" do texto em menção no envio.
     this.participantsByThread.set(thread.threadId.toLowerCase(), thread.participants)
     if (thread.routingVersion === 1) this.routingThreads.add(thread.threadId.toLowerCase())
-    return maestroThreadToLegacy(thread, this.agentPrincipalId, this.options.resolveName)
+    return maestroThreadToLegacy(thread, this.agentPrincipalId, this.resolveName)
   }
 
   private async collect(cursor: string | undefined, wanted: number) {
@@ -440,6 +488,8 @@ export class MaestroAgentClient extends AgentClient {
   }
 
   override requestThreadList(_cursor?: string | null, limit?: number, _queue?: string | null) {
+    // The visitor has one thread and the list is closed to it: nothing to read.
+    if (this.visitor) return
     if (!this.maestro || !this.isConnected()) return
     if (this.listing) {
       this.listAgain = true
@@ -465,7 +515,7 @@ export class MaestroAgentClient extends AgentClient {
 
   override loadMoreThreads(limit?: number) {
     const cursor = this.listCursor
-    if (!cursor || this.listing || !this.maestro) return
+    if (this.visitor || !cursor || this.listing || !this.maestro) return
     const maestro = this.maestro
     this.listing = this.collect(cursor, limit ?? 50)
       .then(({ threads, cursor: next }) => {
@@ -509,7 +559,11 @@ export class MaestroAgentClient extends AgentClient {
     // A projeção atual do leitor (permissões, participantes) vem do GET da thread.
     void maestro.getThread(id).catch((cause) => {
       if (this.maestro !== maestro || this.retained.get(id) !== entry) return
-      if (cause instanceof MaestroClientError && ['NOT_FOUND', 'FORBIDDEN'].includes(cause.code)) {
+      if (
+        !this.visitor &&
+        cause instanceof MaestroClientError &&
+        ['NOT_FOUND', 'FORBIDDEN'].includes(cause.code)
+      ) {
         void this.supervise(maestro, id, entry, options?.accessReason)
         return
       }
@@ -675,7 +729,7 @@ export class MaestroAgentClient extends AgentClient {
   private legacyEvents(state: MaestroThreadState): ThreadEvent[] {
     const events: ThreadEvent[] = []
     for (const event of foldMaestroEvents(this.knownEvents(state))) {
-      const mapped = maestroEventToLegacy({ known: true, event }, this.options.resolveName)
+      const mapped = maestroEventToLegacy({ known: true, event }, this.resolveName)
       if (mapped) events.push(mapped)
     }
     return events
@@ -788,6 +842,83 @@ export class MaestroAgentClient extends AgentClient {
     }
   }
 
+  // --- Thread do visitante do chat público ---
+
+  /** Id da thread do visitante, quando já se conhece (GET no início da sessão ou POST ensure). */
+  getVisitorThreadId(): string | null {
+    return this.visitorThreadId
+  }
+
+  /** Início da sessão: lê a thread do visitante (404 = ainda não existe) e a mostra na lista. */
+  private openVisitorThread(maestro: MaestroClient): Promise<void> {
+    if (!this.visitor || this.visitorResolved) return Promise.resolve()
+    if (this.visitorOpening) return this.visitorOpening
+    const sentAt = Date.now()
+    const opening = maestro
+      .getPublicChatThread()
+      .then((thread) => {
+        if (this.maestro !== maestro || this.closed) return
+        this.visitorResolved = true
+        if (!thread) return
+        this.visitorThreadId = thread.threadId
+        this.callbacks.onThreadList([this.legacyThread(thread)], null, 1, null, sentAt)
+      })
+      .catch((cause) => {
+        if (this.maestro === maestro && !this.closed) this.report(cause)
+      })
+      .finally(() => {
+        if (this.visitorOpening === opening) this.visitorOpening = null
+      })
+    this.visitorOpening = opening
+    return opening
+  }
+
+  /** Pré-chat declarado: `metadata.guest_*` da primeira mensagem (como a produção), senão o da opção. */
+  private visitorGuest(
+    metadata: Record<string, unknown> | undefined
+  ): { name?: string; email?: string; phone?: string } | undefined {
+    const pick = (value: unknown, limit: number) =>
+      typeof value === 'string' ? value.trim().slice(0, limit) : ''
+    const base = this.visitor?.guest
+    const name = pick(metadata?.guest_name, 200) || pick(base?.name, 200)
+    const email = pick(metadata?.guest_email, 320) || pick(base?.email, 320)
+    const phone = pick(metadata?.guest_phone, 64) || pick(base?.phone, 64)
+    const guest = {
+      ...(name ? { name } : {}),
+      ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
+    }
+    return Object.keys(guest).length ? guest : undefined
+  }
+
+  /**
+   * Primeira mensagem de cada sessão: POST ensure (mesmo com a thread já existente: renova o perfil do
+   * visitante). Idempotente por chave; a chave fica a mesma nas repetições da mesma tentativa.
+   */
+  private ensureVisitorThread(
+    maestro: MaestroClient,
+    metadata: Record<string, unknown> | undefined
+  ): Promise<string> {
+    if (this.visitorEnsured && this.visitorThreadId) return Promise.resolve(this.visitorThreadId)
+    if (this.visitorEnsuring) return this.visitorEnsuring
+    const key = crypto.randomUUID()
+    const guest = this.visitorGuest(metadata)
+    const ensuring = onceMore(() => maestro.ensurePublicChatThread(guest, key))
+      .then((thread) => {
+        if (this.maestro !== maestro || this.closed) throw new Error('Not connected')
+        this.visitorEnsured = true
+        this.visitorResolved = true
+        this.visitorThreadId = thread.threadId
+        this.callbacks.onThreadUpsert(this.legacyThread(thread))
+        return thread.threadId
+      })
+      .finally(() => {
+        if (this.visitorEnsuring === ensuring) this.visitorEnsuring = null
+      })
+    this.visitorEnsuring = ensuring
+    return ensuring
+  }
+
   // --- Mensagens, participantes, formulários, feedback, anexos ---
 
   override async sendMessage(params: {
@@ -806,7 +937,19 @@ export class MaestroAgentClient extends AgentClient {
     const clientEventId = crypto.randomUUID()
     let threadId = params.threadId?.toLowerCase()
     try {
-      if (!threadId) {
+      if (this.visitor) {
+        // The visitor has one thread: the one the ensure route opens (or refreshes) for this session.
+        const known = Boolean(threadId)
+        threadId = await this.ensureVisitorThread(maestro, params.metadata)
+        if (known) {
+          this.pendingClientEvents.set(clientEventId, threadId)
+          this.callbacks.addOptimistic(
+            threadId,
+            this.optimistic(threadId, params, clientEventId),
+            clientEventId
+          )
+        }
+      } else if (!threadId) {
         const key = crypto.randomUUID()
         const request = {
           title: titleFrom(params),
@@ -832,13 +975,16 @@ export class MaestroAgentClient extends AgentClient {
         )
       }
       const text = content.flatMap((part) => (part.type === 'text' ? [part.text] : [])).join('\n')
-      const mentions = maestroMentions(
-        text,
-        this.participantsByThread.get(threadId) ?? [],
-        this.options.resolveName,
-        this.routingThreads.has(threadId)
-      )
-      const selection = this.getInvocationSelection(threadId, text)
+      // The visitor never mentions or routes: the thread has the visitor and the agent of the link.
+      const mentions = this.visitor
+        ? []
+        : maestroMentions(
+            text,
+            this.participantsByThread.get(threadId) ?? [],
+            this.resolveName,
+            this.routingThreads.has(threadId)
+          )
+      const selection = this.visitor ? null : this.getInvocationSelection(threadId, text)
       if (selection?.invalid)
         throw new Error('Destinatário indisponível. Selecione outro agente com @.')
       const routing = selection
@@ -854,9 +1000,11 @@ export class MaestroAgentClient extends AgentClient {
         throw new Error('Selected model is not available through Maestro')
       const recipients = selection?.recipients ?? []
       const publication = maestro.prepareMessage({
-        ...(model && recipients.length ? {
-          agentOptions: recipients.map((participant_id) => ({ participant_id, model })),
-        } : {}),
+        ...(model && recipients.length
+          ? {
+              agentOptions: recipients.map((participant_id) => ({ participant_id, model })),
+            }
+          : {}),
         threadId,
         content,
         clientEventId,
@@ -936,7 +1084,8 @@ export class MaestroAgentClient extends AgentClient {
     }
   ): Promise<boolean> {
     const maestro = this.maestro
-    if (!maestro) return Promise.resolve(false)
+    // The visitor cannot manage participants (the Maestro refuses with 403, which would end the session).
+    if (!maestro || this.visitor) return Promise.resolve(false)
     const id = threadId.toLowerCase()
     const kind = user.kind ?? 'human'
     const key = crypto.randomUUID()
@@ -965,7 +1114,7 @@ export class MaestroAgentClient extends AgentClient {
   /** `userId` is what the legacy views show: the instance agent id for agents, the principal for people. */
   override removeParticipant(threadId: string, userId: string): Promise<boolean> {
     const maestro = this.maestro
-    if (!maestro) return Promise.resolve(false)
+    if (!maestro || this.visitor) return Promise.resolve(false)
     const id = threadId.toLowerCase()
     const wanted = userId.toLowerCase()
     const state = maestro.store.getThread(id)
@@ -997,7 +1146,7 @@ export class MaestroAgentClient extends AgentClient {
   /** Falhas são reportadas por ``onError``; a promise não rejeita. */
   private changeState(threadId: string, state: 'active' | 'archived'): Promise<boolean> {
     const maestro = this.maestro
-    if (!maestro) return Promise.resolve(false)
+    if (!maestro || this.visitor) return Promise.resolve(false)
     const id = threadId.toLowerCase()
     const key = crypto.randomUUID()
     return (async () => {
@@ -1020,7 +1169,7 @@ export class MaestroAgentClient extends AgentClient {
 
   override deleteThread(threadId: string) {
     const maestro = this.maestro
-    if (!maestro) return
+    if (!maestro || this.visitor) return
     const id = threadId.toLowerCase()
     const version = maestro.store.getThread(id)?.thread?.version
     void (async () => {
@@ -1039,7 +1188,7 @@ export class MaestroAgentClient extends AgentClient {
     classification?: string
   ) {
     const maestro = this.maestro
-    if (!maestro) return
+    if (!maestro || this.visitor) return
     const eventId = targetId.toLowerCase()
     const threadId = [...this.retained.keys()].find(
       (id) => maestro.store.getThread(id)?.eventsById[eventId]
@@ -1068,7 +1217,9 @@ export class MaestroAgentClient extends AgentClient {
     const maestro = this.maestro
     if (!maestro) throw new Error('Not connected')
     const threadId = params.threadId.toLowerCase()
-    const view = maestro.interactions.current(threadId, params.formEventId)
+    const view = this.visitor
+      ? undefined
+      : maestro.interactions.current(threadId, params.formEventId)
     if (!view || view.interaction.definition.kind !== 'form') {
       // A production form (send.form without suspension) answers through the forms route.
       const form = maestro.store.getThread(threadId)?.eventsById[params.formEventId.toLowerCase()]
@@ -1173,13 +1324,32 @@ export class MaestroAgentClient extends AgentClient {
   override patchSetting() {}
   override fetchPublicSettingsSchema(): Promise<PublicSettingsSchemaResult> {
     const models = this.options.turnModels
-    if (!models?.length) return Promise.reject(new Error('Settings schema is not available through Maestro'))
-    return Promise.resolve({ version: 'maestro-turn-models-v1', fields: [{
-      id: 'llm_models', type: 'select', label: 'Model', value: models[0],
-      required: false, readonly: false, visibility: 'user', placeholder: null,
-      min: null, max: null, rows: null, src: null, width: null, height: null, uploadUrl: null, accept: null,
-      options: models.map((value) => ({ value, label: value })),
-    }] })
+    if (!models?.length)
+      return Promise.reject(new Error('Settings schema is not available through Maestro'))
+    return Promise.resolve({
+      version: 'maestro-turn-models-v1',
+      fields: [
+        {
+          id: 'llm_models',
+          type: 'select',
+          label: 'Model',
+          value: models[0],
+          required: false,
+          readonly: false,
+          visibility: 'user',
+          placeholder: null,
+          min: null,
+          max: null,
+          rows: null,
+          src: null,
+          width: null,
+          height: null,
+          uploadUrl: null,
+          accept: null,
+          options: models.map((value) => ({ value, label: value })),
+        },
+      ],
+    })
   }
   override subscribeAnalytics() {}
   override unsubscribeAnalytics() {}

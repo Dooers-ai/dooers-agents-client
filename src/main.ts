@@ -47,7 +47,11 @@ export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadArtifacts } from './hooks/use-thread-artifacts'
 export { useThreadSearch, useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
-export type { AgentMaestroOptions } from './maestro-agent-client'
+export type {
+  AgentMaestroOptions,
+  AgentMaestroVisitorGuest,
+  AgentMaestroVisitorOptions,
+} from './maestro-agent-client'
 export { MaestroAgentClient } from './maestro-agent-client'
 export type { MaestroNameResolver } from './maestro-legacy'
 export { MAESTRO_AGENT_ROLE } from './maestro-legacy'

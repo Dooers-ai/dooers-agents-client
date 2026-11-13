@@ -69,6 +69,11 @@ const bounded = (value: number | undefined, fallback: number, min: number, max: 
   return result
 }
 
+const visitorPrincipal = /^public_chat:[0-9a-f-]{36}:(.+)$/s
+/** `Retry-After` in whole seconds (the HTTP-date form is not used by the Maestro). */
+const retryAfterHeader = (value: string | null) =>
+  value !== null && /^[0-9]{1,5}$/.test(value.trim()) ? Number(value) : undefined
+
 export class MaestroClient {
   readonly publications = new MaestroPublicationLedger()
   readonly toolApprovalsEnabled: boolean
@@ -163,6 +168,8 @@ export class MaestroClient {
       !uuidSchema.safeParse(scope.organizationId).success ||
       (scope.workspaceId !== null && !uuidSchema.safeParse(scope.workspaceId).success)
     )
+      throw error('INVALID_CONFIG', 'Invalid Maestro scope')
+    if (scope.actorType !== undefined && !['human', 'external'].includes(scope.actorType))
       throw error('INVALID_CONFIG', 'Invalid Maestro scope')
     scope.organizationId = scope.organizationId.toLowerCase()
     scope.workspaceId = scope.workspaceId?.toLowerCase() ?? null
@@ -846,8 +853,7 @@ export class MaestroClient {
     if (
       event.threadId !== threadId ||
       event.type !== 'form.responded' ||
-      event.actor.kind !== 'human' ||
-      event.actor.principalId !== this.scope.principalId ||
+      !this.ownsActor(event.actor) ||
       event.payload.form_event_id !== formEventId ||
       event.payload.cancelled !== request.cancelled
     )
@@ -1363,7 +1369,9 @@ export class MaestroClient {
           failure.requestId,
           prepared.threadId,
           prepared.clientEventId,
-          state
+          state,
+          failure.reasonCode,
+          failure.retryAfterSeconds
         )
         if (
           !this.disposed &&
@@ -1468,6 +1476,69 @@ export class MaestroClient {
         publicSchemas['Public.Thread'],
         await this.http(
           '/threads',
+          { method: 'POST', headers, body: JSON.stringify(body) },
+          this.token,
+          [200, 201]
+        )
+      )
+    )
+    this.checkThreadScope(receipt)
+    return this.getThread(receipt.threadId)
+  }
+  /**
+   * Whether an event actor is this session: the human with the same principal or, for a public chat
+   * visitor, the external contact whose id is the one inside the namespaced visitor principal.
+   */
+  private ownsActor(actor: MaestroEvent['actor']): boolean {
+    if (actor.kind === 'external')
+      return (
+        this.scope.actorType === 'external' &&
+        actor.channel === 'public_chat' &&
+        visitorPrincipal.exec(this.scope.principalId)?.[1] === actor.externalId
+      )
+    return actor.kind === 'human' && actor.principalId === this.scope.principalId
+  }
+  private requireVisitor() {
+    if (this.scope.actorType !== 'external')
+      throw error('INVALID_REQUEST', 'Only a public chat visitor session has this thread')
+    this.requireCapability('threads.shared')
+  }
+  /**
+   * Public chat visitor: the thread of this visitor, or ``null`` when there is none yet (404).
+   * The thread is always the one of the token; the request carries no identifier.
+   */
+  async getPublicChatThread() {
+    this.requireVisitor()
+    let raw: unknown
+    try {
+      raw = await this.http('/public-chat/thread', { method: 'GET' })
+    } catch (cause) {
+      if (cause instanceof MaestroClientError && cause.code === 'NOT_FOUND') return null
+      throw cause
+    }
+    const thread = toMaestroThread(parseMaestroNetwork(publicSchemas['Public.Thread'], raw))
+    this.checkThreadScope(thread)
+    this.store.observeThread(thread)
+    return thread
+  }
+  /**
+   * Public chat visitor: opens the visitor's thread (201) or refreshes the profile of the existing one
+   * (200), idempotent by ``key``. The body only carries the declared pre-chat ``guest`` profile; link,
+   * agent, channel and label come from the token and the core. The receipt has neutral permissions, so
+   * the thread is read again before it is returned.
+   */
+  async ensurePublicChatThread(
+    guest: z.infer<(typeof publicSchemas)['Public.PublicChatThreadRequest']>['guest'],
+    key: string
+  ) {
+    this.requireVisitor()
+    const headers = publicSchemas['Public.MutationHeaders'].parse({ 'Idempotency-Key': key })
+    const body = publicSchemas['Public.PublicChatThreadRequest'].parse(guest ? { guest } : {})
+    const receipt = toMaestroThread(
+      parseMaestroNetwork(
+        publicSchemas['Public.Thread'],
+        await this.http(
+          '/public-chat/thread',
           { method: 'POST', headers, body: JSON.stringify(body) },
           this.token,
           [200, 201]
@@ -1797,8 +1868,7 @@ export class MaestroClient {
     if (
       event.type !== 'message.created' ||
       event.threadId !== threadId ||
-      event.actor.kind !== 'human' ||
-      event.actor.principalId !== this.scope.principalId ||
+      !this.ownsActor(event.actor) ||
       event.payload.client_event_id !== body.client_event_id ||
       canonical({
         content: event.payload.content,
@@ -1903,7 +1973,9 @@ export class MaestroClient {
             frame.id,
             undefined,
             undefined,
-            rejectionState(payload.code)
+            rejectionState(payload.code),
+            payload.details?.reason_code,
+            payload.details?.retry_after_seconds
           )
           pending.reject(failure)
           if (
@@ -2006,8 +2078,7 @@ export class MaestroClient {
   private confirmObservedPublication(threadId: string, event: MaestroEvent, cursor: string) {
     if (
       event.type !== 'message.created' ||
-      event.actor.kind !== 'human' ||
-      event.actor.principalId !== this.scope.principalId ||
+      !this.ownsActor(event.actor) ||
       !event.payload.client_event_id
     )
       return
@@ -2132,7 +2203,9 @@ export class MaestroClient {
           undefined,
           undefined,
           rejectionState(parsed.code, response.status),
-          parsed.details?.reason_code
+          parsed.details?.reason_code,
+          parsed.details?.retry_after_seconds ??
+            retryAfterHeader(response.headers.get('retry-after'))
         )
         if (
           authCodes.has(parsed.code) &&

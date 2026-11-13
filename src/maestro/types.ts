@@ -7,6 +7,12 @@ export interface MaestroScope {
   principalId: string
   organizationId: string
   workspaceId: string | null
+  /**
+   * Who the credential names. Omitted means a human (the only kind before the public chat).
+   * `external` is a public chat visitor: `principalId` is the namespaced visitor id the exchange
+   * returns (`public_chat:<link>:<external_id>`) and the token must carry that same `sub`.
+   */
+  actorType?: 'human' | 'external'
 }
 export type MaestroCredential =
   | string
@@ -120,7 +126,9 @@ export class MaestroClientError extends Error {
     readonly clientEventId?: string,
     readonly publicationState?: MaestroPublicationState,
     /** `details.reason_code` of the Maestro error, when it sent one. */
-    readonly reasonCode?: string
+    readonly reasonCode?: string,
+    /** Seconds to wait before another try (`Retry-After` / `details.retry_after_seconds`), when sent. */
+    readonly retryAfterSeconds?: number
   ) {
     super(message)
     this.name = 'MaestroClientError'

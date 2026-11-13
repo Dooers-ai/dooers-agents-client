@@ -565,6 +565,17 @@ export function toFormElement(w: WireS2C_FormElement): FormElement {
         accept: w.accept ?? null,
         multiple: w.multiple ?? false,
       }
+    default:
+      // A newer runtime may send an element this client does not know. Production built `undefined`
+      // here, which broke the render. The element is kept as a plain text field with its own name, so
+      // the value is still collected and no element disappears.
+      return {
+        ...base,
+        type: 'text_input',
+        placeholder: null,
+        default: null,
+        inputType: 'text',
+      }
   }
 }
 

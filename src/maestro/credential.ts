@@ -18,6 +18,30 @@ const fields = new Set([
   'runtime_id',
   'credential_version',
 ])
+// Public chat visitor token (Identity.ExternalTokenClaims). Mirrors the contract by hand: the identity
+// schema is not part of the browser bundle.
+const externalFields = new Set([
+  'iss',
+  'aud',
+  'sub',
+  'iat',
+  'exp',
+  'jti',
+  'organization_id',
+  'workspace_id',
+  'actor_type',
+  'external_id',
+  'channel',
+  'connection_type',
+  'public_chat_link_id',
+  'instance_agent_id',
+  'session_ref',
+  'session_version',
+  'scopes',
+  'rate_limit_msgs_per_min',
+])
+const externalScopes = new Set(['public_chat:converse'])
+const guestExternalId = /^guest:[A-Za-z0-9_-]{22}$/
 const humanScopes = new Set([
   'threads:read',
   'threads:create',
@@ -96,10 +120,59 @@ function decode(segment: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+function inspectExternalClaims(
+  claims: Record<string, unknown>,
+  scope: Readonly<MaestroScope>,
+  now: number
+): number {
+  if (
+    Object.keys(claims).some((key) => !externalFields.has(key)) ||
+    claims.iss !== 'dooers-service-core' ||
+    claims.aud !== 'dooers-service-maestro' ||
+    claims.actor_type !== 'external' ||
+    typeof claims.external_id !== 'string' ||
+    claims.external_id.length < 1 ||
+    claims.external_id.length > 207 ||
+    claims.channel !== 'public_chat' ||
+    !uuidSchema.safeParse(claims.public_chat_link_id).success ||
+    !uuidSchema.safeParse(claims.instance_agent_id).success ||
+    (claims.connection_type !== 'guest' && claims.connection_type !== 'public_authenticated') ||
+    (claims.connection_type === 'guest'
+      ? !guestExternalId.test(claims.external_id)
+      : claims.external_id.startsWith('guest:')) ||
+    !opaquePrincipalSchema.safeParse(claims.sub).success ||
+    // The subject is the namespaced visitor id and must be the one the token exchange returned.
+    claims.sub !== `public_chat:${claims.public_chat_link_id}:${claims.external_id}` ||
+    claims.sub !== scope.principalId ||
+    !uuidSchema.safeParse(claims.organization_id).success ||
+    claims.organization_id !== scope.organizationId ||
+    claims.workspace_id !== scope.workspaceId ||
+    (claims.workspace_id !== null && !uuidSchema.safeParse(claims.workspace_id).success) ||
+    !uuidSchema.safeParse(claims.jti).success ||
+    !opaquePrincipalSchema.safeParse(claims.session_ref).success ||
+    !integer(claims.session_version, 1) ||
+    !integer(claims.iat, 0) ||
+    !integer(claims.exp, 0) ||
+    claims.exp <= claims.iat ||
+    claims.exp - claims.iat > 300 ||
+    claims.iat > Math.floor(now / 1000) ||
+    claims.exp <= Math.floor(now / 1000) ||
+    !Array.isArray(claims.scopes) ||
+    claims.scopes.length < 1 ||
+    new Set(claims.scopes).size !== claims.scopes.length ||
+    claims.scopes.some((item) => typeof item !== 'string' || !externalScopes.has(item)) ||
+    (claims.rate_limit_msgs_per_min !== undefined &&
+      (!integer(claims.rate_limit_msgs_per_min, 1) || claims.rate_limit_msgs_per_min > 100000))
+  )
+    return fail()
+  return (claims.exp as number) * 1000
+}
+
 /**
- * Identity-confusion filter derived from Identity.HumanTokenClaims. This does
- * NOT verify a signature, session, grants or permissions. The authenticated
- * /capabilities or WS connect/refresh remains mandatory on every session.
+ * Identity-confusion filter derived from Identity.HumanTokenClaims (or, for a scope with
+ * `actorType: 'external'`, Identity.ExternalTokenClaims). This does NOT verify a signature, session,
+ * grants or permissions. The authenticated /capabilities or WS connect/refresh remains mandatory on
+ * every session.
  */
 export function inspectMaestroHumanCredential(
   token: string,
@@ -127,6 +200,7 @@ export function inspectMaestroHumanCredential(
     )
       return fail()
     const claims = decode(parts[1])
+    if (scope.actorType === 'external') return inspectExternalClaims(claims, scope, now)
     if (
       Object.keys(claims).some((key) => !fields.has(key)) ||
       claims.iss !== 'dooers-service-core' ||
