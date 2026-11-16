@@ -327,6 +327,8 @@ export class MaestroAgentClient extends AgentClient {
   private listAgain = false
   private pollTimer: ReturnType<typeof setInterval> | null = null
   private refreshTimer: ReturnType<typeof setTimeout> | null = null
+  /** The expiry (ms) a renewal was already attempted for: a renewal that does not move it is not repeated. */
+  private renewedExpiry = Number.NEGATIVE_INFINITY
   private reauthenticated = false
   private closed = true
 
@@ -496,9 +498,15 @@ export class MaestroAgentClient extends AgentClient {
     this.refreshTimer = null
     const expiry = expiresAt ? Date.parse(expiresAt) : Number.NaN
     if (!Number.isFinite(expiry)) return
+    // The core caps the token at the end of the session, so near that end a renewal returns the same
+    // expiry. Renewing again would loop (and trip the exchange rate limit): the renewal stays once per
+    // expiry and the end of the session reaches the application as the usual 401 of the exchange.
+    if (expiry <= this.renewedExpiry) return
     const wait = Math.max(1_000, expiry - Date.now() - 30_000)
     this.refreshTimer = setTimeout(() => {
-      if (this.maestro === maestro) void maestro.refreshAuth().catch(() => {})
+      if (this.maestro !== maestro) return
+      this.renewedExpiry = expiry
+      void maestro.refreshAuth().catch(() => {})
     }, wait)
   }
 
@@ -622,6 +630,11 @@ export class MaestroAgentClient extends AgentClient {
     // A projeção atual do leitor (permissões, participantes) vem do GET da thread.
     void maestro.getThread(id).catch((cause) => {
       if (this.maestro !== maestro || this.retained.get(id) !== entry) return
+      if (this.visitor && cause instanceof MaestroClientError && cause.code === 'NOT_FOUND') {
+        // The thread this page stored is gone (the Maestro removes idle guest threads). Leave it so the
+        // chat shows the empty thread, not a load that never ends; the first message opens a new one.
+        this.dropSubscription(id)
+      }
       if (
         !this.visitor &&
         cause instanceof MaestroClientError &&

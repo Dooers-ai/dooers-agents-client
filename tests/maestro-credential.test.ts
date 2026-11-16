@@ -84,6 +84,22 @@ describe('public chat visitor credential (external)', () => {
   ])('rejects %s', (_label, claims) => {
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, strip(claims)), visitor)).toThrow()
   })
+  it('tolerates a visitor clock up to 60 s behind the issuer (iat in the future), but never a longer skew', () => {
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    const claims = (iat: number) => ({ iat, exp: iat + 300 })
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims(nowSeconds + 30)), visitor)).not.toThrow()
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims(nowSeconds + 60)), visitor)).not.toThrow()
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims(nowSeconds + 61)), visitor)).toThrow()
+  })
+  it('keeps the expiry strict for the visitor: a token past its exp is refused whatever the skew', () => {
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, { iat: nowSeconds - 300, exp: nowSeconds }), visitor)).toThrow()
+    expect(() => inspectMaestroHumanCredential(visitorCredential(org, { iat: nowSeconds - 10, exp: nowSeconds - 1 }), visitor)).toThrow()
+  })
+  it('keeps the human token strict: iat in the future is refused without tolerance', () => {
+    const nowSeconds = Math.floor(Date.now() / 1000)
+    expect(() => inspectMaestroHumanCredential(credential('human', org, { iat: nowSeconds + 30, exp: nowSeconds + 330 }), scope)).toThrow()
+  })
   it('a human scope refuses the external token and an external scope refuses a human token', () => {
     expect(() => inspectMaestroHumanCredential(visitorCredential(org), { ...scope, principalId: visitorPrincipalId })).toThrow()
     expect(() => inspectMaestroHumanCredential(credential('human', org), visitor)).toThrow()

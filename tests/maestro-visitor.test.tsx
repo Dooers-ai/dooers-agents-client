@@ -96,7 +96,7 @@ interface Call {
   body: unknown
 }
 /** The Maestro of a visitor: its own routes answer, anything else is recorded as refused. */
-function maestroServer(options: { existing?: boolean; ensureStatus?: number; ensure?: () => Response; formEventId?: string } = {}) {
+function maestroServer(options: { existing?: boolean; ensureStatus?: number; ensure?: () => Response; formEventId?: string; threadGone?: boolean } = {}) {
   const calls: Call[] = []
   const refused: Call[] = []
   const fetcher = vi.fn(async (url: string, init?: RequestInit) => {
@@ -114,7 +114,7 @@ function maestroServer(options: { existing?: boolean; ensureStatus?: number; ens
       if (options.ensure) return options.ensure()
       return json({ ...visitorThread(), permissions: { read: false, write: false, manage: false, supervise: false, export: false, cancel: false, feedback: false, archive: false, remove_participants: false } }, options.ensureStatus ?? (options.existing ? 200 : 201))
     }
-    if (path === `/threads/${threadId}` && call.method === 'GET') return json(visitorThread())
+    if (path === `/threads/${threadId}` && call.method === 'GET') return options.threadGone ? failure(404, 'NOT_FOUND') : json(visitorThread())
     if (path === `/threads/${threadId}/forms/${options.formEventId}/responses` && call.method === 'POST') {
       const body = call.body as { values: Record<string, unknown> }
       return json({ status: 'persisted', event: formResponded(9, options.formEventId!, body.values), cursor: 'c9', duplicate: false }, 201)
@@ -574,6 +574,160 @@ describe('visitor mode: session expiry', () => {
     await tick()
     expect(store.getState().connection.status).toBe('connected')
     expect(store.getState().connection.reconnectFailed).toBe(false)
+    client.disconnect()
+  })
+})
+
+describe('visitor mode: the stored thread no longer exists (a guest back after the Maestro removed it)', () => {
+  it('leaves the subscription and the loading state, reports NOT_FOUND once, and the first message opens a new thread', async () => {
+    // The visitor GET finds no thread (404) and the thread the page stored is gone as well.
+    const server = maestroServer({ threadGone: true })
+    const errors: string[] = []
+    const { client, store, socket } = await setup(server)
+    client.setOnError((error) => errors.push(error.code))
+    client.subscribe(threadId)
+    expect(store.getState().loadingThreads.has(threadId)).toBe(true)
+    await tick()
+    await tick()
+    expect(errors).toEqual(['NOT_FOUND'])
+    expect(store.getState().loadingThreads.has(threadId)).toBe(false)
+    expect(store.getState().subscriptions.has(threadId)).toBe(false)
+    expect(store.getState().connection.status).toBe('connected')
+
+    // The web releases the hook of the dropped thread: nothing else happens on the wire.
+    client.unsubscribe(threadId)
+    // The stale id is not used: the ensure opens the visitor thread and the message goes to it.
+    server.fetcher.mockImplementation(async (url: string, init?: RequestInit) => {
+      const path = new URL(url).pathname.replace('/api/v1', '')
+      if (path === '/public-chat/thread' && init?.method === 'POST') return json(visitorThread(), 201)
+      if (path === `/threads/${threadId}`) return json(visitorThread())
+      return failure(403, 'FORBIDDEN')
+    })
+    const sending = client.sendMessage({ text: 'Oi de novo' })
+    await tick()
+    await tick()
+    ackPublish(socket, 'Oi de novo')
+    await expect(sending).resolves.toEqual({ threadId })
+    expect(client.getVisitorThreadId()).toBe(threadId)
+    client.disconnect()
+  })
+
+  it('a thread the hook asked before the connection is dropped the same way once the connection is up', async () => {
+    const server = maestroServer({ threadGone: true })
+    const view = (function mount() {
+      function Chat() {
+        const { isLoading } = useThreadDetails(threadId)
+        return <span data-testid="loading">{String(isLoading)}</span>
+      }
+      return render(
+        <AgentProvider
+          url="wss://ignored.example/ws"
+          agentId={visitorInstanceAgent}
+          organizationId={org}
+          workspaceId=""
+          userId=""
+          maestro={{
+            endpoint: 'https://maestro.example',
+            scope: visitorScope,
+            authToken: () => visitorCredential(org),
+            visitor: true,
+            fetch: server.fetcher as unknown as typeof fetch,
+            socketFactory: () => {
+              const socket = new Socket()
+              sockets.push(socket)
+              return socket
+            },
+          }}
+        >
+          <Chat />
+        </AgentProvider>
+      )
+    })()
+    await act(tick)
+    const socket = sockets.at(-1)!
+    socket.open()
+    await act(tick)
+    socket.ackConnect()
+    await act(tick)
+    await act(tick)
+    await act(tick)
+    expect(view.getByTestId('loading').textContent).toBe('false')
+    view.unmount()
+  })
+})
+
+describe('visitor mode: renewal at the end of the session', () => {
+  /** Answers the heartbeat and every renewal as the Maestro does; `expiresAt` is what each renewal grants. */
+  function answer(socket: Socket, expiresAt: () => number) {
+    const send = socket.send.bind(socket)
+    socket.send = (data: string) => {
+      send(data)
+      const frame = JSON.parse(data)
+      if (frame.type === 'ping') socket.receive({ id: frame.id, type: 'pong', payload: frame.payload })
+      if (frame.type === 'auth.refresh')
+        socket.receive({ id: frame.id, type: 'ack', payload: { status: 'authenticated', expires_at: new Date(expiresAt() * 1000).toISOString() } })
+    }
+  }
+  const settle = (ms: number) => vi.advanceTimersByTimeAsync(ms)
+  const refreshFrames = (socket: Socket) => socket.sent.filter((f) => f.type === 'auth.refresh')
+  const nowSeconds = () => Math.floor(Date.now() / 1000)
+
+  it('renews once before the session ends and never in a burst when the expiry cannot move', async () => {
+    vi.useFakeTimers()
+    const sessionEnd = nowSeconds() + 300
+    // The core caps the token `exp` at the end of the session: every renewal returns the same `exp`.
+    const authToken = vi.fn(async () => visitorCredential(org, { iat: nowSeconds(), exp: sessionEnd }))
+    const { client, socket } = await setup(maestroServer({ existing: true }), { authToken })
+    answer(socket, () => sessionEnd)
+    expect(authToken).toHaveBeenCalledTimes(1)
+
+    // 30 s before the end: the first renewal.
+    await settle(270_000)
+    expect(refreshFrames(socket)).toHaveLength(1)
+    expect(authToken).toHaveBeenCalledTimes(2)
+
+    // The expiry did not move: the next 29 s see no other renewal (the old loop sent one per second).
+    await settle(29_000)
+    expect(refreshFrames(socket)).toHaveLength(1)
+    expect(authToken).toHaveBeenCalledTimes(2)
+    client.disconnect()
+  })
+
+  it('at the session end the visitor flow of the 401 happens: the token is asked again and a refusal ends in reconnect-failed', async () => {
+    vi.useFakeTimers()
+    const sessionEnd = nowSeconds() + 300
+    // After the session the exchange answers 401: the application re-resolves (guest) or asks for the login.
+    const authToken = vi.fn(async () => {
+      if (nowSeconds() >= sessionEnd) throw new MaestroClientError('UNAUTHENTICATED', 'Session expired')
+      return visitorCredential(org, { iat: nowSeconds(), exp: sessionEnd })
+    })
+    const { client, store, socket } = await setup(maestroServer({ existing: true }), { authToken })
+    answer(socket, () => sessionEnd)
+    await settle(270_000)
+    expect(authToken).toHaveBeenCalledTimes(2)
+    expect(store.getState().connection.reconnectFailed).toBe(false)
+    await settle(29_000)
+    expect(store.getState().connection.reconnectFailed).toBe(false)
+    expect(refreshFrames(socket)).toHaveLength(1)
+
+    await settle(2_000)
+    // At the `exp` the connection is invalidated and the token is asked once more (the 401 of the exchange).
+    expect(authToken.mock.calls.length).toBeGreaterThanOrEqual(3)
+    expect(store.getState().connection.reconnectFailed).toBe(true)
+    expect(refreshFrames(socket)).toHaveLength(1)
+    client.disconnect()
+  })
+
+  it('keeps renewing while each renewal moves the expiry forward (a signed-in session, a long guest session)', async () => {
+    vi.useFakeTimers()
+    const authToken = vi.fn(async () => visitorCredential(org, { iat: nowSeconds(), exp: nowSeconds() + 300 }))
+    const { client, socket } = await setup(maestroServer({ existing: true }), { authToken })
+    answer(socket, () => nowSeconds() + 300)
+    for (let round = 1; round <= 3; round++) {
+      await settle(270_000)
+      expect(refreshFrames(socket)).toHaveLength(round)
+    }
+    expect(authToken).toHaveBeenCalledTimes(4)
     client.disconnect()
   })
 })

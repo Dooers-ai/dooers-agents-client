@@ -120,6 +120,9 @@ function decode(segment: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+/** How far ahead of the visitor's clock the issuer's `iat` may be before the token is refused. */
+const externalClockSkewSeconds = 60
+
 function inspectExternalClaims(
   claims: Record<string, unknown>,
   scope: Readonly<MaestroScope>,
@@ -155,7 +158,9 @@ function inspectExternalClaims(
     !integer(claims.exp, 0) ||
     claims.exp <= claims.iat ||
     claims.exp - claims.iat > 300 ||
-    claims.iat > Math.floor(now / 1000) ||
+    // A public visitor's browser clock is less reliable than a signed-in user's: an `iat` a little
+    // in the future is a slow clock, not a forged token. The `exp` check stays strict.
+    claims.iat > Math.floor(now / 1000) + externalClockSkewSeconds ||
     claims.exp <= Math.floor(now / 1000) ||
     !Array.isArray(claims.scopes) ||
     claims.scopes.length < 1 ||
