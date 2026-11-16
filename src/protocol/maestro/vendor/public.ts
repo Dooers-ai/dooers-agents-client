@@ -87,21 +87,25 @@ const textPart = z.strictObject({ type: z.literal('text'), text })
 // Agent text: production does not limit message size and neither does the field. Maestro's operational byte
 // limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) and the callback body limit (2 MiB) refuse first with PAYLOAD_TOO_LARGE.
 const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string() })
-// Exact integer: production stores a Python int with no bound (JSONB numeric). JSON.parse rounds an integer beyond
-// the JavaScript safe range to the nearest double, so the Maestro reads such an integer as its exact source text
-// (JSON.rawJSON, Node 24) and stores and returns the same digits. A plain JSON.parse (browser, client) gives a
-// number, as before. Each widened number exports the JSON Schema of the plain number: the wire format is the same.
-const exactIntegerText = /^-?(?:0|[1-9][0-9]*)$/
-const isExactInteger = (value: unknown) => {
+// Exact number: production stores a Python int with no bound (JSONB numeric) and writes a float with json.dumps
+// (Python repr). JSON.parse rounds an integer beyond the JavaScript safe range to the nearest double and writes a whole
+// float beyond it as an integer (2.0**60 becomes 1152921504606847000, an int of another value in Python). The Maestro
+// reads such an integer as its exact source text and such a float as its Python repr (JSON.rawJSON, Node 24), and
+// stores and returns the same text. A plain JSON.parse (browser, client) gives a number, as before. Each widened
+// number exports the JSON Schema of the plain number: the wire format is the same.
+// At most 4300 digits: Python reads and writes no longer int (sys.get_int_max_str_digits), so the SDK never sends one,
+// and a longer one is VALIDATION_FAILED, as the double Infinity was, not a database refusal.
+const exactIntegerText = /^-?(?:0|[1-9][0-9]{0,4299})$/
+// Python repr of a whole float beyond the safe integer: 1.5e+25 (from 1e16) or 9007199254740994.0 (below).
+const exactFloatText = /^-?(?:[1-9](?:\.[0-9]+)?e\+[0-9]{2,3}|[1-9][0-9]{15,308}\.0)$/
+const isExactNumber = (value: unknown) => {
   const json = JSON as { isRawJSON?: (value: unknown) => boolean }
-  return (
-    typeof json.isRawJSON === 'function' &&
-    json.isRawJSON(value) &&
-    exactIntegerText.test((value as { rawJSON: string }).rawJSON)
-  )
+  if (typeof json.isRawJSON !== 'function' || !json.isRawJSON(value)) return false
+  const text = (value as { rawJSON: string }).rawJSON
+  return exactIntegerText.test(text) || exactFloatText.test(text)
 }
 const exactNumber = (schema: z.ZodNumber, exported: () => object) => {
-  const widened = z.union([schema, z.custom<number>(isExactInteger)])
+  const widened = z.union([schema, z.custom<number>(isExactNumber)])
   widened._zod.toJSONSchema = exported
   return widened
 }
@@ -133,16 +137,28 @@ const attachmentPart = z.strictObject({
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 // Production dict[str, Any] keeps any int: an integer beyond 2^53 stays exact in the Maestro (see exactNumber).
 const jsonNumber = exactNumber(z.number(), () => ({ type: 'number' }))
+// A JSON.rawJSON value is a frozen object with one key (rawJSON): one that is not an exact number (an integer of more
+// than 4300 digits) must fail, not pass as the record {"rawJSON": "..."}. The preprocess turns it into undefined,
+// which no branch accepts; the exported JSON Schema is the union's.
+const notRawRecord = (value: unknown) => {
+  const json = JSON as { isRawJSON?: (value: unknown) => boolean }
+  return typeof json.isRawJSON === 'function' && json.isRawJSON(value) && !isExactNumber(value)
+    ? undefined
+    : value
+}
 const jsonValue: z.ZodType<Json> = z
   .lazy(() =>
-    z.union([
-      z.string(),
-      jsonNumber,
-      z.boolean(),
-      z.null(),
-      z.array(jsonValue),
-      z.record(z.string(), jsonValue),
-    ])
+    z.preprocess(
+      notRawRecord,
+      z.union([
+        z.string(),
+        jsonNumber,
+        z.boolean(),
+        z.null(),
+        z.array(jsonValue),
+        z.record(z.string(), jsonValue),
+      ])
+    )
   )
   .meta({ id: 'JsonValue' })
 const OPEN_JSON_MAX_BYTES = 1048576

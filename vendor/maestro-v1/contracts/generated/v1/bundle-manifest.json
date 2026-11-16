@@ -52,9 +52,9 @@
     "docs/contracts/v1/common.ts": "a527f148c8493aeee6127ee0fae4227f0abdd7e041a4c8a5e511b5d080f23dca",
     "docs/contracts/v1/delivery.ts": "1fb79de2f23e72c7e352a3c8eccabee444bcd5b9e10027176def05bfe3bcfc30",
     "docs/contracts/v1/identity.ts": "bc0cfd1df412dc1a0b980be121921bfbdc9ba4fb6c4fc82f1ad525f4b9cb732f",
-    "docs/contracts/v1/public.ts": "804458de47e6996464b7697bfbe5dc2846abf0d2cbd414e3d9481650a8896e86"
+    "docs/contracts/v1/public.ts": "8199e1f1e34b938268e2512a6b227e5809d1214ae3df3a505b9148746923d42e"
   },
-  "source_revision": "sha256:ccf3f35f16bcc05a7ec56a41bc82ca6f7d9325508d80649ef76ed978662da91d",
+  "source_revision": "sha256:196a9d1d734468f19dbd44a29383217fe9c81127e42b5ca355084ed0a9e9d33d",
   "validation": {
     "fixtures": {
       "invalid": 611,
