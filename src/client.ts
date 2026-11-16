@@ -293,6 +293,8 @@ export class AgentClient {
   private presenceChain: Promise<void> = Promise.resolve()
   private presenceQueue = 0
   private presenceFailedAt?: number
+  /** Bumped by connect()/disconnect(): work started for an older connection never touches presence. */
+  private presenceEpoch = 0
   private pendingMessages = new Map<
     string,
     {
@@ -482,6 +484,7 @@ export class AgentClient {
     this.consecutiveFailures = 0
     this.fullListInFlight = false
     this.fullListPending = null
+    this.resetPresence()
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
     if (this.httpBaseUrlOverride) {
@@ -558,11 +561,22 @@ export class AgentClient {
     this.abortPendingPublicSchema('Disconnected')
     this.fullListInFlight = false
     this.fullListPending = null
+    this.resetPresence()
     if (this.ws) {
       detachAndClose(this.ws)
       this.ws = null
     }
     this.callbacks.setConnectionStatus('disconnected')
+  }
+
+  /** A presence token proves presence to one agent: never carry it (or its failures) across connections. */
+  private resetPresence() {
+    this.presenceEpoch++
+    this.presence = undefined
+    this.presenceFailedAt = undefined
+    this.presenceFetch = undefined
+    this.presenceChain = Promise.resolve()
+    this.presenceQueue = 0
   }
 
   retry() {
@@ -1050,6 +1064,7 @@ export class AgentClient {
   /** Rejects when `getAuthToken` throws or has not settled within AUTH_TOKEN_TIMEOUT_MS. */
   private async resolveAuthToken(): Promise<string | undefined> {
     if (!this.config.getAuthToken) return this.config.authToken
+    const epoch = this.presenceEpoch
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('auth token timeout')), AUTH_TOKEN_TIMEOUT_MS)
@@ -1057,7 +1072,7 @@ export class AgentClient {
     try {
       const token = await Promise.race([this.config.getAuthToken(), timeout])
       // Every token fetched this way is also fresh proof of presence for the next sends.
-      if (token) this.presence = { token, at: Date.now() }
+      if (token && epoch === this.presenceEpoch) this.presence = { token, at: Date.now() }
       return token
     } finally {
       clearTimeout(timer)
@@ -1084,6 +1099,7 @@ export class AgentClient {
       this.sendRaw(frame)
       return
     }
+    const epoch = this.presenceEpoch
     this.presenceQueue++
     this.presenceChain = this.presenceChain
       .then(async () => {
@@ -1095,11 +1111,16 @@ export class AgentClient {
           if (stale && !recentlyFailed) {
             try {
               await this.fetchPresence()
-              this.presenceFailedAt = undefined
+              if (epoch === this.presenceEpoch) this.presenceFailedAt = undefined
             } catch {
               // send without the token; sends queued behind this one skip a new fetch for a while
-              this.presenceFailedAt = Date.now()
+              if (epoch === this.presenceEpoch) this.presenceFailedAt = Date.now()
             }
+          }
+          if (epoch !== this.presenceEpoch) {
+            // connect()/disconnect() came first: this send belongs to the old connection
+            this.failPendingSend(frame.id as string)
+            return
           }
           if (this.presence && Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS) {
             frame.payload.presence_token = this.presence.token
@@ -1112,7 +1133,7 @@ export class AgentClient {
             this.sendRaw(frame)
           }
         } finally {
-          this.presenceQueue--
+          if (epoch === this.presenceEpoch) this.presenceQueue--
         }
       })
       .catch(() => {})
@@ -1133,9 +1154,10 @@ export class AgentClient {
   /** One in-flight token fetch shared by every queued send. */
   private fetchPresence(): Promise<string | undefined> {
     if (!this.presenceFetch) {
-      this.presenceFetch = this.resolveAuthToken().finally(() => {
-        this.presenceFetch = undefined
+      const inFlight: Promise<string | undefined> = this.resolveAuthToken().finally(() => {
+        if (this.presenceFetch === inFlight) this.presenceFetch = undefined
       })
+      this.presenceFetch = inFlight
     }
     return this.presenceFetch
   }
