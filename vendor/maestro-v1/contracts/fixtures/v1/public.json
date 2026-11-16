@@ -11997,6 +11997,83 @@
         "identity_ids": ["aad-maria"]
       },
       "description": "Os identity_ids do visitante ficam só nos schemas do agente."
+    },
+    {
+      "id": "public.OutputRequest.run.update.agent-id-text",
+      "schema": "Public.OutputRequest",
+      "valid": true,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "run.update",
+        "payload": {
+          "run_id": "00000000-0000-4000-8000-000000000030",
+          "status": "running",
+          "agent_id": "dooers-assistant"
+        },
+        "lease_fence": "1"
+      },
+      "description": "send.run_start(agent_id=\"dooers-assistant\"): o Run de produção guarda o texto do handler, não só um id de instância."
+    },
+    {
+      "id": "public.OutputRequest.run.update.agent-id-not-text",
+      "schema": "Public.OutputRequest",
+      "valid": false,
+      "data": {
+        "output_id": "initial:output:1",
+        "type": "run.update",
+        "payload": {
+          "run_id": "00000000-0000-4000-8000-000000000030",
+          "status": "running",
+          "agent_id": 7
+        },
+        "lease_fence": "1"
+      },
+      "description": "O agent_id do Run é texto (str | None em produção); um número é recusado."
+    },
+    {
+      "id": "public.Event.run.updated.agent-id-text",
+      "schema": "Public.Event.run.updated",
+      "valid": true,
+      "data": {
+        "event_id": "00000000-0000-4000-8000-000000000005",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "sequence": "9007199254740993",
+        "schema_version": 1,
+        "actor": {
+          "kind": "agent",
+          "principal_id": "00000000-0000-4000-8000-000000000011",
+          "instance_agent_id": "00000000-0000-4000-8000-000000000012",
+          "participant_id": "00000000-0000-4000-8000-000000000013",
+          "display_name": "Agente"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "causation_event_id": null,
+        "root_event_id": "00000000-0000-4000-8000-000000000005",
+        "type": "run.updated",
+        "payload": {
+          "run_id": "00000000-0000-4000-8000-000000000030",
+          "agent_id": "dooers-assistant",
+          "status": "running",
+          "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+        }
+      },
+      "description": "run.updated guarda o agent_id de send.run_start como texto livre."
+    },
+    {
+      "id": "public.AgentRun.agent-id-text",
+      "schema": "Public.AgentRun",
+      "valid": true,
+      "data": {
+        "run_id": "00000000-0000-4000-8000-000000000030",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "agent_id": "dooers-assistant",
+        "status": "succeeded",
+        "error": null,
+        "started_at": "2026-10-13T15:00:00.000Z",
+        "ended_at": "2026-10-13T15:00:03.000Z",
+        "trigger_event_id": "00000000-0000-4000-8000-000000000005"
+      },
+      "description": "O Run dobrado devolve o agent_id do primeiro run.updated, texto livre como em produção."
     }
   ]
 }

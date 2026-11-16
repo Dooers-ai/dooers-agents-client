@@ -41,7 +41,7 @@ const cases = JSON.parse(readFileSync(new URL('./fixtures.json', import.meta.url
 for (const api of [esm, cjs]) {
   const result = cases.map(c => [c.id, c.schema, api.validateMaestroContract(c.schema,c.data)])
   assert.deepEqual(result.map(c => c[2]), cases.map(c => c.valid))
-  assert.equal(createHash('sha256').update(JSON.stringify(result)).digest('hex'), '4e4cb955c6446314e95cf3ae3b835d88d68972833ed3a3ecb8e5ad1fb35ce37d')
+  assert.equal(createHash('sha256').update(JSON.stringify(result)).digest('hex'), '15e007cacebfbb416210e1b2c47e9b3f15f8cd44213abc03829f4d74eeb7bd58')
   assert.equal(api.compareMaestroSequences('9007199254740992','9007199254740993'), -1)
   const frame = api.createMaestroConnectCommand({requestId:'00000000-0000-4000-8000-000000000011',authToken:'synthetic'})
   assert.equal(Object.hasOwn(frame.payload,'mode'),false)

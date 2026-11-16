@@ -179,6 +179,10 @@ const messageWhatsapp = z.strictObject({
 })
 // Run that produced the event (production run_id, handlers/pipeline.py); every agent output may carry it.
 const runId = uuidSchema
+// Agent that ran it (production Run.agent_id, send.run_start(agent_id=...)): str | None in the model and a TEXT
+// column without limit, so a handler may pass any text ("dooers-assistant"), not only an instance id. Same
+// generous ceiling as the other free ids the agent writes; a UUID stays valid.
+const runAgentId = text
 // data: production ThreadEvent.data (ingest/create_event data, data.source of an inbound channel message,
 // data.delivery of the reply), one open JSON value. Only the agent writes it (agent API and agent outputs).
 const agentMessageFields = {
@@ -931,7 +935,7 @@ const durableEventsFor = <
     'message.removed': eventOf('message.removed', z.strictObject({ event_id: uuidSchema })),
     'run.updated': eventOf(
       'run.updated',
-      runUpdatePayload.extend({ agent_id: uuidSchema, trigger_event_id: uuidSchema })
+      runUpdatePayload.extend({ agent_id: runAgentId, trigger_event_id: uuidSchema })
     ),
     'channel_delivery.updated': eventOf(
       'channel_delivery.updated',
@@ -1026,7 +1030,7 @@ const agentArtifact = z.strictObject({
 const agentRun = z.strictObject({
   run_id: runId,
   thread_id: uuidSchema,
-  agent_id: uuidSchema,
+  agent_id: runAgentId,
   status: runStatus,
   error: longText.nullable(),
   started_at: timestampSchema,
@@ -1205,8 +1209,9 @@ const outputUnion = <E extends z.ZodRawShape>(extra: E) =>
     outputOf('form.create', formPayload.shape, extra),
     outputOf('message.update', messageUpdatePayload.shape, extra),
     // Maestro fills trigger_event_id of run.updated from the execution; agent_id defaults to the
-    // executing agent (production send.run_start(agent_id=...) records the Run with that agent).
-    outputOf('run.update', { ...runUpdatePayload.shape, agent_id: uuidSchema.optional() }, extra),
+    // executing agent. Production send.run_start(agent_id=...) records the Run with the text the handler
+    // passed (not necessarily an instance id), and so does Maestro.
+    outputOf('run.update', { ...runUpdatePayload.shape, agent_id: runAgentId.optional() }, extra),
     outputOf('thread.update', threadUpdatePayload.shape, extra),
     outputOf('participant.add', participantAddPayload.shape, extra),
   ])

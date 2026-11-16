@@ -514,16 +514,16 @@
       }
     },
     {
-      "id": "consumer.run-update-agent-id-not-uuid-rejected",
+      "id": "consumer.run-update-agent-id-text-accepted",
       "schema": "Public.OutputRequest",
-      "valid": false,
+      "valid": true,
       "data": {
         "output_id": "initial:output:1",
         "type": "run.update",
         "payload": {
           "run_id": "00000000-0000-4000-8000-000000000030",
           "status": "running",
-          "agent_id": "not-a-uuid"
+          "agent_id": "dooers-assistant"
         },
         "lease_fence": "1"
       }
