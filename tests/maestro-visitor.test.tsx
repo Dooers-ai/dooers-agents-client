@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MaestroClient } from '../src/maestro/client'
 import { MaestroClientError } from '../src/maestro/types'
 import { MaestroAgentClient } from '../src/maestro-agent-client'
+import { useThreadDetails } from '../src/hooks/use-thread'
 import { AgentProvider, useAgentContext } from '../src/provider'
 import { createAgentStore } from '../src/store'
 import {
@@ -658,5 +659,113 @@ describe('AgentProvider with the visitor option', () => {
     expect((refs.client as MaestroAgentClient).getVisitorThreadId()).toBe(threadId)
     expect(server.calls.map((c) => `${c.method} ${c.path}`)).toEqual(['GET /public-chat/thread'])
     view.unmount()
+  })
+})
+
+describe('visitor mode: a thread subscribed before the connection (page reload with a stored thread)', () => {
+  /** What the public chat does after a reload: the thread id is known at mount, before the client connects. */
+  function mountWithStoredThread(server: ReturnType<typeof maestroServer>) {
+    function Chat() {
+      useThreadDetails(threadId)
+      return null
+    }
+    return render(
+      <AgentProvider
+        url="wss://ignored.example/ws"
+        agentId={visitorInstanceAgent}
+        organizationId={org}
+        workspaceId=""
+        userId=""
+        maestro={{
+          endpoint: 'https://maestro.example',
+          scope: visitorScope,
+          authToken: () => visitorCredential(org),
+          visitor: true,
+          fetch: server.fetcher as unknown as typeof fetch,
+          socketFactory: () => {
+            const socket = new Socket()
+            sockets.push(socket)
+            return socket
+          },
+        }}
+      >
+        <Chat />
+      </AgentProvider>
+    )
+  }
+
+  it('subscribes on the wire once the connection is up, for a hook mounted with the provider', async () => {
+    const server = maestroServer({ existing: true })
+    const view = mountWithStoredThread(server)
+    await act(tick)
+    const socket = sockets.at(-1)!
+    socket.open()
+    await act(tick)
+    expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(0)
+    socket.ackConnect()
+    await act(tick)
+    await act(tick)
+    expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(1)
+    expect(socket.last('thread.subscribe').payload).toMatchObject({ thread_id: threadId })
+    view.unmount()
+  })
+
+  it('subscribes once for a subscription made before connect, however many holders it has', async () => {
+    const server = maestroServer({ existing: true })
+    const store = createAgentStore()
+    const client = new MaestroAgentClient(store.getState().actions, {
+      endpoint: 'https://maestro.example',
+      scope: visitorScope,
+      authToken: visitorCredential(org),
+      visitor: true,
+      fetch: server.fetcher as unknown as typeof fetch,
+      socketFactory: () => {
+        const socket = new Socket()
+        sockets.push(socket)
+        return socket
+      },
+    })
+    client.subscribe(threadId)
+    client.subscribe(threadId)
+    client.connect('ignored', visitorInstanceAgent, { organizationId: org, workspaceId: '', userId: '' })
+    await tick()
+    const socket = sockets.at(-1)!
+    socket.open()
+    await tick()
+    socket.ackConnect()
+    await tick()
+    await tick()
+    expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(1)
+    expect(store.getState().subscriptions.has(threadId)).toBe(true)
+    client.disconnect()
+  })
+
+  it('does not subscribe a thread released before the connection', async () => {
+    const server = maestroServer({ existing: true })
+    const store = createAgentStore()
+    const client = new MaestroAgentClient(store.getState().actions, {
+      endpoint: 'https://maestro.example',
+      scope: visitorScope,
+      authToken: visitorCredential(org),
+      visitor: true,
+      fetch: server.fetcher as unknown as typeof fetch,
+      socketFactory: () => {
+        const socket = new Socket()
+        sockets.push(socket)
+        return socket
+      },
+    })
+    client.subscribe(threadId)
+    client.unsubscribe(threadId)
+    client.connect('ignored', visitorInstanceAgent, { organizationId: org, workspaceId: '', userId: '' })
+    await tick()
+    const socket = sockets.at(-1)!
+    socket.open()
+    await tick()
+    socket.ackConnect()
+    await tick()
+    await tick()
+    expect(socket.sent.filter((f) => f.type === 'thread.subscribe')).toHaveLength(0)
+    client.disconnect()
   })
 })

@@ -6,6 +6,7 @@
 - Add opt-in `dooers-agents-client/maestro` transport/provider, canonical publication receipts and explicit same-key retries.
 - Add `useMaestroArtifactUrl` (authenticated `blob:` URL for Maestro attachments, bounded queue, retry and renewal); raise the default artifact bound to 25 MiB; authorize artifact reads cited by any thread event.
 - Add the public chat visitor mode of `MaestroAgentClient` (`maestro.visitor`, `scope.actorType: 'external'`): `external` credential accepted with `sub` checked against the visitor id of the exchange, thread opened by `GET`/`POST /public-chat/thread` (ensure at the first message of every session), forms over HTTP, no thread list, participants, name resolver or supervision, `MaestroClientError.retryAfterSeconds` for 429. `toFormElement`/`toFormEventData` accept `{ tolerateUnknown: true }` (Maestro transport only): an unknown form element keeps its original type with `required: false`; without the option an unknown element is still `undefined`, as in production.
+- Fix the Maestro visitor mode losing a thread subscribed before the connection (a page that reloads with a stored thread mounts its hooks before the provider connects): the read is kept and served when the connection opens.
 - Preserve the legacy entrypoint and private agent settings/analytics connection. See [transport notes](docs/maestro-transport.md) for local validation and replay/integration boundaries.
 
 All notable changes to this project will be documented in this file.

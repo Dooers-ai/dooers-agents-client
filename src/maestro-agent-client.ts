@@ -201,6 +201,14 @@ export class MaestroAgentClient extends AgentClient {
   /** Visitante: o GET da thread no início da sessão já respondeu (200 ou 404). */
   private visitorResolved = false
   private visitorOpening: Promise<void> | null = null
+  /**
+   * Visitante: leituras pedidas antes da conexão (a thread guardada pelo navegador, lida no mount, antes do
+   * efeito do provider chamar `connect`). Valem como leituras normais assim que a conexão abre.
+   */
+  private pendingSubscriptions = new Map<
+    string,
+    { count: number; options?: { accessReason?: string } }
+  >()
   private async recoverOutbox(maestro: MaestroClient) {
     if (this.recoveringOutbox) return
     this.recoveringOutbox = true
@@ -450,6 +458,7 @@ export class MaestroAgentClient extends AgentClient {
         void this.recoverOutbox(maestro)
         this.requestThreadList()
         void this.openVisitorThread(maestro)
+        this.openPendingSubscriptions()
         break
       }
       case 'refreshing':
@@ -585,7 +594,17 @@ export class MaestroAgentClient extends AgentClient {
    */
   override subscribe(threadId: string, options?: { accessReason?: string }) {
     const maestro = this.maestro
-    if (!maestro) return
+    if (!maestro) {
+      // A visitor's page that reloads with a stored thread asks for it before the connection exists:
+      // keep the request for the connection to serve (the other modes keep their behaviour).
+      if (this.visitor) {
+        const id = threadId.toLowerCase()
+        const pending = this.pendingSubscriptions.get(id)
+        if (pending) pending.count++
+        else this.pendingSubscriptions.set(id, { count: 1, ...(options ? { options } : {}) })
+      }
+      return
+    }
     let id: string
     try {
       id = maestro.normalizeThreadId(threadId)
@@ -616,8 +635,22 @@ export class MaestroAgentClient extends AgentClient {
     this.sync(maestro.store)
   }
 
+  /** Serves, on the open connection, the reads asked for before it existed. */
+  private openPendingSubscriptions() {
+    const pending = [...this.pendingSubscriptions]
+    this.pendingSubscriptions.clear()
+    for (const [id, { count, options }] of pending)
+      for (let holder = 0; holder < count; holder++) this.subscribe(id, options)
+  }
+
   override unsubscribe(threadId: string) {
     const id = threadId.toLowerCase()
+    const waiting = this.pendingSubscriptions.get(id)
+    if (waiting) {
+      if (waiting.count > 1) waiting.count--
+      else this.pendingSubscriptions.delete(id)
+      return
+    }
     const ref = this.retained.get(id)
     if (!ref) return
     if (ref.count > 1) {
