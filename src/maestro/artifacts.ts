@@ -27,6 +27,11 @@ export interface MaestroArtifactResource {
 }
 type Host = {
   workspaceId: string | null
+  /**
+   * Local guard before a download: throws when the thread history in this client does not cite
+   * the artifact. It sends nothing and is not an access loss, so `failure` is not called.
+   */
+  authorize?(threadId: string, artifactId: string): void
   request(path: string, init: RequestInit, threadId?: string): Promise<Response>
   failure(error: MaestroClientError, threadId?: string): void
 }
@@ -294,6 +299,7 @@ export class MaestroArtifacts {
     if (this.reads.size >= 2 || this.resources.size >= 8) throw failure('RATE_LIMITED', true)
     threadId = uuidSchema.parse(threadId).toLowerCase()
     const id = uuidSchema.parse(attachment.artifact_id).toLowerCase()
+    this.host.authorize?.(threadId, id)
     const c = new AbortController()
     this.reads.set(c, threadId)
     const lifetime = AbortSignal.any([c.signal, ...(signal ? [signal] : [])])

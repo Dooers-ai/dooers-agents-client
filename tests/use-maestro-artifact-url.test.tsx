@@ -4,6 +4,7 @@ import { AgentClient } from '../src/client'
 import { useMaestroArtifactUrl } from '../src/hooks/use-maestro-artifact-url'
 import { MaestroAgentClient } from '../src/maestro-agent-client'
 import { MaestroClientError } from '../src/maestro/types'
+import { event, make, thread, threadId as FIXTURE_THREAD, tick, uuid } from './fixtures/maestro-replay'
 
 const holder = vi.hoisted(() => ({ client: null as unknown }))
 vi.mock('../src/provider', () => ({ useAgentContext: () => ({ client: holder.client }) }))
@@ -80,11 +81,37 @@ function fakeArtifacts(options: FakeOptions = {}) {
   return { state, open }
 }
 
-function useFakeMaestro(fake: ReturnType<typeof fakeArtifacts>) {
+/**
+ * Fake Maestro history: which artifacts the thread events cite. Default: every artifact, like a
+ * thread whose events are all loaded. `cite` marks one more and notifies like the real store.
+ */
+function fakeHistory(citesAll = true) {
+  const cited = new Set<string>()
+  const listeners = new Set<() => void>()
+  return {
+    citesArtifact: (threadId: string, artifactId: string) =>
+      citesAll || cited.has(`${threadId}|${artifactId}`),
+    store: {
+      subscribe: (listener: () => void) => {
+        listeners.add(listener)
+        return () => listeners.delete(listener)
+      },
+    },
+    listeners,
+    cite(threadId: string, artifactId: string) {
+      cited.add(`${threadId}|${artifactId}`)
+      for (const listener of [...listeners]) listener()
+    },
+  }
+}
+
+function useFakeMaestro(fake: ReturnType<typeof fakeArtifacts>, history = fakeHistory()) {
   const client = Object.create(MaestroAgentClient.prototype) as MaestroAgentClient
-  const maestro = { artifacts: { open: fake.open } } // stable, like the real client
+  // stable, like the real client
+  const maestro = { artifacts: { open: fake.open }, citesArtifact: history.citesArtifact, store: history.store }
   client.getMaestroClient = (() => maestro) as never
   holder.client = client
+  return history
 }
 
 interface ItemProps {
@@ -454,6 +481,33 @@ describe('useMaestroArtifactUrl', () => {
     expect(fake.open).not.toHaveBeenCalled()
   })
 
+  it('arquivo que a história ainda não cita (mensagem otimista) espera e só abre quando o evento chega', async () => {
+    const fake = fakeArtifacts()
+    const history = useFakeMaestro(fake, fakeHistory(false))
+    const view = render(<Item name="a" refId={id(1)} />)
+    await advance(5000)
+    // Opening before the server event cites the file is refused by the client and closed the thread.
+    expect(fake.open).not.toHaveBeenCalled()
+    expect(snap(view, 'a')).toMatchObject({ status: 'loading', url: '', code: '' })
+    act(() => history.cite(T1, id(1)))
+    await advance(100)
+    expect(fake.open).toHaveBeenCalledTimes(1)
+    expect(snap(view, 'a')).toMatchObject({ status: 'ready', url: `blob:${id(1)}#1` })
+  })
+
+  it('o arquivo citado em outra thread não libera a leitura nesta', async () => {
+    const fake = fakeArtifacts()
+    const history = useFakeMaestro(fake, fakeHistory(false))
+    const view = render(<Item name="a" refId={id(1)} />)
+    act(() => history.cite(T2, id(1)))
+    await advance(100)
+    expect(fake.open).not.toHaveBeenCalled()
+    expect(snap(view, 'a').status).toBe('loading')
+    view.unmount()
+    // No listener stays on the store after the last consumer leaves.
+    expect(history.listeners.size).toBe(0)
+  })
+
   it('visible=false não abre até ficar visível', async () => {
     const fake = fakeArtifacts()
     useFakeMaestro(fake)
@@ -464,5 +518,50 @@ describe('useMaestroArtifactUrl', () => {
     view.rerender(<Item name="a" refId={id(1)} visible />)
     await advance(100)
     expect(snap(view, 'a').status).toBe('ready')
+  })
+})
+
+describe('useMaestroArtifactUrl com o cliente Maestro real', () => {
+  it('a imagem da mensagem que a pessoa envia não fecha a thread e abre quando o evento chega', async () => {
+    vi.useRealTimers()
+    const headers = { 'Content-Type': 'image/png', 'Content-Length': '3', 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="q.png"', 'X-Content-Type-Options': 'nosniff' }
+    const fetcher = vi.fn(async (url: unknown) =>
+      String(url).endsWith('/download') ? new Response('png', { headers }) : new Response('{}', { status: 503 })
+    )
+    const downloads = () => fetcher.mock.calls.map((call) => String(call[0])).filter((url) => url.endsWith('/download'))
+    const env = make({ fetch: fetcher as never })
+    const connecting = env.client.connect(); await tick(); const socket = env.sockets[0]!; socket.open(); await tick()
+    socket.receive({ id: socket.last('connect').id, type: 'ack', payload: { status: 'connected', connection_id: uuid(100), server_version: '0.0.0', protocol_version: 1, history_authority: 'maestro', capabilities: ['messages.text', 'threads.shared', 'history.replay', 'attachments.durable'], expires_at: new Date(Date.now() + 300000).toISOString() } })
+    await connecting
+    env.client.retainThread(FIXTURE_THREAD); await tick(); socket.ackSubscribe()
+    const first = event(1)
+    first.payload.content = [{ type: 'attachment', artifact_id: uuid(40), filename: 'a.png', mime_type: 'image/png' }]
+    const t = thread('1'); t.capabilities.push('attachments.durable')
+    socket.frame('thread.snapshot', { thread: t, events: [first], watermark: '1', next_cursor: null, has_more: false }); socket.caught('1'); await tick()
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => `blob:${URL.createObjectURL.mock.calls.length}`)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const client = Object.create(MaestroAgentClient.prototype) as MaestroAgentClient
+    client.getMaestroClient = (() => env.client) as never
+    holder.client = client
+    const view = render(
+      <>
+        <Item name="sent" threadId={FIXTURE_THREAD} refId={uuid(40)} />
+        <Item name="sending" threadId={FIXTURE_THREAD} refId={uuid(41)} />
+      </>
+    )
+    await act(async () => { await tick(); await tick() })
+    expect(snap(view, 'sent').status).toBe('ready')
+    // The file of the message being sent is not cited yet: no read, no error, the thread stays open.
+    expect(snap(view, 'sending')).toMatchObject({ status: 'loading', code: '' })
+    expect(downloads()).toHaveLength(1)
+    expect(env.client.store.getThread(FIXTURE_THREAD)?.phase).toBe('live')
+    const echo = event(2)
+    echo.payload.content = [{ type: 'attachment', artifact_id: uuid(41), filename: 'b.png', mime_type: 'image/png' }]
+    await act(async () => { socket.frame('event.append', { event: echo, cursor: 'cursor-2' }); await tick(); await tick() })
+    expect(snap(view, 'sending').status).toBe('ready')
+    expect(downloads()).toHaveLength(2)
+    expect(downloads()[1]).toContain(`/artifacts/${uuid(41)}/download`)
+    view.unmount()
+    env.client.dispose()
   })
 })

@@ -516,23 +516,19 @@ export class MaestroClient {
       new MaestroArtifacts(
         {
           workspaceId: this.scope.workspaceId,
+          // A file the history does not cite yet (the chat shows the message it is sending before
+          // the server event arrives) or a history being reloaded is refused here, before any
+          // request. It is not an access loss: it must not close the thread.
+          authorize: (threadId, artifactId) => {
+            this.requireCapability('attachments.durable')
+            if (!this.citesArtifact(threadId, artifactId))
+              throw error('FORBIDDEN', 'Attachment is not in the authorized thread history')
+          },
           request: async (path, init, threadId) => {
             this.requireCapability('attachments.durable')
             if (threadId) {
-              const state = this.store.getThread(threadId)
               const id = /^\/artifacts\/([0-9a-f-]{36})\/download$/.exec(path)?.[1]
-              const visible =
-                state &&
-                id !== undefined &&
-                Object.values(state.eventsById).some((item) =>
-                  payloadReferencesArtifact(item.event.payload, id)
-                )
-              if (
-                !state?.thread ||
-                state.phase === 'revoked' ||
-                !state.thread.capabilities.includes('attachments.durable') ||
-                !visible
-              )
+              if (id === undefined || !this.citesArtifact(threadId, id))
                 throw error('FORBIDDEN', 'Attachment is not in the authorized thread history')
             }
             const generation = this.generation
@@ -809,6 +805,22 @@ export class MaestroClient {
     this.feedback.removeThread(threadId)
     this.exports.removeThread(threadId)
     this.threads.close(threadId)
+  }
+  /**
+   * True when the thread history loaded in this client cites the artifact in some event and the
+   * thread allows durable attachments: the only files `artifacts.open` reads for that thread.
+   */
+  citesArtifact(threadId: string, artifactId: string): boolean {
+    const state = this.store.getThread(threadId)
+    if (
+      !state?.thread ||
+      state.phase === 'revoked' ||
+      !state.thread.capabilities.includes('attachments.durable')
+    )
+      return false
+    return Object.values(state.eventsById).some((item) =>
+      payloadReferencesArtifact(item.event.payload, artifactId)
+    )
   }
   isSupervision(threadId: string) {
     return this.supervisionGrants.has(this.checkId(threadId))

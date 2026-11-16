@@ -108,6 +108,22 @@ it('a FORBIDDEN on one file download closes at most that thread and never the se
  expect(env.client.getConnection().status).not.toBe('unauthenticated')
  expect(env.client.getConnection().status).toBe('connected')
 })
+it('an attachment the history does not cite yet (optimistic message) is refused locally and the thread stays open', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cited'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ const cited = await env.client.artifacts.open(threadId, attachment)
+ expect(fetcher).toHaveBeenCalledTimes(1)
+ // The chat opens the file of the message it is sending before the server event cites it.
+ await expect(env.client.artifacts.open(threadId, { ...attachment, artifact_id: uuid(41) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ expect(fetcher).toHaveBeenCalledTimes(1)
+ expect(env.client.store.getThread(threadId)?.phase).toBe('live')
+ expect(revoke).not.toHaveBeenCalled()
+ expect(env.client.citesArtifact(threadId, uuid(41))).toBe(false)
+ expect(env.client.citesArtifact(threadId, attachment.artifact_id)).toBe(true)
+ const again = await env.client.artifacts.open(threadId, attachment)
+ expect(fetcher).toHaveBeenCalledTimes(2)
+ cited.release(); again.release(); create.mockRestore(); revoke.mockRestore()
+})
 it('an UNAUTHENTICATED on a file download still ends the session', async () => {
  const { env, missing } = await twoMedia(async () => errorResponse('UNAUTHENTICATED', 401))
  await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })

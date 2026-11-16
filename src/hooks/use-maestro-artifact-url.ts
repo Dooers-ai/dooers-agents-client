@@ -4,6 +4,7 @@ import {
   type MaestroArtifacts,
   maestroBlobType,
 } from '../maestro/artifacts'
+import type { MaestroClient } from '../maestro/client'
 import { MaestroClientError } from '../maestro/types'
 import { MaestroAgentClient } from '../maestro-agent-client'
 import { useAgentContext } from '../provider'
@@ -71,6 +72,8 @@ interface EntryInit {
 
 class Entry {
   resource: MaestroArtifactResource | null = null
+  /** The thread history in the client cites the file (checked again when a read is refused). */
+  cited = false
   acquiredSeq = 0
   waitSeq = 0
   visible: boolean
@@ -130,16 +133,29 @@ class Entry {
   }
 }
 
+/** What the queue reads from the Maestro client besides `artifacts`. */
+type MaestroHistory = Pick<MaestroClient, 'citesArtifact'> & {
+  store: { subscribe(listener: () => void): () => void }
+}
+
 /**
  * Per-client queue: at most 2 reads at the same time and 8 live resources. A resource that is off
  * screen is released (oldest first) when a visible one needs the slot.
+ *
+ * A file opens only when the thread history in the client cites it. The message the person is
+ * sending shows before the server event arrives; the client refuses to read its file until then.
+ * The entry waits in `loading` and opens when the store brings the event.
  */
 class ArtifactQueue {
   private entries = new Set<Entry>()
   private reads = 0
   private seq = 0
+  private unwatch: (() => void) | null = null
 
-  constructor(private readonly artifacts: MaestroArtifacts) {}
+  constructor(
+    private readonly artifacts: MaestroArtifacts,
+    private readonly history: MaestroHistory
+  ) {}
 
   add(init: EntryInit, listener: (snapshot: Snapshot) => void): Entry {
     const entry = new Entry(init, listener)
@@ -193,10 +209,31 @@ class ArtifactQueue {
     return live
   }
 
+  private isCited(entry: Entry) {
+    if (!entry.cited)
+      entry.cited = this.history.citesArtifact(entry.init.threadId, entry.init.refId)
+    return entry.cited
+  }
+
+  /** Listens to the store only while an entry waits for the event that cites its file. */
+  private watch() {
+    let waiting = false
+    for (const entry of this.entries)
+      if (entry.wantsRead && !entry.cited) {
+        waiting = true
+        break
+      }
+    if (waiting && !this.unwatch) this.unwatch = this.history.store.subscribe(() => this.pump())
+    else if (!waiting && this.unwatch) {
+      this.unwatch()
+      this.unwatch = null
+    }
+  }
+
   private next(): Entry | undefined {
     let best: Entry | undefined
     for (const entry of this.entries) {
-      if (!entry.wantsRead) continue
+      if (!entry.wantsRead || !this.isCited(entry)) continue
       if (
         !best ||
         (entry.renewalDue && !best.renewalDue) ||
@@ -234,10 +271,11 @@ class ArtifactQueue {
   pump() {
     while (this.reads < MAX_READS) {
       const entry = this.next()
-      if (!entry) return
-      if (this.liveCount() >= MAX_LIVE && !this.evictOne()) return
+      if (!entry) break
+      if (this.liveCount() >= MAX_LIVE && !this.evictOne()) break
       this.start(entry)
     }
+    this.watch()
   }
 
   private start(entry: Entry) {
@@ -325,6 +363,15 @@ class ArtifactQueue {
 
   private fail(entry: Entry, cause: unknown) {
     const code = cause instanceof MaestroClientError ? cause.code : 'INVALID_REFERENCE'
+    if (
+      code === 'FORBIDDEN' &&
+      !this.history.citesArtifact(entry.init.threadId, entry.init.refId)
+    ) {
+      // The history no longer cites the file (it is being reloaded): wait for it, not an error.
+      entry.cited = false
+      entry.renewalDue = false
+      return
+    }
     if (code === 'RATE_LIMITED' && entry.attempts < RETRY_DELAYS_MS.length) {
       const delay = RETRY_DELAYS_MS[entry.attempts]!
       entry.attempts++
@@ -380,10 +427,10 @@ async function copyToOwnBlob(
 }
 
 const queues = new WeakMap<MaestroArtifacts, ArtifactQueue>()
-function queueFor(artifacts: MaestroArtifacts): ArtifactQueue {
+function queueFor(artifacts: MaestroArtifacts, history: MaestroHistory): ArtifactQueue {
   let queue = queues.get(artifacts)
   if (!queue) {
-    queue = new ArtifactQueue(artifacts)
+    queue = new ArtifactQueue(artifacts, history)
     queues.set(artifacts, queue)
   }
   return queue
@@ -396,6 +443,9 @@ function queueFor(artifacts: MaestroArtifacts): ArtifactQueue {
  *
  * The URL expires in about 60 s: the hook renews it while the component is mounted, and aborts
  * the read and releases the resource on unmount or when the thread or part changes.
+ *
+ * A part whose file the thread history does not cite yet (the message the person is sending,
+ * shown before the server event) stays `loading` and opens when the event arrives.
  */
 export function useMaestroArtifactUrl(
   threadId: string | undefined | null,
@@ -403,8 +453,8 @@ export function useMaestroArtifactUrl(
   options?: UseMaestroArtifactUrlOptions
 ): MaestroArtifactUrlResult {
   const { client } = useAgentContext()
-  const artifacts =
-    client instanceof MaestroAgentClient ? (client.getMaestroClient()?.artifacts ?? null) : null
+  const maestro = client instanceof MaestroAgentClient ? client.getMaestroClient() : null
+  const artifacts = maestro?.artifacts ?? null
   const refId = part?.refId
   const mimeType = part?.mimeType
   const filename = part?.filename
@@ -425,8 +475,8 @@ export function useMaestroArtifactUrl(
   } | null>(null)
 
   useEffect(() => {
-    if (!artifacts || !threadId || !refId || hasUrl) return
-    const queue = queueFor(artifacts)
+    if (!maestro || !artifacts || !threadId || !refId || hasUrl) return
+    const queue = queueFor(artifacts, maestro)
     const entry = queue.add(
       { threadId, refId, mimeType, filename, size, visible: visibleRef.current, stable },
       (snapshot) => setState({ artifacts, identity, snapshot })
@@ -436,7 +486,7 @@ export function useMaestroArtifactUrl(
       entryRef.current = null
       queue.dispose(entry)
     }
-  }, [artifacts, threadId, refId, mimeType, filename, size, hasUrl, identity, stable])
+  }, [maestro, artifacts, threadId, refId, mimeType, filename, size, hasUrl, identity, stable])
 
   useEffect(() => {
     entryRef.current?.queue.setVisible(entryRef.current.entry, visible)
