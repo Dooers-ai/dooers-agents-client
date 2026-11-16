@@ -87,13 +87,34 @@ const textPart = z.strictObject({ type: z.literal('text'), text })
 // Agent text: production does not limit message size and neither does the field. Maestro's operational byte
 // limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) and the callback body limit (2 MiB) refuse first with PAYLOAD_TOO_LARGE.
 const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string() })
+// Exact integer: production stores a Python int with no bound (JSONB numeric). JSON.parse rounds an integer beyond
+// the JavaScript safe range to the nearest double, so the Maestro reads such an integer as its exact source text
+// (JSON.rawJSON, Node 24) and stores and returns the same digits. A plain JSON.parse (browser, client) gives a
+// number, as before. Each widened number exports the JSON Schema of the plain number: the wire format is the same.
+const exactIntegerText = /^-?(?:0|[1-9][0-9]*)$/
+const isExactInteger = (value: unknown) => {
+  const json = JSON as { isRawJSON?: (value: unknown) => boolean }
+  return (
+    typeof json.isRawJSON === 'function' &&
+    json.isRawJSON(value) &&
+    exactIntegerText.test((value as { rawJSON: string }).rawJSON)
+  )
+}
+const exactNumber = (schema: z.ZodNumber, exported: () => object) => {
+  const widened = z.union([schema, z.custom<number>(isExactInteger)])
+  widened._zod.toJSONSchema = exported
+  return widened
+}
 // Production media fields (send.image alt, send.audio duration): str | None and float | None, no range rule.
 // duration is any finite JSON number (a negative or a huge float included).
 const mediaAlt = z.string()
-const mediaDuration = z.number()
+const mediaDuration = exactNumber(z.number(), () => ({ type: 'number' }))
 // Production int (pydantic int, JSONB): any integer, not only a JavaScript safe integer (z.number().int() is one).
-// A whole number with no bound; in JavaScript a value beyond 2^53 is read as the nearest double.
-const productionInt = z.number().multipleOf(1)
+// A whole number with no bound, exact beyond 2^53 in the Maestro.
+const productionInt = exactNumber(z.number().multipleOf(1), () => ({
+  type: 'number',
+  multipleOf: 1,
+}))
 const attachmentPart = z.strictObject({
   type: z.literal('attachment'),
   artifact_id: uuidSchema,
@@ -110,11 +131,13 @@ const attachmentPart = z.strictObject({
 // The only bound is the serialized size of each open container (UTF-8 bytes of its compact JSON), mirrored
 // by the open-json-bytes rule in semantics.py. The ceiling matches the request body limit of the API.
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
+// Production dict[str, Any] keeps any int: an integer beyond 2^53 stays exact in the Maestro (see exactNumber).
+const jsonNumber = exactNumber(z.number(), () => ({ type: 'number' }))
 const jsonValue: z.ZodType<Json> = z
   .lazy(() =>
     z.union([
       z.string(),
-      z.number(),
+      jsonNumber,
       z.boolean(),
       z.null(),
       z.array(jsonValue),
@@ -660,13 +683,14 @@ const contextQuery = z.strictObject({
 })
 // Agent list (GET /v1/agent/threads): only threads where the agent is an active participant, in the
 // token scope. queue "" lists threads without queue (production's "__none__" filter).
-// external_key_md5: the MD5 (lowercase hex of the UTF-8 bytes) of an external_key too long for a URL (the request
-// line and headers share 16 KiB). It finds the same thread as external_key; the caller compares the key it gets back.
+// external_key_sha256: the SHA-256 (lowercase hex of the UTF-8 bytes) of an external_key too long for a URL (the
+// request line and headers share 16 KiB). It finds the same thread as external_key; the caller compares the key it
+// gets back.
 const agentThreadListQuery = z.strictObject({
   external_key: z.string().min(1).optional(),
-  external_key_md5: z
+  external_key_sha256: z
     .string()
-    .regex(/^[a-f0-9]{32}$/)
+    .regex(/^[a-f0-9]{64}$/)
     .optional(),
   queue: queueName.optional(),
   order: z.enum(['asc', 'desc']).optional(),

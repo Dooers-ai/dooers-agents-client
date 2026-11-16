@@ -12372,23 +12372,32 @@
       "description": "external_key e título sem teto, como a produção; o dono é qualquer user_id (o core decide)."
     },
     {
-      "id": "public.AgentThreadListQuery.key-md5",
+      "id": "public.AgentThreadListQuery.key-sha256",
       "schema": "Public.AgentThreadListQuery",
       "valid": true,
       "data": {
-        "external_key_md5": "0123456789abcdef0123456789abcdef",
+        "external_key_sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "limit": 1
       },
-      "description": "Busca pela MD5 de uma external_key longa demais para a URL."
+      "description": "Busca pelo SHA-256 de uma external_key longa demais para a URL."
     },
     {
-      "id": "public.AgentThreadListQuery.key-md5-upper",
+      "id": "public.AgentThreadListQuery.key-sha256-upper",
       "schema": "Public.AgentThreadListQuery",
       "valid": false,
       "data": {
-        "external_key_md5": "0123456789ABCDEF0123456789ABCDEF"
+        "external_key_sha256": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF"
       },
-      "description": "A MD5 é hex minúsculo de 32 caracteres."
+      "description": "O SHA-256 é hex minúsculo de 64 caracteres."
+    },
+    {
+      "id": "public.AgentThreadListQuery.key-md5-gone",
+      "schema": "Public.AgentThreadListQuery",
+      "valid": false,
+      "data": {
+        "external_key_md5": "0123456789abcdef0123456789abcdef"
+      },
+      "description": "O filtro por MD5 saiu (colisão conhecida): só external_key_sha256."
     },
     {
       "id": "public.AgentEventListQuery.production-filters",
