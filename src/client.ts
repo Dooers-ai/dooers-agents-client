@@ -36,6 +36,8 @@ import { PACKAGE_VERSION } from './version'
 const SEND_MESSAGE_TIMEOUT = 30_000
 /** A presence token older than this is fetched again before the next send. */
 const PRESENCE_MAX_AGE_MS = 60_000
+/** After a failed or timed-out token fetch, queued sends skip a new fetch for this long. */
+const PRESENCE_FAILURE_WINDOW_MS = 15_000
 const ARTIFACTS_LIST_TIMEOUT = 5_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
@@ -290,6 +292,7 @@ export class AgentClient {
   private presenceFetch?: Promise<string | undefined>
   private presenceChain: Promise<void> = Promise.resolve()
   private presenceQueue = 0
+  private presenceFailedAt?: number
   private pendingMessages = new Map<
     string,
     {
@@ -1085,22 +1088,46 @@ export class AgentClient {
     this.presenceChain = this.presenceChain
       .then(async () => {
         try {
-          if (!this.presence || Date.now() - this.presence.at > PRESENCE_MAX_AGE_MS) {
+          const stale = !this.presence || Date.now() - this.presence.at > PRESENCE_MAX_AGE_MS
+          const recentlyFailed =
+            this.presenceFailedAt !== undefined &&
+            Date.now() - this.presenceFailedAt < PRESENCE_FAILURE_WINDOW_MS
+          if (stale && !recentlyFailed) {
             try {
               await this.fetchPresence()
+              this.presenceFailedAt = undefined
             } catch {
-              // send without the token
+              // send without the token; sends queued behind this one skip a new fetch for a while
+              this.presenceFailedAt = Date.now()
             }
           }
           if (this.presence && Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS) {
             frame.payload.presence_token = this.presence.token
           }
-          this.sendRaw(frame)
+          if (!this.pendingMessages.has(frame.id as string)) {
+            // already rejected (e.g. the connection dropped while waiting): never send it late
+          } else if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this.failPendingSend(frame.id as string)
+          } else {
+            this.sendRaw(frame)
+          }
         } finally {
           this.presenceQueue--
         }
       })
       .catch(() => {})
+  }
+
+  /** The socket went away while a send waited for its token: reject now instead of timing out. */
+  private failPendingSend(clientEventId: string) {
+    const pending = this.pendingMessages.get(clientEventId)
+    if (!pending) return
+    clearTimeout(pending.timer)
+    const opt = this.pendingOptimistic.get(clientEventId)
+    if (opt?.threadId) this.callbacks.removeOptimistic(opt.threadId, clientEventId)
+    this.pendingOptimistic.delete(clientEventId)
+    this.pendingMessages.delete(clientEventId)
+    pending.reject(new Error('Not connected'))
   }
 
   /** One in-flight token fetch shared by every queued send. */

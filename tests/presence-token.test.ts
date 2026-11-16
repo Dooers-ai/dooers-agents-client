@@ -135,6 +135,51 @@ describe("presence_token on event.create", () => {
     expect("presence_token" in (eventCreates(ws)[0] as Frame).payload).toBe(false);
   });
 
+  it("hung getAuthToken: queued sends all go out within 15s, in order, without the token; a later send retries", async () => {
+    let calls = 0;
+    const getAuthToken = vi.fn(() => {
+      if (++calls === 1) return Promise.resolve("t1");
+      if (calls === 2) return new Promise<string>(() => {});
+      return Promise.resolve("t3");
+    });
+    await connect({ userId: "u1", getAuthToken });
+    await vi.advanceTimersByTimeAsync(61_000);
+    send("a");
+    send("b");
+    send("c");
+    await vi.advanceTimersByTimeAsync(15_500);
+    const frames = eventCreates(ws);
+    const texts = frames.map((f) => ((f.payload.event as { content: { text: string }[] }).content[0] as { text: string }).text);
+    expect(texts).toEqual(["a", "b", "c"]);
+    expect(frames.every((f) => !("presence_token" in f.payload))).toBe(true);
+    expect(getAuthToken).toHaveBeenCalledTimes(2);
+
+    await vi.advanceTimersByTimeAsync(16_000);
+    send("d");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(getAuthToken).toHaveBeenCalledTimes(3);
+    expect(eventCreates(ws)[3]?.payload.presence_token).toBe("t3");
+  });
+
+  it("a send queued before disconnect rejects at once instead of timing out", async () => {
+    let calls = 0;
+    const getAuthToken = vi.fn(() => {
+      if (++calls === 1) return Promise.resolve("t1");
+      return new Promise<string>((r) => setTimeout(() => r("late"), 5_000));
+    });
+    await connect({ userId: "u1", getAuthToken });
+    await vi.advanceTimersByTimeAsync(61_000);
+    const p = client.sendMessage({ threadId: "t-1", text: "x" });
+    const settled = vi.fn();
+    p.catch((e: Error) => settled(e.message));
+    ws.drop();
+    await vi.advanceTimersByTimeAsync(5_100);
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(settled).not.toHaveBeenCalledWith(expect.stringContaining("timed out"));
+    // the rejected message is never sent late, on any socket
+    expect(MockWebSocket.instances.flatMap(eventCreates)).toHaveLength(0);
+  });
+
   it("form responses carry presence_token too", async () => {
     await connect({ userId: "u1", getAuthToken: async () => "tok" });
     client.sendFormResponse({ threadId: "t-1", formEventId: "f1", cancelled: false, values: {} }).catch(() => {});
