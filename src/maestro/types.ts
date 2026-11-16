@@ -116,6 +116,12 @@ export interface MaestroPublicationSnapshot {
   publications: readonly MaestroPublication[]
   events: readonly MaestroEvent[]
 }
+/**
+ * Error code of a thread whose frames carry an event the vendored contract cannot read. The same
+ * bytes come back on every replay, so the thread ends; it is never an access loss.
+ */
+export const MAESTRO_THREAD_UNREADABLE = 'THREAD_UNREADABLE'
+
 export class MaestroClientError extends Error {
   constructor(
     readonly code: string,

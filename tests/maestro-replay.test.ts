@@ -84,12 +84,17 @@ describe('Maestro subscription refs and recovery',()=>{
   const late=client.loadBefore(threadId);release();resolve(json({items:[event(1)],next_cursor:'late',has_more:true,watermark:'3'}));await late
   expect(client.store.getThread(threadId)?.beforeCursor).toBe('page-before')
  })
- it('handles future events in snapshot/replay and malformed known event still fails closed',async()=>{
+ it('handles future events in snapshot/replay and malformed known event still fails closed, for that thread only',async()=>{
   const {client,socket}=await subscribed();const future={...event(1),type:'future.changed',payload:{v:'safe'}}
   socket.snapshot([future],'2',uuid(101),true);socket.frame('thread.replay',{events:[event(2)],watermark:'2',next_cursor:null,has_more:false});socket.caught('2')
   expect(client.store.getThread(threadId)).toMatchObject({phase:'live',appliedSequence:'2'});expect(client.store.getThread(threadId)?.eventsById[future.event_id]?.known).toBe(false)
   socket.frame('thread.replay',{events:[{...event(3),payload:{content:'invalid'}}],watermark:'3',next_cursor:null,has_more:false})
-  expect(client.store.getThread(threadId)?.phase).toBe('disconnected');expect(client.store.getThread(threadId)?.appliedSequence).toBe('2')
+  // The event is never applied; the thread ends (the same replay would fail again) and the session stays up.
+  expect(client.store.getThread(threadId)).toMatchObject({phase:'failed',appliedSequence:'2',error:{code:'THREAD_UNREADABLE'}})
+  expect(client.getConnection().status).toBe('connected');expect(socket.last('thread.unsubscribe').payload.subscription_id).toBe(uuid(101))
+  // A late frame of the subscription being left is ignored, readable or not.
+  socket.frame('thread.replay',{events:[{...event(4),payload:{content:'invalid'}}],watermark:'4',next_cursor:null,has_more:false})
+  expect(client.getConnection().status).toBe('connected');expect(client.store.getThread(threadId)?.phase).toBe('failed')
  })
  it('supports metadata-only snapshot and covered final page with null next cursor',async()=>{
   const {client,socket}=await subscribed();socket.frame('thread.snapshot',{thread:thread('1'),events:[],watermark:'1',next_cursor:'zero',has_more:true})

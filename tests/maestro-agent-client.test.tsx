@@ -765,4 +765,125 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
       client.disconnect()
     })
   })
+
+  describe('a thread whose events the client cannot read', () => {
+    // A known event the vendored contract refuses: the same class of failure as a run whose agent_id is
+    // free text ("dooers-assistant") read with a contract that still asked for a UUID.
+    const unreadable = () => {
+      const value = event(2, 'run.updated')
+      value.payload = { ...value.payload, status: 'exploded' }
+      return value
+    }
+    /** A Maestro that answers by itself: every connection, every subscription replays the same thread. */
+    async function serve(events: () => unknown[], fetcher: ReturnType<typeof vi.fn>, extra: Record<string, unknown> = {}) {
+      vi.useFakeTimers()
+      const store = createAgentStore()
+      const sockets: Socket[] = []
+      const issued = { chat: 0, supervision: 0 }
+      const errors: string[] = []
+      const view = sharedThread('2')
+      const client = new MaestroAgentClient(store.getState().actions, {
+        endpoint: 'https://maestro.example',
+        scope,
+        authToken: () => { issued.chat++; return credential(scope.principalId, scope.organizationId) },
+        supervisionAuthToken: () => { issued.supervision++; return credential(scope.principalId, scope.organizationId, { scopes: ['threads:read', 'threads:supervise'] }) },
+        threadListPollMs: 0,
+        ...extra,
+        fetch: fetcher as unknown as typeof fetch,
+        socketFactory: () => {
+          const socket = new Socket()
+          const send = socket.send.bind(socket)
+          socket.send = (data: string) => {
+            send(data)
+            const frame = JSON.parse(data)
+            setTimeout(() => {
+              if (frame.type === 'connect') socket.ackConnect()
+              else if (frame.type === 'ping') socket.receive({ id: frame.id, type: 'pong', payload: frame.payload })
+              else if (frame.type === 'thread.unsubscribe') socket.receive({ id: frame.id, type: 'ack', payload: { status: 'unsubscribed', subscription_id: frame.payload.subscription_id } })
+              else if (frame.type === 'thread.subscribe') {
+                socket.ackSubscribe(uuid(101), '2')
+                socket.frame('thread.snapshot', { thread: view, events: events(), watermark: '2', next_cursor: null, has_more: false })
+                socket.caught('2')
+              }
+            }, 5)
+          }
+          setTimeout(() => socket.open(), 5)
+          sockets.push(socket)
+          return socket
+        },
+      })
+      client.setOnError((e) => errors.push(e.code))
+      client.connect('ignored', AGENT, { organizationId: scope.organizationId, workspaceId: '', userId: scope.principalId })
+      await vi.advanceTimersByTimeAsync(100)
+      return { client, store, sockets, issued, errors, view }
+    }
+    const reads = (view: unknown) =>
+      vi.fn(async (url: string) =>
+        url.includes(`/threads/${threadId}`) ? json(view) : json({ items: [view], next_cursor: null, has_more: false, watermark: '2' })
+      )
+
+    it('ends that thread once: no reconnection loop, no new credential, no supervision', async () => {
+      const view = sharedThread('2')
+      const { client, store, sockets, issued, errors } = await serve(() => [event(1), unreadable()], reads(view))
+      expect(issued.chat).toBe(1)
+      client.subscribe(threadId)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(issued.chat).toBe(1)
+      expect(sockets).toHaveLength(1)
+      expect(issued.supervision).toBe(0)
+      expect(client.isConnected()).toBe(true)
+      expect(errors).toEqual(['THREAD_UNREADABLE'])
+      // The chat leaves the loading state and shows the error; it never says the reader has no access.
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      expect(store.getState().loadingThreads.has(threadId)).toBe(false)
+      expect(store.getState().connection.status).toBe('connected')
+      client.disconnect()
+    })
+
+    it('an unreadable event appended to an open thread ends only that thread, once', async () => {
+      const view = sharedThread('2')
+      const { client, store, sockets, issued, errors } = await serve(() => [event(1), event(2)], reads(view))
+      client.subscribe(threadId)
+      await vi.advanceTimersByTimeAsync(100)
+      expect(store.getState().events[threadId]).toHaveLength(2)
+      const socket = sockets.at(-1)!
+      const bad = unreadable()
+      bad.sequence = '3'
+      socket.frame('event.append', { event: bad, cursor: 'cursor-3' })
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(issued.chat).toBe(1)
+      expect(sockets).toHaveLength(1)
+      expect(issued.supervision).toBe(0)
+      expect(client.isConnected()).toBe(true)
+      expect(errors).toEqual(['THREAD_UNREADABLE'])
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      // What was already read stays on screen.
+      expect(store.getState().events[threadId]).toHaveLength(2)
+      client.disconnect()
+    })
+
+    it('a refused supervision (403 on the supervision credential) ends the attempt without repeating requests', async () => {
+      const { MaestroClientError } = await import('../src/maestro/types')
+      const view = sharedThread('2')
+      const fetcher = vi.fn(async (url: string) =>
+        url.includes(`/threads/${threadId}`) ? failure(404, 'NOT_FOUND') : json({ items: [], next_cursor: null, has_more: false, watermark: '0' })
+      )
+      const refused = { count: 0 }
+      const { client, store, sockets, issued, errors } = await serve(() => [event(1)], fetcher, {
+        // The application maps the core's 403 on threads:supervise to NOT_FOUND (it cannot supervise).
+        supervisionAuthToken: () => { refused.count++; throw new MaestroClientError('NOT_FOUND', 'Thread not found') },
+      })
+      void view
+      client.subscribe(threadId)
+      await vi.advanceTimersByTimeAsync(10_000)
+      expect(refused.count).toBe(1)
+      expect(issued.chat).toBe(1)
+      expect(sockets).toHaveLength(1)
+      expect(errors).toEqual(['NOT_FOUND'])
+      expect(store.getState().subscriptions.has(threadId)).toBe(false)
+      expect(client.isConnected()).toBe(true)
+      expect(fetcher.mock.calls.filter(([url]) => String(url).includes(`/threads/${threadId}`))).toHaveLength(1)
+      client.disconnect()
+    })
+  })
 })

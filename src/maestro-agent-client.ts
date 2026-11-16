@@ -10,7 +10,7 @@ import {
 import { MaestroClient } from './maestro/client'
 import type { MaestroStore, MaestroThreadState } from './maestro/store'
 import type { MaestroClientConfig, MaestroCredential, MaestroScope } from './maestro/types'
-import { MaestroClientError } from './maestro/types'
+import { MAESTRO_THREAD_UNREADABLE, MaestroClientError } from './maestro/types'
 import {
   foldMaestroEvents,
   legacyContentToMaestro,
@@ -174,6 +174,8 @@ export class MaestroAgentClient extends AgentClient {
   private user: AgentConnectionConfig = { organizationId: '', workspaceId: '', userId: '' }
   private subscriptions: (() => void)[] = []
   private retained = new Map<string, Retained>()
+  /** Threads being left because they cannot be read (guards the sync that leaving triggers). */
+  private leaving = new Set<string>()
   private supervised = new Map<string, Supervised>()
   private snapshotted = new Set<string>()
   private eventSignatures = new Map<string, Map<string, string>>()
@@ -876,6 +878,20 @@ export class MaestroAgentClient extends AgentClient {
     for (const id of this.retained.keys()) {
       const state = store.getThread(id)
       if (!state) continue
+      if (state.phase === 'failed' && state.error?.code === MAESTRO_THREAD_UNREADABLE) {
+        // The same replay would fail again: leave the thread once, so the chat stops loading and
+        // shows the error. What was already read stays on screen. Leaving changes the store, which
+        // runs this sync again while the thread is still retained: that inner run skips it.
+        if (this.leaving.has(id)) continue
+        this.leaving.add(id)
+        try {
+          this.dropSubscription(id)
+        } finally {
+          this.leaving.delete(id)
+        }
+        this.report(state.error)
+        continue
+      }
       if (!this.snapshotted.has(id)) {
         if (state.phase === 'revoked' || state.phase === 'failed') {
           if (state.error) this.report(state.error)

@@ -1,6 +1,7 @@
 import type { z } from 'zod'
 import {
   createMaestroConnectCommand,
+  MaestroContractError,
   type MaestroEvent,
   toMaestroConnectAck,
   toMaestroPersistedResponse,
@@ -1995,15 +1996,26 @@ export class MaestroClient {
         return
       }
       if (frame.type === 'event.append') {
-        this.append(frame)
+        try {
+          this.append(frame)
+        } catch (cause) {
+          if (!this.unreadableThreadFrame(frame, cause)) throw cause
+        }
         return
       }
       const schema = wsFrameSchemas[frame.type]
       if (!schema) return // Unknown unsolicited frames are ignored, never capabilities/ACKs.
-      const parsed =
-        frame.type === 'thread.snapshot' || frame.type === 'thread.replay'
-          ? readMaestroReplayFrame(frame.type, frame, this.reportUnsupported)
-          : parseMaestroNetwork(schema, frame)
+      const parsed = (() => {
+        try {
+          return frame.type === 'thread.snapshot' || frame.type === 'thread.replay'
+            ? readMaestroReplayFrame(frame.type, frame, this.reportUnsupported)
+            : parseMaestroNetwork(schema, frame)
+        } catch (cause) {
+          if (this.unreadableThreadFrame(frame, cause)) return null
+          throw cause
+        }
+      })()
+      if (!parsed) return
       if (this.connection.status !== 'connected' && this.connection.status !== 'refreshing')
         throw error('PROTOCOL_ERROR', 'Unsolicited data before authenticated handshake')
       if (parsed.type === 'session.expired') {
@@ -2048,6 +2060,32 @@ export class MaestroClient {
       this.report(this.failure(cause))
       this.lost(error('PROTOCOL_ERROR', 'Invalid Maestro server response'))
     }
+  }
+  /**
+   * A thread data frame (snapshot, replay, append) whose events the contract cannot read fails that
+   * thread, not the session. Dropping the connection would reconnect with a new credential, replay
+   * the same bytes and fail again, forever (the handshake resets the reconnection backoff). Any
+   * other bad frame, or one before the handshake, still ends the session.
+   */
+  private unreadableThreadFrame(frame: { type: unknown }, cause: unknown): boolean {
+    if (
+      !(cause instanceof MaestroContractError) ||
+      !['thread.snapshot', 'thread.replay', 'event.append'].includes(String(frame.type)) ||
+      (this.connection.status !== 'connected' && this.connection.status !== 'refreshing')
+    )
+      return false
+    const payload = (frame as { payload?: unknown }).payload
+    const subscriptionId =
+      payload && typeof payload === 'object' && 'subscription_id' in payload
+        ? payload.subscription_id
+        : undefined
+    if (typeof subscriptionId !== 'string') return false
+    // A frame of a subscription that is not (or no longer) ours is ignored, as a readable one is.
+    if (this.subscriptions.has(subscriptionId)) {
+      this.subscriptions.delete(subscriptionId)
+      this.threads.unreadable(subscriptionId)
+    }
+    return true
   }
   private append(value: object) {
     // Derive the envelope from frozen frame fields; the event adapter separately

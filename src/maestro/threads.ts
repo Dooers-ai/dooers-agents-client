@@ -1,7 +1,7 @@
 import { compareMaestroSequences, toMaestroThread } from '../protocol/maestro/contracts.js'
 import type { MaestroClient } from './client.js'
 import { toMaestroNetworkEvent } from './network.js'
-import { MaestroClientError } from './types.js'
+import { MAESTRO_THREAD_UNREADABLE, MaestroClientError } from './types.js'
 
 type Reference = {
   count: number
@@ -180,6 +180,33 @@ export class MaestroThreads {
       },
       Math.min(this.retryDelay * 2 ** (ref.retries - 1), 30000)
     )
+  }
+  /**
+   * A frame of this subscription carries an event the contract cannot read. The thread ends here
+   * (no replay retry, no access loss, no fence on reads in flight); the session stays up for the
+   * other threads. Returns false when no retained thread owns the subscription.
+   */
+  unreadable(subscriptionId: string): boolean {
+    const pair = [...this.refs].find(([, ref]) => ref.subscriptionId === subscriptionId)
+    if (!pair) return false
+    const [id, ref] = pair
+    ref.permissionFlight = undefined
+    ref.permissionDirty = false
+    ref.revision++
+    ref.pending = false
+    ref.subscriptionId = undefined
+    clearTimeout(ref.timer)
+    ref.timer = undefined
+    void this.client.unsubscribeThread(subscriptionId).catch(() => {})
+    this.client.store.patch(id, {
+      phase: 'failed',
+      historyLoading: false,
+      error: new MaestroClientError(
+        MAESTRO_THREAD_UNREADABLE,
+        'The thread has an event this client cannot read'
+      ),
+    })
+    return true
   }
   private revoke(id: string, ref: Reference) {
     ref.permissionFlight = undefined
