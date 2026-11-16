@@ -133,7 +133,7 @@ describe('Maestro → legacy mapping', () => {
     expect(legacyContentToMaestro({ text: '   ' })).toEqual([])
     const e = event(4)
     e.payload.content = [{ type: 'attachment', artifact_id: uuid(51), filename: 'foto.png', mime_type: 'image/png', size_bytes: 10 }]
-    expect(maestroEventToLegacy(toMaestroNetworkEvent(e))?.content).toEqual([{ type: 'image', refId: uuid(51), filename: 'foto.png', alt: 'foto.png', mimeType: 'image/png' }])
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(e))?.content).toEqual([{ type: 'image', refId: uuid(51), filename: 'foto.png', mimeType: 'image/png' }])
   })
   it('an audio attachment keeps refId, filename and size so the client can open it', () => {
     const e = event(4)

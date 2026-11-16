@@ -125,6 +125,32 @@ describe('new content parts', () => {
       { type: 'document', url: 'https://cdn.example.com/a.pdf', mimeType: 'application/pdf', filename: 'a.pdf' },
     ])
   })
+  it('an image attachment keeps alt, width and height from the part, like production', () => {
+    const legacy = maestroEventToLegacy(
+      toMaestroNetworkEvent(
+        agentMessage([
+          { type: 'attachment', artifact_id: uuid(70), filename: 'foto.png', mime_type: 'image/png', size_bytes: 10, alt: 'Gráfico de vendas', width: 640, height: 480 },
+        ])
+      )
+    )
+    expect(legacy?.content).toEqual([
+      { type: 'image', refId: uuid(70), filename: 'foto.png', mimeType: 'image/png', alt: 'Gráfico de vendas', width: 640, height: 480 },
+    ])
+  })
+  it('an image attachment without alt does not borrow the file name as alt', () => {
+    const legacy = maestroEventToLegacy(
+      toMaestroNetworkEvent(agentMessage([{ type: 'attachment', artifact_id: uuid(71), filename: 'foto.png', mime_type: 'image/png', size_bytes: 10 }]))
+    )
+    expect(legacy?.content).toEqual([{ type: 'image', refId: uuid(71), filename: 'foto.png', mimeType: 'image/png' }])
+  })
+  it('an audio attachment keeps its duration', () => {
+    const legacy = maestroEventToLegacy(
+      toMaestroNetworkEvent(
+        agentMessage([{ type: 'attachment', artifact_id: uuid(72), filename: 'voz.ogg', mime_type: 'audio/ogg', size_bytes: 10, duration: 3.5 }])
+      )
+    )
+    expect(legacy?.content).toEqual([{ type: 'audio', refId: uuid(72), filename: 'voz.ogg', mimeType: 'audio/ogg', sizeBytes: 10, duration: 3.5 }])
+  })
   it('contact becomes the contact part of the production wire', () => {
     const contact = { type: 'contact', display_name: 'Suporte', vcard: 'BEGIN:VCARD\nEND:VCARD', phones: [{ phone: '+551130000000', type: 'WORK' }] }
     expect(maestroEventToLegacy(toMaestroNetworkEvent(agentMessage([contact])))?.content).toEqual([contact])

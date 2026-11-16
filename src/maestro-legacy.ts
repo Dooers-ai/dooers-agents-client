@@ -251,13 +251,17 @@ export function maestroContentToDisplay(
         ...(part.filename ? { filename: part.filename } : {}),
         ...(part.mime_type ? { mimeType: part.mime_type } : {}),
         ...(part.size_bytes !== undefined ? { sizeBytes: part.size_bytes } : {}),
+        ...(part.duration !== undefined ? { duration: part.duration } : {}),
       }
     if (kind === 'image')
       return {
         type: 'image',
         refId: part.artifact_id,
-        ...(part.filename ? { filename: part.filename, alt: part.filename } : {}),
+        ...(part.filename ? { filename: part.filename } : {}),
         ...(part.mime_type ? { mimeType: part.mime_type } : {}),
+        ...(part.alt ? { alt: part.alt } : {}),
+        ...(part.width !== undefined ? { width: part.width } : {}),
+        ...(part.height !== undefined ? { height: part.height } : {}),
       }
     return {
       type: 'document',
