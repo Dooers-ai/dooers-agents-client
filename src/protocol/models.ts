@@ -241,6 +241,7 @@ export type WireEventType =
   | 'form'
   | 'form.response'
   | 'chart'
+  | 'connector.interaction'
   | 'thread.update'
 export type WireRunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 

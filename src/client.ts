@@ -34,6 +34,8 @@ import {
 import { PACKAGE_VERSION } from './version'
 
 const SEND_MESSAGE_TIMEOUT = 30_000
+/** A presence token older than this is fetched again before the next send. */
+const PRESENCE_MAX_AGE_MS = 60_000
 const ARTIFACTS_LIST_TIMEOUT = 5_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
@@ -283,6 +285,11 @@ export class AgentClient {
   private pendingOptimistic = new Map<string, { threadId: string; clientEventId: string }>()
 
   // Pending message promises — keyed by outbound frame id (same as client_event_id for sends).
+  /** Last token from `getAuthToken`, attached to `event.create` as `presence_token`. */
+  private presence?: { token: string; at: number }
+  private presenceFetch?: Promise<string | undefined>
+  private presenceChain: Promise<void> = Promise.resolve()
+  private presenceQueue = 0
   private pendingMessages = new Map<
     string,
     {
@@ -976,7 +983,7 @@ export class AgentClient {
       payload.queue = params.queue
     }
 
-    this.sendRaw({
+    this.sendEventCreate({
       id: clientEventId,
       type: 'event.create',
       payload,
@@ -996,7 +1003,7 @@ export class AgentClient {
     const clientEventId = crypto.randomUUID()
     const promise = this.createPendingPromise(clientEventId)
 
-    this.sendRaw({
+    this.sendEventCreate({
       id: clientEventId,
       type: 'event.create',
       payload: {
@@ -1045,10 +1052,65 @@ export class AgentClient {
       timer = setTimeout(() => reject(new Error('auth token timeout')), AUTH_TOKEN_TIMEOUT_MS)
     })
     try {
-      return await Promise.race([this.config.getAuthToken(), timeout])
+      const token = await Promise.race([this.config.getAuthToken(), timeout])
+      // Every token fetched this way is also fresh proof of presence for the next sends.
+      if (token) this.presence = { token, at: Date.now() }
+      return token
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  /**
+   * Sends an `event.create` carrying a fresh `presence_token` (top level of the payload) when the
+   * client has `getAuthToken`. With a fresh cached token the frame goes out synchronously; otherwise
+   * sends queue behind one shared token fetch, in order. A failed or slow fetch never blocks a
+   * message: it goes out without the token.
+   */
+  private sendEventCreate(frame: { payload: Record<string, unknown> } & Record<string, unknown>) {
+    if (!this.config.getAuthToken) {
+      this.sendRaw(frame)
+      return
+    }
+    if (
+      this.presenceQueue === 0 &&
+      this.presence &&
+      Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS
+    ) {
+      frame.payload.presence_token = this.presence.token
+      this.sendRaw(frame)
+      return
+    }
+    this.presenceQueue++
+    this.presenceChain = this.presenceChain
+      .then(async () => {
+        try {
+          if (!this.presence || Date.now() - this.presence.at > PRESENCE_MAX_AGE_MS) {
+            try {
+              await this.fetchPresence()
+            } catch {
+              // send without the token
+            }
+          }
+          if (this.presence && Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS) {
+            frame.payload.presence_token = this.presence.token
+          }
+          this.sendRaw(frame)
+        } finally {
+          this.presenceQueue--
+        }
+      })
+      .catch(() => {})
+  }
+
+  /** One in-flight token fetch shared by every queued send. */
+  private fetchPresence(): Promise<string | undefined> {
+    if (!this.presenceFetch) {
+      this.presenceFetch = this.resolveAuthToken().finally(() => {
+        this.presenceFetch = undefined
+      })
+    }
+    return this.presenceFetch
   }
 
   private async openConnection(): Promise<void> {
