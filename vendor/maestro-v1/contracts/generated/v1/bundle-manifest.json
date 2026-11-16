@@ -5,16 +5,16 @@
     "catalog-identity.json": "c417f5c5258e203b9b705a8f9780e4f91f6b0b8c5de4ee0fe247cd6317b3c879",
     "catalog-public.json": "75f87005d1a4a0b6e9424ed1e0d27b7df0c063ec125edbae09c5c29025459c93",
     "delivery-rules.json": "f451f76a6492b98a0b68c83f25b143dbccf019557f01f6039c4e602864ed4d69",
-    "fixtures.json": "cfa7df9d47c026da772f7350356f117a1157bed0a3ecf58afe14498e013b3c11",
+    "fixtures.json": "cd8b274486ccf9044f00e6cba00e85993eb8e9924d41f1075215d9420bdc7245",
     "openapi/core.json": "15ff949f7a0d88e5a4ce31036157fb2b802acc984293fa1a483f23fd14a0b184",
-    "openapi/internal.json": "b5ffe9d9106436397a173b342277a1ec19d84703d0370e40495f0805a6e63a7a",
-    "openapi/public.json": "22677a4f11e7b419c46dae7d7bc0e179ed8bc35f26056337d7a38966ff99a748",
+    "openapi/internal.json": "6cf605b40c6535605296f573c09d922c55a7cf57d9cbe1001c3d51c97c47d7ce",
+    "openapi/public.json": "300745c327f75f3bf6c79c3ebece8852ab0be342118eaf09cad0b2a80893b24e",
     "openapi/runtime.json": "2e76b6997abfdf2cddbaad4075617e6afb103f04a0d09d36a7b00292918e56e8",
     "python/requirements.in": "d72cfe90574d1a1ac97b91263b9b6c9ed97cbcfc9b0f10fa56a09ffbd46218f7",
     "python/requirements.lock": "004045153477d0ad4a6e8b1346535278f17e76446d00598ce79a9a659e828f23",
     "python/semantics.py": "f12ebd3f45598490062785865f756b4319d014185e427fcf20229a6ccd2837f6",
     "python/validate.py": "42e5c9a3c20408720f8f18ef8202190d6c29b058b950bc1ce9ba6ccc22d24e41",
-    "schemas.json": "64ac4cf23d7b2d3763db8df68fb677bcc59c7fee7ee267f71c34c2cd5464aa6a"
+    "schemas.json": "70cda4f55ae58c629a0c755689215a9c7875275daea071f63928d6952131c160"
   },
   "generator": {
     "json_schema": "2020-12",
@@ -37,7 +37,7 @@
     "docs/contracts/fixtures/v1/delivery.json": "b184e62f975f25c804b66303f82f2a8f06f240b4f5fb7b3a92b635846e7f70e2",
     "docs/contracts/fixtures/v1/identity.json": "eac6383d471a8af9cee4ae4c8ad5a134e07c3ed927e4698d89e6270343aaad13",
     "docs/contracts/fixtures/v1/public-publication.json": "9d5655db25647342fdd2d15051df7c201778784a30a92ff7bc691809d644d9c1",
-    "docs/contracts/fixtures/v1/public.json": "f58f58d1e876150932878ad1a731ead68c92ed4909ba2855d1bced1662e9b137",
+    "docs/contracts/fixtures/v1/public.json": "c63556c378f96b8d29fb5a4978aaac60cef6db891930c00265a1e746ce39b96e",
     "docs/contracts/harness/README.md": "314eb860c35a6da0f1072ee20b01d8eab14b770667896fd966a3e1be7bbd33fe",
     "docs/contracts/harness/boundary-fixtures.json": "0fa1e07bfe7b29248954f4e2c587e5109002f51403169d85eb5c0a9043d2ff82",
     "docs/contracts/harness/cli.ts": "f72e4659989011d7f9b06464d56d341f575895d38334e56685a8e32051f57d0e",
@@ -49,17 +49,17 @@
     "docs/contracts/harness/python/test_validate.py": "b41062a538feb0e8eb0c791264c1211eef737f3867de9c850dc9dff835ca67a9",
     "docs/contracts/harness/python/validate.py": "42e5c9a3c20408720f8f18ef8202190d6c29b058b950bc1ce9ba6ccc22d24e41",
     "docs/contracts/harness/registry.ts": "8427c0a70bdd53bffacd5648650ea2ab014de7261249ab8ab27cd54b1418ec18",
-    "docs/contracts/v1/common.ts": "ac68dcf82cd5e7925ef7363ea40abbc5c11518f5024c4ab2014b65cc363267d7",
+    "docs/contracts/v1/common.ts": "a527f148c8493aeee6127ee0fae4227f0abdd7e041a4c8a5e511b5d080f23dca",
     "docs/contracts/v1/delivery.ts": "1fb79de2f23e72c7e352a3c8eccabee444bcd5b9e10027176def05bfe3bcfc30",
     "docs/contracts/v1/identity.ts": "bc0cfd1df412dc1a0b980be121921bfbdc9ba4fb6c4fc82f1ad525f4b9cb732f",
-    "docs/contracts/v1/public.ts": "e72e5c1103ede5e5e9ff41d3ef5752e39ea75944511ad42ceedf3ed49c703a55"
+    "docs/contracts/v1/public.ts": "d88187913766ec9373f2f7268e8c9dcd9ba2941a2a83692548feda9ff6e22195"
   },
-  "source_revision": "sha256:aa8de4bc00e10a2a0c84764ddc9a133bf03e005864713214428b5d3b7afc4e5e",
+  "source_revision": "sha256:a3753da99f0893c37dac8fb7e0d91c203ef483070ac91a765117747c85e0752b",
   "validation": {
     "fixtures": {
-      "invalid": 616,
-      "total": 1071,
-      "valid": 455
+      "invalid": 610,
+      "total": 1085,
+      "valid": 475
     },
     "schemas": 191
   }

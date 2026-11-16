@@ -125,6 +125,23 @@ describe('new content parts', () => {
       { type: 'document', url: 'https://cdn.example.com/a.pdf', mimeType: 'application/pdf', filename: 'a.pdf' },
     ])
   })
+  it('media_link carries the whole production part: any URL, only a ref_id, and integers as they came', () => {
+    const legacy = maestroEventToLegacy(
+      toMaestroNetworkEvent(
+        agentMessage([
+          { type: 'media_link', kind: 'image', url: 'valor', mime_type: 'dooers-assistant', width: 2 ** 53, height: -1 },
+          { type: 'media_link', kind: 'audio', ref_id: 'up-1', duration: -1.5 },
+          { type: 'media_link', kind: 'document', url: '', filename: 'pasta/arquivo', size_bytes: 10, ref_id: 'up-2' },
+        ])
+      )
+    )
+    // The production conversion (toDisplayContentPart) of the same wire parts.
+    expect(legacy?.content).toEqual([
+      { type: 'image', url: 'valor', mimeType: 'dooers-assistant', width: 2 ** 53, height: -1 },
+      { type: 'audio', duration: -1.5, refId: 'up-1' },
+      { type: 'document', url: '', filename: 'pasta/arquivo', sizeBytes: 10, refId: 'up-2' },
+    ])
+  })
   it('an image attachment keeps alt, width and height from the part, like production', () => {
     const legacy = maestroEventToLegacy(
       toMaestroNetworkEvent(

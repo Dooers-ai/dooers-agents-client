@@ -84,12 +84,16 @@ export const externalActorFields = {
   ...externalFields,
   connection_type: externalConnectionTypeSchema.optional(),
 }
+// Human an agent declares as the author of a message it publishes (production User.user_id and User.user_name:
+// any non-empty text, no length or character rule). A core principal (opaquePrincipalSchema) is one of them.
+export const declaredHumanIdSchema = z.string().min(1)
+export const declaredHumanNameSchema = z.string().min(1)
 export const actorSchema = z.discriminatedUnion('kind', [
   z.strictObject({
     kind: z.literal('human'),
-    principal_id: opaquePrincipalSchema,
+    principal_id: declaredHumanIdSchema,
     participant_id: uuidSchema.nullable(),
-    display_name: displayNameSchema,
+    display_name: declaredHumanNameSchema,
   }),
   z.strictObject({
     kind: z.literal('agent'),

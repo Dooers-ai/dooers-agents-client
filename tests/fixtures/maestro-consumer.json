@@ -622,9 +622,9 @@
       }
     },
     {
-      "id": "consumer.large-human-text-rejected",
+      "id": "consumer.large-human-text-accepted",
       "schema": "Public.MessageCreateRequest",
-      "valid": false,
+      "valid": true,
       "data": {
         "type": "message.create",
         "content": [

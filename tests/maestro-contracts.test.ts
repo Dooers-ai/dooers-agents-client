@@ -43,7 +43,7 @@ const consumerFixture = (id: string) => fixtures.find((c) => c.id === `consumer.
 
 // Expected digest is shared with the service consumer test, independent of SDK parser output.
 const expectedClassificationDigest =
-  '15e007cacebfbb416210e1b2c47e9b3f15f8cd44213abc03829f4d74eeb7bd58'
+  '1154bbdf7583aaea1c587c141c53e968d37a785f5996b13aac5e93e92c5d0434'
 
 describe('Maestro v1 pinned contract consumer', () => {
   it('verifies exact source bytes and dependency pin', () => {

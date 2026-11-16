@@ -3,6 +3,8 @@ import {
   actorSchema,
   capabilitiesSchema,
   cursorSchema,
+  declaredHumanIdSchema as declaredHumanId,
+  declaredHumanNameSchema as declaredHumanName,
   displayNameSchema,
   errorResponseSchema,
   errorSchema,
@@ -20,10 +22,12 @@ import {
 } from './common.js'
 import { connectionContextSchema } from './identity.js'
 
-// These are v1 contract ceilings, not production quotas (G04/G05).
+// Values a handler writes through the production SDK have no per-field length ceiling, as in production (TEXT and
+// JSONB columns): only the transport limits bound them (request body, AGENT_MESSAGE_MAX_BYTES, open-json-bytes).
+// The other bounds here are v1 contract ceilings of Maestro-only fields, not production quotas (G04/G05).
 const empty = z.strictObject({})
 const count = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER)
-const text = z.string().max(65536)
+const text = z.string()
 const reason = z.strictObject({ reason_code: reasonCodeSchema.optional() })
 const accessReason = z.string().min(1).max(500)
 const uniqueIds = z
@@ -80,18 +84,24 @@ const publicArtifact = z.strictObject({
   expires_at: timestampSchema.nullable(),
 })
 const textPart = z.strictObject({ type: z.literal('text'), text })
-// Agent text: production does not limit message size. The contract ceiling is the callback body limit
-// (2 MiB); Maestro's operational byte limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) refuses first with
-// PAYLOAD_TOO_LARGE. Human text keeps the 64 Ki character ceiling above.
-const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string().max(2097152) })
+// Agent text: production does not limit message size and neither does the field. Maestro's operational byte
+// limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) and the callback body limit (2 MiB) refuse first with PAYLOAD_TOO_LARGE.
+const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string() })
+// Production media fields (send.image alt, send.audio duration): str | None and float | None, no range rule.
+// duration is any finite JSON number (a negative or a huge float included).
+const mediaAlt = z.string()
+const mediaDuration = z.number()
+// Production int (pydantic int, JSONB): any integer, not only a JavaScript safe integer (z.number().int() is one).
+// A whole number with no bound; in JavaScript a value beyond 2^53 is read as the nearest double.
+const productionInt = z.number().multipleOf(1)
 const attachmentPart = z.strictObject({
   type: z.literal('attachment'),
   artifact_id: uuidSchema,
   filename: publicArtifact.shape.filename.optional(),
   mime_type: publicArtifact.shape.mime_type.optional(),
   size_bytes: count.optional(),
-  alt: z.string().max(1024).optional(),
-  duration: z.number().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+  alt: mediaAlt.optional(),
+  duration: mediaDuration.optional(),
   width: count.optional(),
   height: count.optional(),
 })
@@ -126,22 +136,31 @@ const openObject = boundedJson(z.record(z.string(), jsonValue))
 const openValue = boundedJson(z.lazy(() => jsonValue))
 // Production ContactPart.phones is list[dict[str, Any]]: open objects, passed through as-is.
 const contactPhone = z.record(z.string(), jsonValue)
+// display_name: production str with no length rule (WireS2C_ContactPart).
 const contactPart = z.strictObject({
   type: z.literal('contact'),
-  display_name: z.string().max(512),
+  display_name: z.string(),
   vcard: text.optional(),
   phones: boundedJson(z.array(contactPhone)).optional(),
 })
-// Agent-only part: the SDK keeps the original URL when it cannot download send.image/audio/document media.
+// Agent-only part: the production image, audio or document part the SDK did not upload (send.image/audio/document
+// when it cannot download the URL, and the parts of send.update_user_event and Repository.create_event). The fields
+// are the production values as the handler passed them (WireS2C_ImagePart/AudioPart/DocumentPart: every field is
+// optional, url and ref_id included, str and int with no rule): any text, as production stores it, with no URL,
+// MIME or filename rule, and any integer.
 const mediaLinkPart = z.strictObject({
   type: z.literal('media_link'),
   kind: z.enum(['image', 'audio', 'document']),
-  // Long signed URLs (cloud storage, CDN) must not fail an agent run.
-  url: z.url({ protocol: /^https?$/ }).max(8192),
-  mime_type: publicArtifact.shape.mime_type.optional(),
-  filename: publicArtifact.shape.filename.optional(),
-  alt: z.string().max(1024).optional(),
-  duration: z.number().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
+  url: z.string().optional(),
+  mime_type: z.string().optional(),
+  filename: z.string().optional(),
+  alt: mediaAlt.optional(),
+  duration: mediaDuration.optional(),
+  width: productionInt.optional(),
+  height: productionInt.optional(),
+  size_bytes: productionInt.optional(),
+  // Production ref_id: the upload id of the part (in Maestro mode, the artifact_id the handler received).
+  ref_id: z.string().optional(),
 })
 const humanContentPart = z.discriminatedUnion('type', [textPart, attachmentPart, contactPart])
 const contentPart = z.discriminatedUnion('type', [
@@ -150,16 +169,11 @@ const contentPart = z.discriminatedUnion('type', [
   contactPart,
   mediaLinkPart,
 ])
-const nonblankParts = (parts: z.infer<typeof contentPart>[]) =>
+const nonblankParts = (parts: z.infer<typeof humanContentPart>[]) =>
   parts.some((p) => p.type !== 'text' || p.text.trim().length > 0)
-const content = z
-  .array(contentPart)
-  .min(1)
-  .max(32)
-  .refine(nonblankParts, 'Message must contain text, an attachment, a contact or a media link')
-  .meta({ 'x-maestro-semantic': 'nonblank-content' })
-// Agent messages (message.create output and the stored message.created) accept a blank text part:
-// production send.text("") stores it. Human requests keep nonblank-content.
+// Agent messages (message.create and message.update outputs, the stored message.created and message.updated)
+// accept a blank text part: production send.text("") and send.update_user_event store it. Human requests keep
+// nonblank-content.
 const agentContent = z.array(contentPart).min(1).max(32)
 // Human messages cannot carry media_link: only agents hold URLs they did not upload as artifacts.
 const humanContent = z
@@ -168,42 +182,45 @@ const humanContent = z
   .max(32)
   .refine(nonblankParts, 'Message must contain text, an attachment or a contact')
   .meta({ 'x-maestro-semantic': 'nonblank-content' })
+// Production send.template: template_name and template_language are str, stored as sent (pipeline.py).
 const messageTemplate = z.strictObject({
-  template_name: z.string().min(1).max(512),
-  template_language: z.string().min(1).max(64),
+  template_name: z.string(),
+  template_language: z.string(),
   template_components: boundedJson(z.array(z.record(z.string(), jsonValue))).optional(),
 })
+// Production send.whatsapp.*: to_e164 and instance_id are str, stored as sent.
 const messageWhatsapp = z.strictObject({
-  to_e164: z.string().min(1).max(64),
-  instance_id: z.string().min(1).max(256),
+  to_e164: z.string(),
+  instance_id: z.string(),
 })
 // Run that produced the event (production run_id, handlers/pipeline.py); every agent output may carry it.
 const runId = uuidSchema
+// run_id of a message the agent writes through the agent API (production ThreadEvent.run_id: str | None, a TEXT
+// column): any text, as the free-text Run.agent_id. A UUID stays valid.
+const messageRunId = z.string()
 // Agent that ran it (production Run.agent_id, send.run_start(agent_id=...)): str | None in the model and a TEXT
 // column without limit, so a handler may pass any text ("dooers-assistant"), not only an instance id. Same
-// generous ceiling as the other free ids the agent writes; a UUID stays valid.
+// ceiling, as the other free ids the agent writes; a UUID stays valid.
 const runAgentId = text
 // data: production ThreadEvent.data (ingest/create_event data, data.source of an inbound channel message,
 // data.delivery of the reply), one open JSON value. Only the agent writes it (agent API and agent outputs).
 const agentMessageFields = {
-  author: z.string().max(200).optional(),
+  // Production author: str | None, a TEXT column.
+  author: z.string().optional(),
   template: messageTemplate.optional(),
   whatsapp: messageWhatsapp.optional(),
-  run_id: runId.optional(),
+  run_id: messageRunId.optional(),
   data: openObject.optional(),
 }
-// Free text the agent writes (reasoning, form/chart messages, run error): same 1 MiB ceiling as open JSON.
-const longText = z.string().max(OPEN_JSON_MAX_BYTES)
+// Free text the agent writes (reasoning, form/chart messages, run error): production str, no length rule.
+const longText = z.string()
 // Ids, names, labels and titles the agent writes in tool, form, chart and reasoning events. Production types them
-// str and enforces no length (there is no column or model limit), so the contract ceiling is generous: 64 Ki
-// characters, far above any tool name, form label or chart title. The callback body limit (2 MiB) bounds the sum.
-const AGENT_LABEL_MAX = 65536
-const agentLabel = z.string().max(AGENT_LABEL_MAX)
-// Title a thread keeps after an agent thread.update. Production stores TEXT with no length rule; 4096 characters
-// keeps a page of thread titles small. The agent routes (create and PATCH) take the same limit; the human
-// create and rename keep 200.
-const THREAD_TITLE_MAX = 4096
-export const threadTitle = z.string().max(THREAD_TITLE_MAX)
+// str and enforces no length (there is no column or model limit), so neither does the contract. The callback
+// body limit (2 MiB) bounds the sum.
+const agentLabel = z.string()
+// Title a thread keeps after an agent thread.update. Production stores TEXT with no length rule, and so does the
+// contract. The agent routes (create and PATCH) take the same rule; the human create and rename keep 200.
+export const threadTitle = z.string()
 const queueName = z.string().max(200)
 const runStatus = z.enum(['running', 'succeeded', 'failed'])
 // Status of a message on a channel (production data.delivery.status); failed is final.
@@ -275,7 +292,7 @@ const chartPayload = z.looseObject({
 const formElementBase = {
   name: agentLabel,
   label: agentLabel,
-  order: z.number().int().optional(),
+  order: productionInt.optional(),
   required: z.boolean().optional(),
   disabled: z.boolean().optional(),
 }
@@ -295,7 +312,7 @@ const knownFormElements = [
     type: z.literal('textarea_input'),
     placeholder: agentLabel.nullish(),
     default: longText.nullish(),
-    rows: z.number().int().nullish(),
+    rows: productionInt.nullish(),
   }),
   z.looseObject({
     ...formElementBase,
@@ -380,9 +397,12 @@ const formPayload = z.strictObject({
   size: agentLabel.nullish(),
   run_id: runId.optional(),
 })
+// Production send.update_user_event(event_id: str, content): any id (the Maestro event_id, or the SDK id this agent
+// gave when it published the event); pipeline.py only logs a warning when no event has it. An edit may leave a blank
+// text, as production stores it (the agent content rule, like message.create).
 const messageUpdatePayload = z.strictObject({
-  event_id: uuidSchema,
-  content,
+  event_id: z.string(),
+  content: agentContent,
   run_id: runId.optional(),
 })
 export const threadUpdatePayload = z.strictObject({
@@ -390,12 +410,14 @@ export const threadUpdatePayload = z.strictObject({
   queue: queueName.nullish(),
   run_id: runId.optional(),
 })
+// Production send.add_participant(user_id: str, user_name: str | None, user_email: str | None,
+// identity_ids: list[str] | None): free text and a list of any length, stored in JSONB.
 const participantAddPayload = z.strictObject({
   user: z.strictObject({
-    user_id: z.string().max(256),
-    user_name: z.string().max(200).nullish(),
-    user_email: z.string().max(320).nullish(),
-    identity_ids: z.array(z.string().min(1).max(256)).max(64).optional(),
+    user_id: z.string(),
+    user_name: z.string().nullish(),
+    user_email: z.string().nullish(),
+    identity_ids: z.array(z.string()).optional(),
   }),
   run_id: runId.optional(),
 })
@@ -454,9 +476,10 @@ const participantFields = {
 // browser. They come from the core ConnectionContext (or, for an event actor, from the profile the
 // publishing agent declared); the roles keep the production values (system_role, organization_role,
 // workspace_role).
+// Production User.user_email and User.identity_ids: str | None and list[str], no length or count rule.
 const humanContact = {
-  email: z.string().max(320).nullish(),
-  identity_ids: z.array(z.string().min(1).max(256)).max(256).optional(),
+  email: z.string().nullish(),
+  identity_ids: z.array(z.string()).optional(),
 }
 const humanIdentity = {
   ...humanContact,
@@ -536,7 +559,8 @@ const threadFields = {
   queue: queueName.nullish(),
   channel: z.string().min(1).max(200).optional(),
   channel_meta: z.union([openObject, z.null()]).optional(),
-  external_key: z.string().min(1).max(512).nullish(),
+  // The thread id the caller chose in production (ThreadEvent.thread_id, TEXT): no length rule.
+  external_key: z.string().min(1).nullish(),
   owner_instance_agent_id: uuidSchema.nullish(),
 }
 const threadOf = <P extends z.ZodType>(participants: P) =>
@@ -600,15 +624,17 @@ const agentThreadPatch = z.union([
   }),
 ])
 // Agent-only thread creation (POST /v1/agent/threads): idempotent by external_key, channel metadata allowed.
-// owner: the human the SDK caller names (production Thread.owner); the core authorizes it like any target.
+// owner: the human the SDK caller names (production Thread.owner, User.user_id: any text); the core authorizes it
+// like any target. An id that cannot be a core principal (opaquePrincipalSchema) is a person the core does not know.
+const agentOwner = z.strictObject({ kind: z.literal('human'), principal_id: z.string().min(1) })
 const agentCreateFields = {
   title: threadTitle.optional(),
   participants: z.array(agentParticipantTarget).max(99),
   queue: queueName.nullish(),
   channel: threadFields.channel,
   channel_meta: threadFields.channel_meta,
-  external_key: z.string().min(1).max(512).optional(),
-  owner: participantTarget.options[0].optional(),
+  external_key: z.string().min(1).optional(),
+  owner: agentOwner.optional(),
 }
 const agentThreadCreate = z.discriminatedUnion('scope_kind', [
   threadCreate.options[0].extend(agentCreateFields),
@@ -634,8 +660,14 @@ const contextQuery = z.strictObject({
 })
 // Agent list (GET /v1/agent/threads): only threads where the agent is an active participant, in the
 // token scope. queue "" lists threads without queue (production's "__none__" filter).
+// external_key_md5: the MD5 (lowercase hex of the UTF-8 bytes) of an external_key too long for a URL (the request
+// line and headers share 16 KiB). It finds the same thread as external_key; the caller compares the key it gets back.
 const agentThreadListQuery = z.strictObject({
-  external_key: z.string().min(1).max(512).optional(),
+  external_key: z.string().min(1).optional(),
+  external_key_md5: z
+    .string()
+    .regex(/^[a-f0-9]{32}$/)
+    .optional(),
   queue: queueName.optional(),
   order: z.enum(['asc', 'desc']).optional(),
   ...pagination,
@@ -973,8 +1005,9 @@ const agentPublicationActor = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('self') }),
   z.strictObject({
     kind: z.literal('human'),
-    principal_id: opaquePrincipalSchema,
-    display_name: displayNameSchema.optional(),
+    // Production User.user_id and User.user_name: any non-empty text, no length or character rule.
+    principal_id: declaredHumanId,
+    display_name: declaredHumanName.optional(),
     // The agent declares email and identity_ids only; the roles come from the core, in responses.
     ...humanContact,
   }),
@@ -996,6 +1029,7 @@ const agentEventCreated = z.strictObject({
 })
 // Agent event list: Maestro event log of one thread; removed events are left out (production remove_event).
 // type is one event type or a comma-separated list; actor_kind, actor_id and run_id filter server-side.
+// actor_id and run_id filter the values the agent wrote (production User.user_id and ThreadEvent.run_id: any text).
 const agentEventListQuery = z.strictObject({
   cursor: cursorSchema.optional(),
   limit: z.number().int().min(1).max(100).optional(),
@@ -1006,8 +1040,8 @@ const agentEventListQuery = z.strictObject({
     .regex(/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*(,[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*){0,63}$/)
     .optional(),
   actor_kind: z.enum(['human', 'agent', 'system', 'external']).optional(),
-  actor_id: z.string().min(1).max(256).optional(),
-  run_id: uuidSchema.optional(),
+  actor_id: z.string().min(1).optional(),
+  run_id: z.string().min(1).optional(),
 })
 // Agent API side routes outside a delivery (plan 5, task 3). Upload: multipart with this metadata part
 // first and the file after it, as the execution upload; the thread comes from the path.
@@ -1044,7 +1078,7 @@ const agentRunListQuery = z.strictObject({
 // status is the provider status as received: one that is not a channel status is answered
 // {applied: false} (production _receipt_moves_forward), not refused.
 const agentChannelDeliveryCreate = z.strictObject({
-  thread_id: z.string().min(1).max(512),
+  thread_id: z.string().min(1),
   event_id: uuidSchema,
   channel: z.literal('whatsapp'),
   status: z.string().min(1).max(64),
@@ -1079,7 +1113,7 @@ const capabilitiesResponse = z.strictObject({
 })
 const pathId = z.strictObject({ id: uuidSchema })
 // Agent routes: the agent's external_key (the SDK thread id) first, then the Maestro thread id.
-const agentThreadPath = z.strictObject({ id: z.string().min(1).max(512) })
+const agentThreadPath = z.strictObject({ id: z.string().min(1) })
 const agentThreadEventPath = agentThreadPath.extend({ eventId: uuidSchema })
 // GET /agent/events/:id: the Maestro event_id or the client_event_id the agent chose when it published.
 const agentEventPath = z.strictObject({ id: idempotencyKeySchema })

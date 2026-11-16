@@ -9,7 +9,16 @@ import {
   type MaestroParticipant,
   type MaestroThread,
 } from './protocol/maestro/contracts'
-import type { DisplayContentPart, Run, SendContentPart, Thread, ThreadEvent, User } from './types'
+import type { WireS2C_ContentPart } from './protocol/models'
+import {
+  type DisplayContentPart,
+  type Run,
+  type SendContentPart,
+  type Thread,
+  type ThreadEvent,
+  toDisplayContentPart,
+  type User,
+} from './types'
 
 /** ``systemRole`` marcando um participante agente na lista legada ``Thread.users``. */
 export const MAESTRO_AGENT_ROLE = 'agent'
@@ -194,30 +203,14 @@ export type MaestroEventContent = Extract<
 type MediaLinkPart = Extract<MaestroEventContent[number], { type: 'media_link' }>
 type ContactPart = Extract<MaestroEventContent[number], { type: 'contact' }>
 
-/** The agent kept the URL it could not download: the production part of the same kind, with the URL. */
+/**
+ * The production image, audio or document part the agent did not upload (``media_link``): the same wire part
+ * (``WireS2C_*Part``), shown with the production conversion. The URL, the ``ref_id`` and the metadata go as the
+ * agent wrote them; a part with only a ``ref_id`` opens by it, as in production.
+ */
 function mediaLinkToDisplay(part: MediaLinkPart): DisplayContentPart {
-  if (part.kind === 'image')
-    return {
-      type: 'image',
-      url: part.url,
-      ...(part.mime_type ? { mimeType: part.mime_type } : {}),
-      ...(part.alt ? { alt: part.alt } : {}),
-      ...(part.filename ? { filename: part.filename } : {}),
-    }
-  if (part.kind === 'audio')
-    return {
-      type: 'audio',
-      url: part.url,
-      ...(part.mime_type ? { mimeType: part.mime_type } : {}),
-      ...(part.duration !== undefined ? { duration: part.duration } : {}),
-      ...(part.filename ? { filename: part.filename } : {}),
-    }
-  return {
-    type: 'document',
-    url: part.url,
-    ...(part.mime_type ? { mimeType: part.mime_type } : {}),
-    ...(part.filename ? { filename: part.filename } : {}),
-  }
+  const { type: _type, kind, ...fields } = part
+  return toDisplayContentPart({ ...fields, type: kind } as WireS2C_ContentPart)
 }
 
 /**
