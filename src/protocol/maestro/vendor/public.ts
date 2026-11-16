@@ -1274,6 +1274,10 @@ const brokerEvent = z.strictObject({
 // title and queue come from the last thread.created/thread.updated at or below the cutoff; channel,
 // channel_meta, created_at and owner_instance_agent_id never change after creation. Same field
 // definitions as Public.AgentThread, so the SDK reads the thread row of production unchanged.
+// external_key is the key the CALLER chose for the thread (dispatch, ingest, WhatsApp: the id the
+// handler sees as thread_id in production); null when there is none and for a public chat visitor
+// thread, whose key (public:<link>:...) belongs to the Maestro and is never shown to a handler.
+// Optional only so responses of a Maestro that predates this field stay valid; the Maestro always emits it.
 const contextThread = z.strictObject({
   thread_id: threadFields.thread_id,
   title: threadFields.title,
@@ -1282,6 +1286,7 @@ const contextThread = z.strictObject({
   channel_meta: z.union([openObject, z.null()]),
   created_at: threadFields.created_at,
   owner_instance_agent_id: threadFields.owner_instance_agent_id,
+  external_key: threadFields.external_key,
 })
 const contextResponse = z.strictObject({
   delivery_id: uuidSchema,

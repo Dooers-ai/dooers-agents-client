@@ -9505,6 +9505,40 @@
       "description": "A thread como estava no corte do contexto: título e fila do último thread.created/thread.updated até o corte; o resto não muda depois da criação."
     },
     {
+      "id": "public.ContextThread.caller-key",
+      "schema": "Public.ContextThread",
+      "valid": true,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "title": "Pedido 1042",
+        "queue": "suporte",
+        "channel": "whatsapp",
+        "channel_meta": {
+          "instance": "inst-1"
+        },
+        "created_at": "2026-10-13T15:00:00Z",
+        "owner_instance_agent_id": "00000000-0000-4000-8000-000000000011",
+        "external_key": "wa:inst:inst-1:+5511999990000"
+      },
+      "description": "A chave que o chamador escolheu na criação (dispatch, ingest, WhatsApp): o thread_id que o handler vê; null quando não há chave ou quando ela é do Maestro (chat público)."
+    },
+    {
+      "id": "public.ContextThread.empty-external-key",
+      "schema": "Public.ContextThread",
+      "valid": false,
+      "data": {
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "title": "Pedido 1042",
+        "queue": null,
+        "channel": "whatsapp",
+        "channel_meta": null,
+        "created_at": "2026-10-13T15:00:00Z",
+        "owner_instance_agent_id": null,
+        "external_key": ""
+      },
+      "description": "A chave externa nunca é vazia: sem chave, o campo é null ou ausente."
+    },
+    {
       "id": "public.ContextThread.null-values",
       "schema": "Public.ContextThread",
       "valid": true,
