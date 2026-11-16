@@ -1104,6 +1104,12 @@ export class AgentClient {
     this.presenceChain = this.presenceChain
       .then(async () => {
         try {
+          // connect()/disconnect() came first: this send belongs to the old connection, and the
+          // provider now configured is the new one's
+          if (epoch !== this.presenceEpoch) {
+            this.failPendingSend(frame.id as string)
+            return
+          }
           const stale = !this.presence || Date.now() - this.presence.at > PRESENCE_MAX_AGE_MS
           const recentlyFailed =
             this.presenceFailedAt !== undefined &&
@@ -1118,7 +1124,7 @@ export class AgentClient {
             }
           }
           if (epoch !== this.presenceEpoch) {
-            // connect()/disconnect() came first: this send belongs to the old connection
+            // ...or it came while this send waited for its token
             this.failPendingSend(frame.id as string)
             return
           }

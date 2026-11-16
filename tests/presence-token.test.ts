@@ -258,6 +258,37 @@ describe("presence_token on event.create", () => {
     expect(eventCreates(ws)[0]?.payload.presence_token).toBeUndefined();
   });
 
+  it("a send queued for the previous connection never asks the new provider for a token", async () => {
+    let resolveLate: (t: string) => void = () => {};
+    let calls = 0;
+    await connect({
+      userId: "u1",
+      getAuthToken: () => {
+        if (++calls === 1) return Promise.resolve("tA");
+        return new Promise<string>((r) => {
+          resolveLate = r;
+        });
+      },
+    });
+    await vi.advanceTimersByTimeAsync(61_000);
+    send("a");
+    send("b"); // queued behind "a", which waits for the old provider
+    await vi.advanceTimersByTimeAsync(1);
+    client.disconnect();
+
+    const getAuthTokenB = vi.fn(async () => undefined);
+    client.connect("wss://test.com/ws", "agent-2", { userId: "u1", getAuthToken: getAuthTokenB });
+    await vi.advanceTimersByTimeAsync(1);
+    ws = MockWebSocket.instances[1] as MockWebSocket;
+    ackConnect(ws, true);
+    expect(getAuthTokenB).toHaveBeenCalledTimes(1); // the handshake
+
+    resolveLate("tA-late");
+    await vi.advanceTimersByTimeAsync(1);
+    expect(getAuthTokenB).toHaveBeenCalledTimes(1);
+    expect(MockWebSocket.instances.flatMap(eventCreates)).toHaveLength(0);
+  });
+
   it("without getAuthToken (public chat) never sends the field", async () => {
     await connect({ userId: "u1", authToken: "static" });
     send("hi");
