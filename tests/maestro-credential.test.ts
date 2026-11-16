@@ -51,6 +51,8 @@ describe('human credential binding filter', () => {
 })
 
 describe('public chat visitor credential (external)', () => {
+  // A fixed clock half-way through a second: the test and the inspection read the same second.
+  const pinClock = () => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-16T12:00:00.500Z')) }
   const visitor = { principalId: visitorPrincipalId, organizationId: org, workspaceId: null, actorType: 'external' as const }
   const strip = (claims: Record<string, unknown>) => ({ ...claims })
   it('accepts an external token whose sub is the visitor id of the exchange', () => {
@@ -85,6 +87,7 @@ describe('public chat visitor credential (external)', () => {
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, strip(claims)), visitor)).toThrow()
   })
   it('tolerates a visitor clock up to 60 s behind the issuer (iat in the future), but never a longer skew', () => {
+    pinClock()
     const nowSeconds = Math.floor(Date.now() / 1000)
     const claims = (iat: number) => ({ iat, exp: iat + 300 })
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims(nowSeconds + 30)), visitor)).not.toThrow()
@@ -92,11 +95,13 @@ describe('public chat visitor credential (external)', () => {
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, claims(nowSeconds + 61)), visitor)).toThrow()
   })
   it('keeps the expiry strict for the visitor: a token past its exp is refused whatever the skew', () => {
+    pinClock()
     const nowSeconds = Math.floor(Date.now() / 1000)
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, { iat: nowSeconds - 300, exp: nowSeconds }), visitor)).toThrow()
     expect(() => inspectMaestroHumanCredential(visitorCredential(org, { iat: nowSeconds - 10, exp: nowSeconds - 1 }), visitor)).toThrow()
   })
   it('keeps the human token strict: iat in the future is refused without tolerance', () => {
+    pinClock()
     const nowSeconds = Math.floor(Date.now() / 1000)
     expect(() => inspectMaestroHumanCredential(credential('human', org, { iat: nowSeconds + 30, exp: nowSeconds + 330 }), scope)).toThrow()
   })
