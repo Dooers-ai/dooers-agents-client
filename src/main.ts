@@ -47,6 +47,7 @@ export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadArtifacts } from './hooks/use-thread-artifacts'
 export { useThreadSearch, useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
+export { MAESTRO_SUPERVISION_READ_ONLY } from './maestro/types'
 export type {
   AgentMaestroOptions,
   AgentMaestroVisitorGuest,

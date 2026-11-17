@@ -123,4 +123,4 @@ export type {
   MaestroSocket,
   MaestroTransport,
 } from './types.js'
-export { MaestroClientError } from './types.js'
+export { MAESTRO_SUPERVISION_READ_ONLY, MaestroClientError } from './types.js'

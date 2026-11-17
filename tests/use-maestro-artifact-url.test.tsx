@@ -149,10 +149,19 @@ function fakeHistory(citesAll = true) {
   }
 }
 
-function useFakeMaestro(fake: ReturnType<typeof fakeArtifacts>, history = fakeHistory()) {
+function useFakeMaestro(
+  fake: ReturnType<typeof fakeArtifacts>,
+  history = fakeHistory(),
+  supervised: ReadonlySet<string> = new Set()
+) {
   const client = Object.create(MaestroAgentClient.prototype) as MaestroAgentClient
   // stable, like the real client
-  const maestro = { artifacts: { open: fake.open, renew: fake.renew, viewLink: fake.viewLink }, citesArtifact: history.citesArtifact, store: history.store }
+  const maestro = {
+    artifacts: { open: fake.open, renew: fake.renew, viewLink: fake.viewLink },
+    citesArtifact: history.citesArtifact,
+    store: history.store,
+    isSupervision: (threadId: string) => supervised.has(threadId),
+  }
   client.getMaestroClient = (() => maestro) as never
   holder.client = client
   return history
@@ -709,5 +718,47 @@ describe('I1: viewLink of a PDF part', () => {
       expect.objectContaining({ artifact_id: id(1), mime_type: 'application/pdf' }),
       undefined
     )
+  })
+})
+
+describe('SEC-03: a thread read by supervision opens no file', () => {
+  function Part({ name, threadId, mimeType }: { name: string; threadId: string; mimeType: string }) {
+    const result = useMaestroArtifactUrl(threadId, { refId: id(1), mimeType, filename: 'doc' })
+    return (
+      <div
+        data-testid={name}
+        data-status={result.status}
+        data-code={result.errorCode ?? ''}
+        data-reason={result.reasonCode ?? ''}
+        data-view={result.viewLink ? 'yes' : 'no'}
+      >
+        {result.url ?? ''}
+      </div>
+    )
+  }
+  it('reports supervision_read_only without a read or a view link; another thread still opens', async () => {
+    const fake = fakeArtifacts()
+    useFakeMaestro(fake, fakeHistory(), new Set([T1]))
+    const view = render(
+      <>
+        <Part name="image" threadId={T1} mimeType="image/png" />
+        <Part name="pdf" threadId={T1} mimeType="application/pdf" />
+        <Part name="other" threadId={T2} mimeType="image/png" />
+      </>
+    )
+    await advance(100)
+    for (const name of ['image', 'pdf']) {
+      const el = view.getByTestId(name)
+      expect(el.dataset).toMatchObject({
+        status: 'error',
+        code: 'FORBIDDEN',
+        reason: 'supervision_read_only',
+        view: 'no',
+      })
+      expect(el.textContent).toBe('')
+    }
+    expect(fake.open.mock.calls.map(([threadId]) => threadId)).toEqual([T2])
+    expect(fake.viewLink).not.toHaveBeenCalled()
+    expect(view.getByTestId('other').dataset.status).toBe('ready')
   })
 })
