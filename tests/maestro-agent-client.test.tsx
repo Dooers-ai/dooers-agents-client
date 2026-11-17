@@ -373,7 +373,7 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     await tick()
     const transport = client.getMaestroClient()!
     const send = vi.spyOn(transport,'send').mockRejectedValue(new Error('simulated unavailable transport'))
-    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none'})
+    expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(20)]})
     await expect(client.sendMessage({threadId,text:'@Analista calcule'})).rejects.toThrow()
     expect(send.mock.calls[0]?.[0].routing).toEqual({mode:'direct',recipients:[uuid(21)]})
     expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(21)]})
@@ -391,6 +391,100 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none'})
     client.disconnect()
     localStorage.clear()
+  })
+
+  describe('default recipient of an existing routing thread', () => {
+    const selectionKey = `maestro.invocation.v1:${JSON.stringify([scope.principalId, scope.organizationId, scope.workspaceId, threadId])}`
+    const both = [agentParticipant(AGENT, uuid(20), 'Financeiro'), agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]
+    /** The list shows `agents`; the read of the opened thread shows `current` (a later projection). */
+    const routed = (agents = both, current = agents) => {
+      const listed = {...sharedThread('1', agents), routing_version:1}
+      const read = {...sharedThread('2', current), routing_version:1}
+      return vi.fn(async (url: string) => url.includes(`/threads/${threadId}`) ? json(read) : json({items:[listed],next_cursor:null,has_more:false,watermark:'1'}))
+    }
+    afterEach(() => localStorage.clear())
+
+    it('sends to the conversation agent when this browser has no stored selection', async () => {
+      localStorage.clear()
+      const {client} = await setup(routed())
+      await tick()
+      expect(client.getInvocationSelection(threadId)).toEqual({mode:'direct',recipients:[uuid(20)],labels:['Financeiro'],invalid:false})
+      const send = vi.spyOn(client.getMaestroClient()!,'send').mockRejectedValue(new Error('transport'))
+      await expect(client.sendMessage({threadId,text:'olá'})).rejects.toThrow()
+      expect(send.mock.calls[0]?.[0].routing).toEqual({mode:'direct',recipients:[uuid(20)]})
+      client.disconnect()
+    })
+
+    it('keeps an explicit choice of nobody, also for a new client on the same storage', async () => {
+      localStorage.clear()
+      const fetcher = routed()
+      const first = await setup(fetcher)
+      await tick()
+      first.client.clearInvocationSelection(threadId)
+      expect(first.client.getInvocationSelection(threadId)).toMatchObject({mode:'none',recipients:[]})
+      expect(localStorage.getItem(selectionKey)).toBe('[]')
+      first.client.disconnect()
+      const second = await setup(fetcher)
+      await tick()
+      expect(second.client.getInvocationSelection(threadId)).toMatchObject({mode:'none',recipients:[],invalid:false})
+      const send = vi.spyOn(second.client.getMaestroClient()!,'send').mockRejectedValue(new Error('transport'))
+      await expect(second.client.sendMessage({threadId,text:'nota'})).rejects.toThrow()
+      expect(send.mock.calls[0]?.[0].routing).toEqual({mode:'none'})
+      second.client.disconnect()
+    })
+
+    it('sends to nobody when the conversation agent is absent or not active', async () => {
+      localStorage.clear()
+      const suspended = await setup(routed([{...agentParticipant(AGENT, uuid(20), 'Financeiro'), state:'suspended'}, agentParticipant(OTHER_AGENT, uuid(21), 'Analista')]))
+      await tick()
+      expect(suspended.client.getInvocationSelection(threadId)).toMatchObject({mode:'none',recipients:[],invalid:false})
+      suspended.client.disconnect()
+      for (const current of [
+        [{...agentParticipant(AGENT, uuid(20), 'Financeiro'), state:'removed', left_sequence:'2'}, agentParticipant(OTHER_AGENT, uuid(21), 'Analista')],
+        [agentParticipant(OTHER_AGENT, uuid(21), 'Analista')],
+      ]) {
+        const {client, socket} = await setup(routed(both, current))
+        await tick()
+        expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(20)]})
+        client.subscribe(threadId)
+        await tick()
+        socket.ackSubscribe()
+        socket.frame('thread.snapshot', { thread: {...sharedThread('2', current), routing_version:1}, events: [event(1), agentMessage(2, 'Resposta')], watermark: '2', next_cursor: null, has_more: false })
+        socket.caught('2')
+        await tick()
+        expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'none',recipients:[],invalid:false})
+        client.disconnect()
+      }
+    })
+
+    it('keeps a stored selection and an explicit mention unchanged', async () => {
+      localStorage.clear()
+      localStorage.setItem(selectionKey, JSON.stringify([uuid(21)]))
+      const fetcher = routed()
+      const stored = await setup(fetcher)
+      await tick()
+      expect(stored.client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(21)],labels:['Analista']})
+      expect(stored.client.getInvocationSelection(threadId, '@Financeiro calcule')).toMatchObject({mode:'direct',recipients:[uuid(20)]})
+      expect(stored.client.getInvocationSelection(threadId, '@todos opinem')).toMatchObject({mode:'all',recipients:[uuid(20),uuid(21)]})
+      stored.client.disconnect()
+      localStorage.clear()
+      const empty = await setup(fetcher)
+      await tick()
+      expect(empty.client.getInvocationSelection(threadId, '@Analista calcule')).toMatchObject({mode:'direct',recipients:[uuid(21)]})
+      expect(empty.client.getInvocationSelection(threadId, '@Pessoa revise')).toMatchObject({mode:'none',invalid:false})
+      empty.client.disconnect()
+    })
+
+    it('treats an invalid stored value as no selection', async () => {
+      for (const corrupt of ['{not json', '"texto"', '[1,2]', '{"a":1}']) {
+        localStorage.clear()
+        localStorage.setItem(selectionKey, corrupt)
+        const {client} = await setup(routed())
+        await tick()
+        expect(client.getInvocationSelection(threadId)).toMatchObject({mode:'direct',recipients:[uuid(20)],labels:['Financeiro']})
+        client.disconnect()
+      }
+    })
   })
 
   it('lists only threads of the selected agent, then streams messages with per-agent authorship', async () => {

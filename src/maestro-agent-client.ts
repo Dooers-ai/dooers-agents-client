@@ -281,17 +281,18 @@ export class MaestroAgentClient extends AgentClient {
   private selectionKey(threadId: string) {
     return `maestro.invocation.v1:${JSON.stringify([this.options.scope.principalId, this.options.scope.organizationId, this.options.scope.workspaceId, threadId])}`
   }
-  private selected(threadId: string): string[] {
+  /** The stored selection of this sender for the thread, or null when this browser has none. */
+  private selected(threadId: string): string[] | null {
     const cached = this.invocationSelections.get(threadId)
     if (cached) return cached
     try {
       const raw = globalThis.localStorage?.getItem(this.selectionKey(threadId))
-      const value: unknown = raw ? JSON.parse(raw) : []
+      const value: unknown = raw ? JSON.parse(raw) : null
       if (Array.isArray(value) && value.every((id) => typeof id === 'string')) return value
     } catch {
-      /* Storage may be disabled. Session memory remains usable. */
+      /* Storage may be disabled or the value corrupt. Session memory remains usable. */
     }
-    return []
+    return null
   }
   private selectInvocation(threadId: string, recipients: string[]) {
     this.invocationSelections.set(threadId, [...recipients])
@@ -335,7 +336,17 @@ export class MaestroAgentClient extends AgentClient {
           .map((p) => p.participantId)
       : explicit
         ? mentions
-        : this.selected(id ?? 'new')
+        : (this.selected(id) ??
+          // No choice in this browser: the conversation's agent answers, as in production.
+          participants
+            .filter(
+              (p) =>
+                p.kind === 'agent' &&
+                p.principalId.toLowerCase() === this.agentPrincipalId &&
+                p.state === 'active'
+            )
+            .slice(0, 1)
+            .map((p) => p.participantId))
     const labels = recipients.map((recipient) => {
       const p = participants.find((p) => p.participantId === recipient)
       if (!p) return ''
