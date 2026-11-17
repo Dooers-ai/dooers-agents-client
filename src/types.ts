@@ -275,6 +275,12 @@ export interface ThreadAccess {
    * owner or manager, workspace manager).
    */
   assignOwner?: boolean
+  /**
+   * Maestro only (SEC-03): the reader reads the thread by supervision and does not participate.
+   * Supervision only reads: no reply, no export, no file download and no file view (the client refuses
+   * them with `MAESTRO_SUPERVISION_READ_ONLY`). The person joins the conversation for these actions.
+   */
+  supervised?: boolean
 }
 
 export interface Thread {
