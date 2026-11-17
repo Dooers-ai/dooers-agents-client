@@ -631,6 +631,203 @@
       "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
     },
     {
+      "id": "public.SupervisionAuditQuery.valid",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": true,
+      "data": {
+        "scope_kind": "workspace",
+        "workspace_id": "00000000-0000-4000-8000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "oidc|supervisor",
+        "action": "thread.supervision.open",
+        "limit": 50
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.personal",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": true,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": null
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.valid",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": true,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "Revisão autorizada",
+        "access_reason_reused": true,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.list",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": true,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000023",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000024",
+        "created_at": "2026-10-13T14:59:00Z",
+        "action": "thread.supervision.list",
+        "thread_id": null,
+        "policy": "operational",
+        "policy_version": 4,
+        "access_reason": "Auditoria autorizada",
+        "evaluated_thread_count": 3
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.audit-read",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": true,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000025",
+        "principal_id": "oidc|owner",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000026",
+        "created_at": "2026-10-13T14:58:00Z",
+        "action": "thread.supervision.audit.read",
+        "thread_id": null,
+        "actor_elevation": "organization_admin",
+        "filters": {
+          "action": "thread.supervision.open"
+        },
+        "returned_count": 2
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.elevated-management",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": true,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000027",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000028",
+        "created_at": "2026-10-13T14:57:00Z",
+        "action": "thread.archived",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "actor_elevation": "workspace_manager",
+        "reason_code": "thread_archived"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
+      "id": "public.SupervisionAuditPage.valid",
+      "schema": "Public.SupervisionAuditPage",
+      "valid": true,
+      "data": {
+        "items": [
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000021",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000022",
+            "created_at": "2026-10-13T15:00:00Z",
+            "action": "thread.supervision.open",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "policy": "strict",
+            "policy_version": 4,
+            "access_reason": "Revisão autorizada",
+            "access_reason_reused": true,
+            "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000023",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000024",
+            "created_at": "2026-10-13T14:59:00Z",
+            "action": "thread.supervision.list",
+            "thread_id": null,
+            "policy": "operational",
+            "policy_version": 4,
+            "access_reason": "Auditoria autorizada",
+            "evaluated_thread_count": 3
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000025",
+            "principal_id": "oidc|owner",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000026",
+            "created_at": "2026-10-13T14:58:00Z",
+            "action": "thread.supervision.audit.read",
+            "thread_id": null,
+            "actor_elevation": "organization_admin",
+            "filters": {
+              "action": "thread.supervision.open"
+            },
+            "returned_count": 2
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000027",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000028",
+            "created_at": "2026-10-13T14:57:00Z",
+            "action": "thread.archived",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "actor_elevation": "workspace_manager",
+            "reason_code": "thread_archived"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "0"
+      },
+      "description": "Exemplo estrutural válido; não comprova autorização/estado no servidor."
+    },
+    {
       "id": "public.ThreadPatchRequest.valid",
       "schema": "Public.ThreadPatchRequest",
       "valid": true,
@@ -2846,6 +3043,389 @@
         "next_cursor": null,
         "has_more": false,
         "watermark": "9007199254740993",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.unknown-field",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "workspace",
+        "workspace_id": "00000000-0000-4000-8000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "oidc|supervisor",
+        "action": "thread.supervision.open",
+        "limit": 50,
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.workspace-id-in-personal",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "personal",
+        "workspace_id": "00000000-0000-4000-8000-000000000002"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.limit-zero",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "workspace",
+        "workspace_id": "00000000-0000-4000-8000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "oidc|supervisor",
+        "action": "thread.supervision.open",
+        "limit": 0
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.limit-above-100",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "workspace",
+        "workspace_id": "00000000-0000-4000-8000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "oidc|supervisor",
+        "action": "thread.supervision.open",
+        "limit": 101
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditQuery.unknown-action",
+      "schema": "Public.SupervisionAuditQuery",
+      "valid": false,
+      "data": {
+        "scope_kind": "workspace",
+        "workspace_id": "00000000-0000-4000-8000-000000000002",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "principal_id": "oidc|supervisor",
+        "action": "thread.read",
+        "limit": 50
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.unknown-field",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "Revisão autorizada",
+        "access_reason_reused": true,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014",
+        "unrecognized_field": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.open-without-thread",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": null,
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "Revisão autorizada",
+        "access_reason_reused": true,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.open-without-grant",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "Revisão autorizada",
+        "access_reason_reused": true
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.list-with-grant",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000023",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000024",
+        "created_at": "2026-10-13T14:59:00Z",
+        "action": "thread.supervision.list",
+        "thread_id": null,
+        "policy": "operational",
+        "policy_version": 4,
+        "access_reason": "Auditoria autorizada",
+        "evaluated_thread_count": 3,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.empty-access-reason",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "",
+        "access_reason_reused": true,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.session-ref",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000021",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000022",
+        "created_at": "2026-10-13T15:00:00Z",
+        "action": "thread.supervision.open",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "policy": "strict",
+        "policy_version": 4,
+        "access_reason": "Revisão autorizada",
+        "access_reason_reused": true,
+        "supervision_grant_id": "00000000-0000-4000-8000-000000000014",
+        "session_ref": "sess"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.decision-id",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000023",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000024",
+        "created_at": "2026-10-13T14:59:00Z",
+        "action": "thread.supervision.list",
+        "thread_id": null,
+        "policy": "operational",
+        "policy_version": 4,
+        "access_reason": "Auditoria autorizada",
+        "evaluated_thread_count": 3,
+        "decision_id": "00000000-0000-4000-8000-000000000029"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.audit-read-by-workspace-manager",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000025",
+        "principal_id": "oidc|owner",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000026",
+        "created_at": "2026-10-13T14:58:00Z",
+        "action": "thread.supervision.audit.read",
+        "thread_id": null,
+        "actor_elevation": "workspace_manager",
+        "filters": {
+          "action": "thread.supervision.open"
+        },
+        "returned_count": 2
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.management-without-elevation",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000027",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000028",
+        "created_at": "2026-10-13T14:57:00Z",
+        "action": "thread.archived",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "reason_code": "thread_archived"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditEntry.management-unknown-action",
+      "schema": "Public.SupervisionAuditEntry",
+      "valid": false,
+      "data": {
+        "audit_id": "00000000-0000-4000-8000-000000000027",
+        "principal_id": "oidc|supervisor",
+        "scope": {
+          "organization_id": "00000000-0000-4000-8000-000000000001",
+          "scope_kind": "personal",
+          "workspace_id": null
+        },
+        "request_id": "00000000-0000-4000-8000-000000000028",
+        "created_at": "2026-10-13T14:57:00Z",
+        "action": "message.created",
+        "thread_id": "00000000-0000-4000-8000-000000000003",
+        "actor_elevation": "workspace_manager",
+        "reason_code": "thread_archived"
+      },
+      "description": "Entrada deve ser rejeitada antes da operação."
+    },
+    {
+      "id": "public.SupervisionAuditPage.unknown-field",
+      "schema": "Public.SupervisionAuditPage",
+      "valid": false,
+      "data": {
+        "items": [
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000021",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000022",
+            "created_at": "2026-10-13T15:00:00Z",
+            "action": "thread.supervision.open",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "policy": "strict",
+            "policy_version": 4,
+            "access_reason": "Revisão autorizada",
+            "access_reason_reused": true,
+            "supervision_grant_id": "00000000-0000-4000-8000-000000000014"
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000023",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000024",
+            "created_at": "2026-10-13T14:59:00Z",
+            "action": "thread.supervision.list",
+            "thread_id": null,
+            "policy": "operational",
+            "policy_version": 4,
+            "access_reason": "Auditoria autorizada",
+            "evaluated_thread_count": 3
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000025",
+            "principal_id": "oidc|owner",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000026",
+            "created_at": "2026-10-13T14:58:00Z",
+            "action": "thread.supervision.audit.read",
+            "thread_id": null,
+            "actor_elevation": "organization_admin",
+            "filters": {
+              "action": "thread.supervision.open"
+            },
+            "returned_count": 2
+          },
+          {
+            "audit_id": "00000000-0000-4000-8000-000000000027",
+            "principal_id": "oidc|supervisor",
+            "scope": {
+              "organization_id": "00000000-0000-4000-8000-000000000001",
+              "scope_kind": "personal",
+              "workspace_id": null
+            },
+            "request_id": "00000000-0000-4000-8000-000000000028",
+            "created_at": "2026-10-13T14:57:00Z",
+            "action": "thread.archived",
+            "thread_id": "00000000-0000-4000-8000-000000000003",
+            "actor_elevation": "workspace_manager",
+            "reason_code": "thread_archived"
+          }
+        ],
+        "next_cursor": null,
+        "has_more": false,
+        "watermark": "0",
         "unrecognized_field": true
       },
       "description": "Entrada deve ser rejeitada antes da operação."

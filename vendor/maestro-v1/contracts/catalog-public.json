@@ -102,6 +102,32 @@
     },
     {
       "method": "GET",
+      "path": "/supervision/audit",
+      "operation": "thread.supervision.audit.read",
+      "request_schema": null,
+      "query_schema": "Public.SupervisionAuditQuery",
+      "path_schema": null,
+      "response_schema": "Public.SupervisionAuditPage",
+      "status_codes": [200],
+      "required_capability": "threads.shared",
+      "auth": "human",
+      "headers": ["Authorization"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "core thread.list decision with elevation organization_admin or platform_admin, token scope threads:supervise and the organization in the supervision allowlist; workspace_manager, no elevation, visitor and agent are FORBIDDEN",
+        "organization and scope come from the core decision, never from the query; scope_kind/workspace_id must equal the token scope",
+        "rows: supervision opens and lists, reads of this audit and management actions of elevated non-participants; newest first, keyset cursor bound to principal, scope, filters and limit",
+        "no thread content, title, session_ref or decision_id; access_reason is shown",
+        "each read appends a thread.supervision.audit.read audit row (actor, elevation, filters, count) before the response"
+      ],
+      "fixtures": {
+        "query": "public.SupervisionAuditQuery.valid",
+        "response": "public.SupervisionAuditPage.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "GET",
       "path": "/threads/:id",
       "operation": "thread.read",
       "request_schema": null,
@@ -428,9 +454,11 @@
       "status_codes": [200],
       "required_capability": "export",
       "auth": "human",
-      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "headers": ["Authorization"],
       "error_schema": "Public.Error",
-      "semantic_checks": [],
+      "semantic_checks": [
+        "Maestro-Supervision-Grant is refused before the core: FORBIDDEN supervision_read_only; a supervisor exports or downloads only after joining as a participant"
+      ],
       "fixtures": {
         "query": "public.ExportQuery.valid",
         "path": "public.IdPath.valid",
@@ -617,13 +645,14 @@
       "status_codes": [200, 206],
       "required_capability": "attachments.durable",
       "auth": "human_or_agent_execution",
-      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "headers": ["Authorization"],
       "error_schema": "Public.Error",
       "semantic_checks": [
         "actual body is binary; metadata schema describes response headers, not JSON body",
         "Range validated by HTTP adapter",
         "authenticated proxy and current ACL; never expose storage URL",
-        "HEAD (the client's renewal) runs the same authorization and returns the same headers without reading the file"
+        "HEAD (the client's renewal) runs the same authorization and returns the same headers without reading the file",
+        "Maestro-Supervision-Grant is refused before the core: FORBIDDEN supervision_read_only; a supervisor exports or downloads only after joining as a participant"
       ],
       "fixtures": {
         "path": "public.IdPath.valid",
@@ -642,13 +671,14 @@
       "status_codes": [200],
       "required_capability": "attachments.durable",
       "auth": "human",
-      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "headers": ["Authorization"],
       "error_schema": "Public.Error",
       "semantic_checks": [
-        "the person, the public chat visitor or a supervisor views a PDF of the thread: the same core artifact.download authorization as the download, one per request",
+        "the person or the public chat visitor views a PDF of the thread: the same core artifact.download authorization as the download, one per request",
         "only a file stored as application/pdf with %PDF- in its first 1024 bytes (VALIDATION_FAILED otherwise); the link is served inline from the Maestro origin with no Content-Security-Policy, as the storage host of production (the public chat is framed by third-party sites), never as a blob: in the app origin",
         "without artifact links (ARTIFACT_LINKS_ENABLED off): UNSUPPORTED_CAPABILITY after the request checks and before the core",
-        "url is a short-lived unauthenticated link to one artifact (default 3600 s); the read checks the artifact state on every request"
+        "url is a short-lived unauthenticated link to one artifact (default 3600 s); the read checks the artifact state on every request",
+        "Maestro-Supervision-Grant is refused before the core: FORBIDDEN supervision_read_only; a supervisor exports or downloads only after joining as a participant"
       ],
       "fixtures": {
         "request": "public.Empty.valid",

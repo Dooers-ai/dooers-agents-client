@@ -1219,6 +1219,86 @@ const supervisionListQuery = z.discriminatedUnion('scope_kind', [
   threadListQuery.options[0].extend({ access_reason: accessReason.optional() }),
   threadListQuery.options[1].extend({ access_reason: accessReason.optional() }),
 ])
+// Supervision audit read (GET /supervision/audit): the organization owner/manager or the platform admin reads, one
+// scope per token, the supervision opens and lists, the reads of this audit and the management actions of elevated
+// non-participants (rename, archive, add, remove, delete). No thread content, title, session or core decision id.
+const elevatedManagementActions = [
+  'thread.updated',
+  'thread.archived',
+  'participant.added',
+  'participant.removed',
+  'thread.delete',
+] as const
+const supervisionAuditAction = z.enum([
+  'thread.supervision.open',
+  'thread.supervision.list',
+  'thread.supervision.audit.read',
+  ...elevatedManagementActions,
+])
+const supervisionAuditFilters = {
+  thread_id: uuidSchema.optional(),
+  principal_id: opaquePrincipalSchema.optional(),
+  action: supervisionAuditAction.optional(),
+}
+const supervisionAuditQuery = z.discriminatedUnion('scope_kind', [
+  z.strictObject({
+    scope_kind: z.literal('personal'),
+    workspace_id: z.null().optional(),
+    ...supervisionAuditFilters,
+    ...pagination,
+  }),
+  z.strictObject({
+    scope_kind: z.literal('workspace'),
+    workspace_id: uuidSchema,
+    ...supervisionAuditFilters,
+    ...pagination,
+  }),
+])
+const supervisionAuditBase = {
+  audit_id: uuidSchema,
+  principal_id: opaquePrincipalSchema,
+  scope: scopeSchema,
+  request_id: uuidSchema,
+  created_at: timestampSchema,
+}
+const supervisionMode = z.enum(['strict', 'operational', 'open'])
+const auditedReason = z.string().min(1).max(2000)
+const supervisionAuditEntry = z.union([
+  z.strictObject({
+    ...supervisionAuditBase,
+    action: z.literal('thread.supervision.open'),
+    thread_id: uuidSchema,
+    policy: supervisionMode,
+    policy_version: versionSchema,
+    access_reason: auditedReason.optional(),
+    access_reason_reused: z.literal(true).optional(),
+    supervision_grant_id: uuidSchema,
+  }),
+  z.strictObject({
+    ...supervisionAuditBase,
+    action: z.literal('thread.supervision.list'),
+    thread_id: z.null(),
+    policy: supervisionMode,
+    policy_version: versionSchema,
+    access_reason: auditedReason.optional(),
+    evaluated_thread_count: count,
+  }),
+  z.strictObject({
+    ...supervisionAuditBase,
+    action: z.literal('thread.supervision.audit.read'),
+    thread_id: z.null(),
+    actor_elevation: z.enum(['organization_admin', 'platform_admin']),
+    filters: z.strictObject(supervisionAuditFilters),
+    returned_count: count,
+  }),
+  z.strictObject({
+    ...supervisionAuditBase,
+    action: z.enum(elevatedManagementActions),
+    thread_id: uuidSchema,
+    actor_elevation: z.enum(['organization_admin', 'workspace_manager', 'platform_admin']),
+    reason_code: reasonCodeSchema.optional(),
+  }),
+])
 const eventsQuery = z.union([
   z.strictObject({ after: cursorSchema.optional(), limit: pagination.limit }),
   z.strictObject({ before: cursorSchema, limit: pagination.limit }),
@@ -1653,6 +1733,9 @@ export const publicSchemas = {
       updated_at: timestampSchema,
     })
   ),
+  'Public.SupervisionAuditQuery': supervisionAuditQuery,
+  'Public.SupervisionAuditEntry': supervisionAuditEntry,
+  'Public.SupervisionAuditPage': page(supervisionAuditEntry),
   'Public.ThreadPatchRequest': threadPatch,
   'Public.AgentThreadPatchRequest': agentThreadPatch,
   'Public.AgentThreadCreateRequest': agentThreadCreate,
