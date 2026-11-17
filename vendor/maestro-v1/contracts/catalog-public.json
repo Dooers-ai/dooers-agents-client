@@ -547,7 +547,7 @@
       "error_schema": "Public.Error",
       "semantic_checks": [
         "multipart bytes are bounded outside JSON contract",
-        "mandatory configured quota/allowlist/scan policy",
+        "file size limit and upload concurrency (no byte quota per person or organization, as production; an empty file is valid)",
         "upload scope from authorized actor; optional thread/lease bindings checked",
         "prethread: artifacts:write + threads:create and artifact.upload.prethread; linked human: artifacts:write + messages:write; agent: responses:write + execution capability"
       ],
@@ -872,7 +872,7 @@
       "semantic_checks": [
         "multipart as the execution upload: the metadata part (Public.AgentArtifactCreateRequest) first, then the file part; bytes are bounded outside JSON",
         "core artifact.upload on the thread without resource (no delivery or execution); the agent is an active participant of an active thread",
-        "production file policy: same allowlist, size limit and quotas; mime_type is the canonical type stored (inspected extension, or the extension type when the declared type is generic)",
+        "production file policy: same size limit and upload concurrency, no byte quota, empty file valid; mime_type is the canonical type stored (inspected extension, or the extension type when the declared type is generic)",
         "the file is bound to the thread of the path: an attachment part links it only in a message of that thread published through the agent API, with the returned mime_type when the part names one",
         "in a thread with more than one agent (active or suspended) and no human in the core set: FORBIDDEN multi_agent_thread before the core",
         "the same Idempotency-Key returns the same artifact"

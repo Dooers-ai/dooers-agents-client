@@ -240,6 +240,30 @@ describe('attachments sweep: production parity of the upload and of SVG', () => 
   // Any blob: of SVG/XML stays a download, never a document in the app origin.
   expect(maestroBlobType('image/svg+xml')).toBe('application/octet-stream')
  })
+ it('an empty file (0 byte) uploads and opens, as production stores the empty upload', async () => {
+  const sent: { size_bytes: number; sha256: string }[] = []
+  const fetcher = vi.fn(async (url, init) => {
+   if (String(url).endsWith('/download'))
+    return new Response(null, { headers: { 'Content-Type': 'text/plain', 'Content-Length': '0', 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="vazio.txt"', 'X-Content-Type-Options': 'nosniff' } })
+   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent.push(meta)
+   return json(uploaded(meta), 201)
+  })
+  const env = await setup(fetcher)
+  const id = env.client.artifacts.add(new Blob([], { type: 'text/plain' }), 'vazio.txt')
+  await env.client.artifacts.retry(id)
+  expect(sent).toEqual([expect.objectContaining({ size_bytes: 0, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' })])
+  expect(env.client.artifacts.getSnapshot()[0]?.state).toBe('ready')
+  env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+  const empty: MaestroAttachment = { ...attachment, filename: 'vazio.txt', mime_type: 'text/plain', size_bytes: 0 }
+  const e = event(1); e.payload.content = [empty]
+  const t = thread('1'); t.capabilities.push('attachments.durable')
+  env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:empty')
+  const r = await env.client.artifacts.open(threadId, empty)
+  expect(r.url).toBe('blob:empty')
+  expect((create.mock.calls[0]![0] as Blob).size).toBe(0)
+  r.release(); create.mockRestore()
+ })
  it('R2: a file over 25 MiB shows production\'s text before any request', async () => {
   const fetcher = vi.fn(); const { client } = await setup(fetcher)
   const big = { size: 26214401, type: 'application/pdf' } as Blob

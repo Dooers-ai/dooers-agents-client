@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "2116f919c88dc74ffff5fe6cd1bea8051cd8ecd4d73e2aa2f3bea811884b9ce5",
-  "source_revision": "sha256:196a9d1d734468f19dbd44a29383217fe9c81127e42b5ca355084ed0a9e9d33d",
-  "bundle_manifest_sha256": "1fcf801b1fb98879be885d4c9ec508c7ac52314844fe5415cfeb6379a1f3f0bc",
+  "source_manifest_sha256": "316e16942550edc9d541ee5e873fdd1c29c5f40b8c156ceec0d18d8e139999ff",
+  "source_revision": "sha256:6f8bc80c236a76e80e3c4b695794b2ce4232edb6b64aac6b0f1fc29cf9e4b274",
+  "bundle_manifest_sha256": "1d108518709c4a612f8ab52c7b2370f35f50b9945d80c2632aa5b3af7f3d90bb",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -26,7 +26,7 @@
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "8199e1f1e34b938268e2512a6b227e5809d1214ae3df3a505b9148746923d42e"
+      "sha256": "a153aca1abf010697cfd0e170f32745ffaef4290dd3804dfc71d44869325c98b"
     },
     "src/protocol/maestro/vendor/identity.ts": {
       "source": "docs/contracts/v1/identity.ts",
@@ -46,15 +46,15 @@
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
       "source": "docs/contracts/catalog-public.json",
-      "sha256": "c72eff03008a55d8785a5e5eb0c0aaf28ac321693624bf6f7ddc323ad128858b"
+      "sha256": "e3ea4799f19b27199317d6c236a6d7fe496bbb1c149181a1eafac8878b8a434b"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "2116f919c88dc74ffff5fe6cd1bea8051cd8ecd4d73e2aa2f3bea811884b9ce5"
+      "sha256": "316e16942550edc9d541ee5e873fdd1c29c5f40b8c156ceec0d18d8e139999ff"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "1fcf801b1fb98879be885d4c9ec508c7ac52314844fe5415cfeb6379a1f3f0bc"
+      "sha256": "1d108518709c4a612f8ab52c7b2370f35f50b9945d80c2632aa5b3af7f3d90bb"
     }
   }
 }

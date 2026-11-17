@@ -88,16 +88,17 @@ const textPart = z.strictObject({ type: z.literal('text'), text })
 // limit (AGENT_MESSAGE_MAX_BYTES, 1 MiB) and the callback body limit (2 MiB) refuse first with PAYLOAD_TOO_LARGE.
 const agentTextPart = z.strictObject({ type: z.literal('text'), text: z.string() })
 // Exact number: production stores a Python int with no bound (JSONB numeric) and writes a float with json.dumps
-// (Python repr). JSON.parse rounds an integer beyond the JavaScript safe range to the nearest double and writes a whole
-// float beyond it as an integer (2.0**60 becomes 1152921504606847000, an int of another value in Python). The Maestro
+// (Python repr). JSON.parse rounds an integer beyond the JavaScript safe range to the nearest double and writes every
+// whole float as an integer (10.0 becomes 10, 2.0**60 becomes 1152921504606847000: an int in Python). The Maestro
 // reads such an integer as its exact source text and such a float as its Python repr (JSON.rawJSON, Node 24), and
-// stores and returns the same text. A plain JSON.parse (browser, client) gives a number, as before. Each widened
+// stores and returns the same text, so the handler reads a float where production reads one. A plain JSON.parse (browser, client) gives a number, as before. Each widened
 // number exports the JSON Schema of the plain number: the wire format is the same.
 // At most 4300 digits: Python reads and writes no longer int (sys.get_int_max_str_digits), so the SDK never sends one,
 // and a longer one is VALIDATION_FAILED, as the double Infinity was, not a database refusal.
 const exactIntegerText = /^-?(?:0|[1-9][0-9]{0,4299})$/
-// Python repr of a whole float beyond the safe integer: 1.5e+25 (from 1e16) or 9007199254740994.0 (below).
-const exactFloatText = /^-?(?:[1-9](?:\.[0-9]+)?e\+[0-9]{2,3}|[1-9][0-9]{15,308}\.0)$/
+// Python repr of a whole float: 1.5e+25 (from 1e16), 10.0, 0.0 and -0.0 (below), or the exact decimal of a stored
+// response (up to 309 digits and .0).
+const exactFloatText = /^-?(?:[1-9](?:\.[0-9]+)?e\+[0-9]{2,3}|(?:0|[1-9][0-9]{0,308})\.0)$/
 const isExactNumber = (value: unknown) => {
   const json = JSON as { isRawJSON?: (value: unknown) => boolean }
   if (typeof json.isRawJSON !== 'function' || !json.isRawJSON(value)) return false
@@ -137,6 +138,10 @@ const attachmentPart = z.strictObject({
 type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
 // Production dict[str, Any] keeps any int: an integer beyond 2^53 stays exact in the Maestro (see exactNumber).
 const jsonNumber = exactNumber(z.number(), () => ({ type: 'number' }))
+// A number the browser or an agent route wrote with JSON.stringify (a double): a value >= 1e21 is written 1e+21, the
+// jsonb keeps its exact numeric, and the Maestro reads it back as its digits (the int production reads). The stored
+// event and the saved definition must still validate; the exported JSON Schema is the plain number.
+const storedNumber = exactNumber(z.number(), () => ({ type: 'number' }))
 // A JSON.rawJSON value is a frozen object with one key (rawJSON): one that is not an exact number (an integer of more
 // than 4300 digits) must fail, not pass as the record {"rawJSON": "..."}. The preprocess turns it into undefined,
 // which no branch accepts; the exported JSON Schema is the union's.
@@ -754,8 +759,8 @@ const formField = z.discriminatedUnion('type', [
   z.strictObject({
     ...fieldBase,
     type: z.literal('number'),
-    minimum: z.number(),
-    maximum: z.number(),
+    minimum: storedNumber,
+    maximum: storedNumber,
   }),
   z.strictObject({ ...fieldBase, type: z.literal('boolean') }),
   z.strictObject({
@@ -815,7 +820,7 @@ const interaction = z.strictObject({
 // Dynamic field names are intentionally limited values. E11 validates against the saved form definition.
 const formValue = z.union([
   z.string().max(65536),
-  z.number(),
+  storedNumber,
   z.boolean(),
   z.null(),
   z.array(uuidSchema).max(32),

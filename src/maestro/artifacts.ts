@@ -182,7 +182,7 @@ export class MaestroArtifacts {
     // The texts production shows (`POST /uploads` of the agent and `AgentServer.chat_upload`).
     if (file.size > this.maxBytes)
       throw failure('PAYLOAD_TOO_LARGE', false, maestroFileTooLargeText(this.maxBytes))
-    if (file.size < 1) throw failure('PAYLOAD_TOO_LARGE', false, 'empty file')
+    // An empty file (0 byte) is a file: production's `POST /uploads` stores it and the handler gets `data == b""`.
     if (this.intents.size >= MAESTRO_MAX_SELECTED_FILES)
       throw failure(
         'PAYLOAD_TOO_LARGE',
@@ -411,15 +411,21 @@ export class MaestroArtifacts {
         throw failure('PROTOCOL_ERROR')
       const type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
       const length = response.headers.get('content-length')
+      // 0 is a length: an empty file (production stores the empty upload).
       if (
         !length ||
-        !/^[1-9][0-9]*$/.test(length) ||
+        !/^(?:0|[1-9][0-9]*)$/.test(length) ||
         Number(length) > this.maxBytes ||
         (attachment.size_bytes !== undefined && Number(length) !== attachment.size_bytes) ||
         (attachment.mime_type && type !== attachment.mime_type)
       )
         throw failure('PROTOCOL_ERROR')
-      const bytes = await this.readResponse(response, Number(length), lifetime, chunks)
+      // An empty body may have no stream (Response without a body): nothing to read.
+      if (Number(length) === 0) await response.body?.cancel().catch(() => {})
+      const bytes =
+        Number(length) === 0
+          ? new Uint8Array(0)
+          : await this.readResponse(response, Number(length), lifetime, chunks)
       if (bytes.byteLength !== Number(length) || lifetime.aborted) throw failure('PROTOCOL_ERROR')
       // SVG: a `data:` URL (opaque origin if opened), never a same-origin `blob:` (MAESTRO_SVG_TYPE).
       const svg = type === MAESTRO_SVG_TYPE
