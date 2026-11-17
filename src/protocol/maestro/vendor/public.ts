@@ -615,6 +615,10 @@ const permissions = z.strictObject({
   feedback: z.boolean(),
   archive: z.boolean(),
   remove_participants: z.boolean(),
+  // SEC-05: the human reader may designate an owner (POST /threads/:id/ownership/assign). Only for an elevated
+  // human reader of a thread without an active human owner; absent everywhere else (visitor, agent views,
+  // receipts and thread.created).
+  assign_owner: z.boolean().optional(),
 })
 const threadFields = {
   routing_version: z.literal(1).optional(),
