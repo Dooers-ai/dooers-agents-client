@@ -166,6 +166,18 @@ function actorName(actor: Actor, resolve: MaestroNameResolver | undefined): stri
   return actor.displayName
 }
 
+/** The agent behind an event: its principal id and, when the resolver knows it, its platform name. */
+function actorAgent(
+  actor: Actor,
+  resolve: MaestroNameResolver | undefined
+): ThreadEvent['agent'] | undefined {
+  if (actor.kind !== 'agent') return undefined
+  const name =
+    resolve?.('agent', actor.principalId)?.trim() ||
+    resolve?.('agent', actor.instanceAgentId)?.trim()
+  return { id: actor.principalId, ...(name ? { name } : {}) }
+}
+
 function actorUser(actor: Actor, resolve: MaestroNameResolver | undefined): User | undefined {
   if (actor.kind === 'external') return externalUser(actor)
   if (actor.kind !== 'human') return undefined
@@ -486,6 +498,7 @@ export function maestroEventToLegacy(
     'run_id' in e.payload && typeof e.payload.run_id === 'string' ? e.payload.run_id : undefined
   const person = legacyActor(e.actor) === 'user'
   const name = actorName(e.actor, resolve)
+  const agent = actorAgent(e.actor, resolve)
   const base = {
     id: e.eventId,
     threadId: e.threadId,
@@ -494,6 +507,7 @@ export function maestroEventToLegacy(
     actor: legacyActor(e.actor),
     author: person ? null : name,
     createdAt: e.createdAt,
+    ...(agent ? { agent } : {}),
   }
   const user = actorUser(e.actor, resolve)
   switch (e.type) {

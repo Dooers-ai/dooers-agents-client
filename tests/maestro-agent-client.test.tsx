@@ -112,6 +112,20 @@ describe('Maestro → legacy mapping', () => {
     expect(maestroEventToLegacy(toMaestroNetworkEvent(agentMessage(2, 'Oi', OTHER_AGENT, uuid(21), 'Agente')), resolve)?.author).toBe('Agente Maestro 2')
     expect(maestroEventToLegacy(toMaestroNetworkEvent(event(1)), resolve)?.user?.userName).toBe('Ana')
   })
+  it('reports the agent that produced an event, with its platform name when the resolver knows it', () => {
+    const resolve = (kind: 'human' | 'agent', id: string) => (kind === 'agent' && id === OTHER_AGENT ? ' Agente Arquivos ' : null)
+    const known = maestroEventToLegacy(toMaestroNetworkEvent(agentMessage(2, 'Oi', OTHER_AGENT, uuid(21), 'Agente')), resolve)
+    expect(known?.agent).toEqual({ id: OTHER_AGENT, name: 'Agente Arquivos' })
+    // The author keeps the production value; the agent is an addition.
+    expect(known?.author).toBe('Agente Arquivos')
+    // Unknown to the resolver: the id is there, the generic stored display name is not reported as a name.
+    const unknown = maestroEventToLegacy(toMaestroNetworkEvent(agentMessage(3, 'Oi', AGENT, uuid(20), 'Agente')), resolve)
+    expect(unknown?.agent).toEqual({ id: AGENT })
+    // Without a resolver (visitor mode) only the id is reported.
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(agentMessage(4, 'Oi', OTHER_AGENT, uuid(21), 'Agente')))?.agent).toEqual({ id: OTHER_AGENT })
+    // A person has no agent.
+    expect(maestroEventToLegacy(toMaestroNetworkEvent(event(1)), resolve)).not.toHaveProperty('agent')
+  })
   it('a thread belongs to every participating agent and not to removed ones', () => {
     const value = toMaestroThread(sharedThread('1', [agentParticipant(AGENT, uuid(20), 'A'), { ...agentParticipant(OTHER_AGENT, uuid(21), 'B'), state: 'removed', left_sequence: '2' }]))
     expect(maestroThreadHasAgent(value, AGENT.toUpperCase())).toBe(true)

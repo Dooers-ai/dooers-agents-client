@@ -210,11 +210,12 @@ function production(wire: unknown): ThreadEvent {
  * value is the sender name `author || user.userName` (and the user id of a person's message).
  * Production gives every other event an empty `User(user_id="")`. An absent `author` and `null` are
  * the same: the production wire drops None (serialize_frame exclude_none) and `ThreadEvent.author`
- * is `string | null`.
+ * is `string | null`. `agent` (the producing agent's id and name) is an addition of this client that
+ * production does not send, so it is not part of the comparison.
  */
 function shown(event: ThreadEvent | null | undefined) {
   if (!event) return event
-  const { user, author, ...rest } = event
+  const { user, author, agent: _agent, ...rest } = event
   return {
     ...rest,
     sender: author || user?.userName || null,

@@ -311,6 +311,13 @@ export interface ThreadEvent {
   type: EventType
   actor: Actor
   author: string | null
+  /**
+   * The agent that produced the event. Set only by the Maestro transport, on events whose actor is an
+   * agent: `id` is the agent's principal id and `name` its platform name, present only when the
+   * name resolver knows it (the stored display name is generic and is never reported here).
+   * Absent for people, system events and on the legacy transport.
+   */
+  agent?: { id: string; name?: string }
   user?: User
   content?: DisplayContentPart[]
   data?: Record<string, unknown>
