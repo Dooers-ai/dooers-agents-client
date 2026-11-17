@@ -57,7 +57,8 @@ const failure = (status: number, code: string, details?: Record<string, unknown>
 const supervisedThread = (sequence = '2', permissions: Record<string, boolean> = {}) => {
   const value = thread(sequence)
   value.participants = [agentParticipant(AGENT, uuid(20), 'Agente Um')]
-  value.permissions = { ...value.permissions, write: false, manage: false, cancel: false, feedback: false, archive: true, remove_participants: true, ...permissions }
+  // As the Maestro projects a supervised read (`supervisedPermissions`): read only, `supervise` set.
+  value.permissions = { ...value.permissions, write: false, manage: false, export: false, supervise: true, cancel: false, feedback: false, archive: true, remove_participants: true, ...permissions }
   return value
 }
 const grantFor = (n = 90, lifetime = 60_000) => ({ supervision_grant_id: uuid(n), thread_id: threadId, access: 'read_only', expires_at: new Date(Date.now() + lifetime).toISOString(), policy_version: 1 })
@@ -99,7 +100,7 @@ describe('Maestro → legacy mapping', () => {
     const value = sharedThread('3')
     value.permissions = { ...value.permissions, archive: true, remove_participants: false }
     const legacy = maestroThreadToLegacy(toMaestroThread(value), AGENT)
-    expect(legacy.access).toEqual({ read: true, write: true, manage: true, archive: true, removeParticipants: false, assignOwner: false })
+    expect(legacy.access).toEqual({ read: true, write: true, manage: true, archive: true, removeParticipants: false, assignOwner: false, supervised: false })
     expect(legacy.metadata).toMatchObject({ authority: 'maestro', state: 'active' })
     value.state = 'archived'
     expect(maestroThreadToLegacy(toMaestroThread(value), AGENT).metadata).toMatchObject({ state: 'archived' })
@@ -702,7 +703,7 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
       socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
       socket.caught('1')
       await tick()
-      expect(store.getState().threads[threadId]?.access).toEqual({ read: true, write: false, manage: false, archive: true, removeParticipants: true, assignOwner: false })
+      expect(store.getState().threads[threadId]?.access).toEqual({ read: true, write: false, manage: false, archive: true, removeParticipants: true, assignOwner: false, supervised: true })
       expect(store.getState().events[threadId]).toHaveLength(1)
       expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(true)
       client.disconnect()

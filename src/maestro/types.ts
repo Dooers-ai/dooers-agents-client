@@ -121,6 +121,13 @@ export interface MaestroPublicationSnapshot {
  * bytes come back on every replay, so the thread ends; it is never an access loss.
  */
 export const MAESTRO_THREAD_UNREADABLE = 'THREAD_UNREADABLE'
+/**
+ * `reasonCode` of a `FORBIDDEN` for an action that supervision does not allow: exporting, downloading
+ * or opening a file, and the PDF view link. Supervision only reads; the person joins as a participant
+ * for these actions. The client refuses them itself, before any request (the Maestro refuses the grant
+ * with the same reason code since SEC-03). It is not an access loss: the thread stays open.
+ */
+export const MAESTRO_SUPERVISION_READ_ONLY = 'supervision_read_only'
 
 export class MaestroClientError extends Error {
   constructor(

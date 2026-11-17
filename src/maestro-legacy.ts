@@ -153,6 +153,7 @@ export function maestroThreadToLegacy(
       archive: thread.permissions.archive,
       removeParticipants: thread.permissions.remove_participants,
       assignOwner: thread.permissions.assign_owner === true,
+      supervised: thread.permissions.supervise === true,
     },
   }
 }

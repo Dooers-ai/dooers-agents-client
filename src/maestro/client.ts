@@ -36,6 +36,7 @@ import { canonical, immutable, MaestroPublicationLedger, publicationKey } from '
 import { MaestroStore } from './store.js'
 import { MaestroThreads } from './threads.js'
 import {
+  MAESTRO_SUPERVISION_READ_ONLY,
   type MaestroClientConfig,
   MaestroClientError,
   type MaestroConnection,
@@ -63,6 +64,18 @@ const rejectionState = (code: string, status = 400) =>
   technicalCodes.has(code) || status >= 500 ? ('unknown' as const) : ('rejected' as const)
 const error = (code: string, message: string, retryable = false) =>
   new MaestroClientError(code, message, retryable)
+/** Export, download and view link of a supervised thread: refused here, never sent (SEC-03). */
+const supervisionReadOnly = (threadId: string) =>
+  new MaestroClientError(
+    'FORBIDDEN',
+    'Supervision is read-only: join the conversation to export, download or view files',
+    false,
+    undefined,
+    threadId,
+    undefined,
+    undefined,
+    MAESTRO_SUPERVISION_READ_ONLY
+  )
 const bounded = (value: number | undefined, fallback: number, min: number, max: number) => {
   const result = value ?? fallback
   if (!Number.isInteger(result) || result < min || result > max)
@@ -471,16 +484,18 @@ export class MaestroClient {
     )
     this.exports = new MaestroExports(
       async (threadId, key, watermark) => {
+        this.refuseSupervised(threadId)
         this.requireThreadFeature(threadId, 'export')
         const revision = this.threadRevisions.get(threadId) ?? 0
         const result = await this.http(
           `/threads/${threadId}/export?${new URLSearchParams({ format: 'json', ...(watermark === undefined ? {} : { watermark }) })}`,
-          { method: 'GET', headers: { 'Idempotency-Key': key, ...this.grantHeader(threadId) } }
+          { method: 'GET', headers: { 'Idempotency-Key': key } }
         )
         this.assertThreadRevision(threadId, revision)
         return result
       },
       async (threadId, path, signal) => {
+        this.refuseSupervised(threadId)
         this.requireThreadFeature(threadId, 'export')
         if (!/^\/exports\/artifacts\/[0-9a-f-]{36}\/download$/.test(path))
           throw error('PROTOCOL_ERROR', 'Invalid private export path')
@@ -489,7 +504,7 @@ export class MaestroClient {
         if (!token) throw error('UNAUTHENTICATED', 'Maestro credential unavailable')
         const response = await (this.config.fetch ?? globalThis.fetch)(`${this.api}${path}`, {
           method: 'GET',
-          headers: { Authorization: `Bearer ${token}`, ...this.grantHeader(threadId) },
+          headers: { Authorization: `Bearer ${token}` },
           credentials: 'omit',
           redirect: 'error',
           cache: 'no-store',
@@ -520,6 +535,7 @@ export class MaestroClient {
           // the server event arrives) or a history being reloaded is refused here, before any
           // request. It is not an access loss: it must not close the thread.
           authorize: (threadId, artifactId) => {
+            this.refuseSupervised(threadId)
             this.requireCapability('attachments.durable')
             if (!this.citesArtifact(threadId, artifactId))
               throw error('FORBIDDEN', 'Attachment is not in the authorized thread history')
@@ -527,6 +543,7 @@ export class MaestroClient {
           request: async (path, init, threadId) => {
             this.requireCapability('attachments.durable')
             if (threadId) {
+              this.refuseSupervised(threadId)
               // The download, its renewal (HEAD) and the PDF view link (I1) of a cited file.
               const id = /^\/artifacts\/([0-9a-f-]{36})\/(?:download|links)$/.exec(path)?.[1]
               if (id === undefined || !this.citesArtifact(threadId, id))
@@ -537,11 +554,7 @@ export class MaestroClient {
             if (!token) throw error('UNAUTHENTICATED', 'Maestro credential unavailable')
             const response = await (this.config.fetch ?? globalThis.fetch)(`${this.api}${path}`, {
               ...init,
-              headers: {
-                Authorization: `Bearer ${token}`,
-                ...init.headers,
-                ...(threadId ? this.grantHeader(threadId) : {}),
-              },
+              headers: { Authorization: `Bearer ${token}`, ...init.headers },
               credentials: 'omit',
               redirect: 'error',
               cache: 'no-store',
@@ -558,6 +571,8 @@ export class MaestroClient {
           },
           apiBase: this.api,
           failure: (failure, threadId) => {
+            // Supervision refused by the client itself: no request was sent, no access was lost.
+            if (failure.reasonCode === MAESTRO_SUPERVISION_READ_ONLY) return
             // A file download (it has a thread) is bound to that thread: a FORBIDDEN there closes at
             // most that thread and never the whole session. A NOT_FOUND names only the file (the URL
             // has the artifact id), so it closes nothing; the thread's own NOT_FOUND arrives through
@@ -826,6 +841,14 @@ export class MaestroClient {
   }
   isSupervision(threadId: string) {
     return this.supervisionGrants.has(this.checkId(threadId))
+  }
+  /**
+   * Supervision only reads (SEC-03): export, file download and the PDF view link of a thread read
+   * by supervision fail here with `FORBIDDEN` and `reasonCode` `MAESTRO_SUPERVISION_READ_ONLY`,
+   * without a request and without closing the thread. Check `isSupervision` to hide these actions.
+   */
+  private refuseSupervised(threadId: string) {
+    if (this.isSupervision(threadId)) throw supervisionReadOnly(this.checkId(threadId))
   }
   private grantHeader(threadId: string): Record<string, string> {
     const grant = this.supervisionGrants.get(threadId)

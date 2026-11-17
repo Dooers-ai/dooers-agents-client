@@ -6,7 +6,7 @@ import {
   maestroBlobType,
 } from '../maestro/artifacts'
 import type { MaestroClient } from '../maestro/client'
-import { MaestroClientError } from '../maestro/types'
+import { MAESTRO_SUPERVISION_READ_ONLY, MaestroClientError } from '../maestro/types'
 import { MaestroAgentClient } from '../maestro-agent-client'
 import { useAgentContext } from '../provider'
 
@@ -44,6 +44,12 @@ export interface MaestroArtifactUrlResult {
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorCode?: string
   /**
+   * `MAESTRO_SUPERVISION_READ_ONLY` when the thread is read by supervision: the file is not opened
+   * (no request) and there is no `viewLink`. Supervision only reads; the person joins the
+   * conversation to open, download or view the file. `errorCode` is then `FORBIDDEN`.
+   */
+  reasonCode?: string
+  /**
    * I1: only for a file of type `application/pdf`. Asks the Maestro for the short-lived view link of
    * the PDF (served `inline` from the Maestro origin, never from the app origin). The View panel opens
    * this link; `url` (a `blob:` of type `application/octet-stream`) only downloads the file.
@@ -74,6 +80,12 @@ interface Snapshot {
   errorCode?: string
 }
 const IDLE: MaestroArtifactUrlResult = Object.freeze({ url: null, status: 'idle' })
+const SUPERVISED: MaestroArtifactUrlResult = Object.freeze({
+  url: null,
+  status: 'error',
+  errorCode: 'FORBIDDEN',
+  reasonCode: MAESTRO_SUPERVISION_READ_ONLY,
+})
 
 interface EntryInit {
   threadId: string
@@ -497,7 +509,9 @@ export function useMaestroArtifactUrl(
   const hasUrl = Boolean(part?.url)
   const visible = options?.visible ?? true
   const stable = options?.stable ?? false
-  const eligible = Boolean(artifacts && threadId && refId && !hasUrl)
+  // Supervision only reads (SEC-03): its files are neither opened nor viewed.
+  const supervised = Boolean(maestro && threadId && maestro.isSupervision(threadId))
+  const eligible = Boolean(artifacts && threadId && refId && !hasUrl && !supervised)
   const identity = `${threadId}|${refId}|${mimeType}|${filename}|${size}`
 
   const visibleRef = useRef(visible)
@@ -510,7 +524,7 @@ export function useMaestroArtifactUrl(
   } | null>(null)
 
   useEffect(() => {
-    if (!maestro || !artifacts || !threadId || !refId || hasUrl) return
+    if (!maestro || !artifacts || !threadId || !refId || hasUrl || supervised) return
     const queue = queueFor(artifacts, maestro)
     const entry = queue.add(
       { threadId, refId, mimeType, filename, size, visible: visibleRef.current, stable },
@@ -521,7 +535,19 @@ export function useMaestroArtifactUrl(
       entryRef.current = null
       queue.dispose(entry)
     }
-  }, [maestro, artifacts, threadId, refId, mimeType, filename, size, hasUrl, identity, stable])
+  }, [
+    maestro,
+    artifacts,
+    threadId,
+    refId,
+    mimeType,
+    filename,
+    size,
+    hasUrl,
+    identity,
+    stable,
+    supervised,
+  ])
 
   useEffect(() => {
     entryRef.current?.queue.setVisible(entryRef.current.entry, visible)
@@ -563,9 +589,10 @@ export function useMaestroArtifactUrl(
   )
 
   return useMemo(() => {
+    if (supervised && refId && !hasUrl) return SUPERVISED
     if (!eligible) return IDLE
     const base =
       errorCode && status === 'error' ? { url: null, status, errorCode } : { url, status }
     return viewLink ? { ...base, viewLink } : base
-  }, [eligible, url, status, errorCode, viewLink])
+  }, [supervised, refId, hasUrl, eligible, url, status, errorCode, viewLink])
 }
