@@ -145,7 +145,9 @@ it('rejects oversize/active header filenames before I/O and stops ambiguous leng
  const request = vi.fn(async () => new Response('abc', { headers: { 'content-type':'image/png','content-length':'4','cache-control':'private, no-store','content-disposition':'attachment','x-content-type-options':'nosniff' } }))
  const manager = new MaestroArtifacts({ workspaceId:null, request, failure:()=>{} }, 3)
  expect(() => manager.add(new Blob(['1234'], {type:'image/png'}), 'x.png')).toThrow()
- expect(() => manager.add(new Blob(['x'], {type:'image/png'}), 'bad"name.png')).toThrow()
+ // A quote is escaped as the browser writes it in the multipart header (production stores `%22`).
+ expect(manager.getSnapshot()).toEqual([]); manager.add(new Blob(['x'], {type:'image/png'}), 'bad"name.png')
+ expect(manager.getSnapshot()[0]?.filename).toBe('bad%22name.png')
  await expect(manager.open(threadId, attachment)).rejects.toMatchObject({ code:'PROTOCOL_ERROR' }); expect(request).toHaveBeenCalledTimes(1); manager.clear()
 })
 
@@ -314,9 +316,11 @@ describe('attachments sweep: production parity of the upload and of SVG', () => 
   expect(client.artifacts.getSnapshot()[0]?.state).toBe('ready')
  })
  it('R1: a .doc and a file of unknown type upload; the attachment carries the type the Maestro stored', async () => {
-  const sent: string[] = []
+  // The three uploads run in parallel and each SHA-256 (WebCrypto) ends at its own time: the request
+  // order is not the selection order. Keyed by name; `content()` keeps the selection order.
+  const sent: Record<string, string> = {}
   const fetcher = vi.fn(async (_url, init) => {
-   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent.push(meta.mime_type)
+   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent[meta.filename] = meta.mime_type
    const stored = meta.filename.endsWith('.bin') ? 'application/octet-stream' : meta.mime_type
    return json(uploaded({ ...meta, mime_type: stored === 'application/octet-stream' && meta.filename.endsWith('.csv') ? 'text/csv' : stored }), 201)
   })
@@ -325,7 +329,77 @@ describe('attachments sweep: production parity of the upload and of SVG', () => 
   const bin = client.artifacts.add(new Blob(['raw']), 'dados.bin')
   const csv = client.artifacts.add(new Blob(['a,b']), 'dados.csv')
   await Promise.all([doc, bin, csv].map((id) => client.artifacts.retry(id)))
-  expect(sent).toEqual(['application/msword', 'application/octet-stream', 'application/octet-stream'])
+  expect(sent).toEqual({ 'contrato.doc': 'application/msword', 'dados.bin': 'application/octet-stream', 'dados.csv': 'application/octet-stream' })
   expect(client.artifacts.content().map((part) => part.mime_type)).toEqual(['application/msword', 'application/octet-stream', 'text/csv'])
+ })
+})
+
+describe('round 2 of the attachments review', () => {
+ const meta = (init: RequestInit | undefined) => JSON.parse(String((init!.body as FormData).get('metadata')))
+ it('I1: keeps NFD and NFC, escapes the multipart characters as the browser, and an empty name is upload', async () => {
+  const sent: { meta: string; part: string }[] = []
+  const fetcher = vi.fn(async (_url, init) => {
+   const body = init!.body as FormData
+   sent.push({ meta: meta(init).filename, part: (body.get('file') as File).name })
+   return json(uploaded(meta(init)), 201)
+  })
+  const { client } = await setup(fetcher)
+  const names = ['Relatório.pdf'.normalize('NFD'), 'Relatório.pdf'.normalize('NFC'), '  Relatório.pdf  ', 'a"b\r\nc.pdf', '']
+  const ids = names.map((name) => client.artifacts.add(new Blob(['x'], { type: 'application/pdf' }), name))
+  await Promise.all(ids.map((id) => client.artifacts.retry(id)))
+  const expected = ['Relatório.pdf'.normalize('NFD'), 'Relatório.pdf'.normalize('NFC'), '  Relatório.pdf  ', 'a%22b%0D%0Ac.pdf', 'upload']
+  expect(sent.map((s) => s.meta).sort()).toEqual([...expected].sort())
+  // The multipart part carries the same name, so the Maestro's header check matches.
+  for (const s of sent) expect(s.part).toBe(s.meta)
+  expect(client.artifacts.content().map((part) => part.filename)).toEqual(expected)
+  expect('Relatório.pdf'.normalize('NFD')).not.toBe('Relatório.pdf'.normalize('NFC'))
+ })
+ it('M7: renew checks the access with a 1-byte read and keeps the same URL; the old object no longer revokes it', async () => {
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
+   const range = (init?.headers as Record<string, string> | undefined)?.Range
+   if (range) return new Response('s', { status: 206, headers: { 'Content-Type': 'image/png', 'Content-Length': '1', 'Content-Range': `bytes 0-0/${file().size}`, 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="image.png"', 'X-Content-Type-Options': 'nosniff' } })
+   return bytes()
+  })
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  // Spies of earlier tests in this file stay installed: count only this test's calls.
+  create.mockClear(); revoke.mockClear()
+  vi.useFakeTimers()
+  const first = await env.client.artifacts.open(threadId, attachment)
+  vi.advanceTimersByTime(50000)
+  const renewed = await env.client.artifacts.renew(first)
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  expect((fetcher.mock.calls[1]![1]!.headers as Record<string, string>).Range).toBe('bytes=0-0')
+  expect(renewed.url).toBe(first.url); expect(renewed.expiresAt).toBeGreaterThan(first.expiresAt)
+  expect(create).toHaveBeenCalledTimes(1)
+  first.release(); vi.advanceTimersByTime(15000); expect(revoke).not.toHaveBeenCalled()
+  vi.advanceTimersByTime(50000); expect(revoke).toHaveBeenCalledWith('blob:private-object')
+  // A released resource is not renewed: the hook opens the file again.
+  await expect(env.client.artifacts.renew(renewed)).rejects.toMatchObject({ code: 'ARTIFACT_NOT_READY' })
+ })
+ it('M7: renew refuses an answer that is not the 1-byte range of the same file', async () => {
+  let range = 'bytes 0-0/999'
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => (init?.headers as Record<string, string> | undefined)?.Range
+   ? new Response('s', { status: 206, headers: { 'Content-Type': 'image/png', 'Content-Length': '1', 'Content-Range': range, 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment', 'X-Content-Type-Options': 'nosniff' } })
+   : bytes())
+  const env = await setup(fetcher); await history(env)
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  const first = await env.client.artifacts.open(threadId, attachment)
+  await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+  range = `bytes 0-0/${file().size}`
+  await expect(env.client.artifacts.renew(first)).resolves.toMatchObject({ url: 'blob:private-object' })
+ })
+ it('M9: a waiter woken for a free slot whose upload was removed passes the slot to the next waiter', async () => {
+  const manager = new MaestroArtifacts({ workspaceId: null, request: vi.fn(), failure: () => {} }) as any
+  for (let n = 0; n < 4; n++) await manager.uploadSlot(new AbortController().signal)
+  const first = new AbortController(), second = new AbortController()
+  const a = manager.uploadSlot(first.signal), b = manager.uploadSlot(second.signal)
+  a.catch(() => {})
+  await Promise.resolve()
+  // The release wakes the first waiter; its upload is removed before it runs (same tick).
+  manager.releaseUploadSlot(); first.abort()
+  await expect(a).rejects.toMatchObject({ code: 'DISCONNECTED' })
+  const outcome = await Promise.race([b.then(() => 'slot'), new Promise((resolve) => setTimeout(() => resolve('stuck'), 50))])
+  expect(outcome).toBe('slot'); expect(manager.uploading).toBe(4)
  })
 })

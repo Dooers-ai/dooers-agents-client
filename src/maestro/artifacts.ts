@@ -96,11 +96,18 @@ function dataUrl(type: string, bytes: Uint8Array): string {
  * MIME type for the `blob:` URL of an artifact. A `blob:` URL is same-origin with the web app:
  * if a tab navigates to one of type text/html, SVG or XML, the file runs script in the app origin.
  * Only media that the production components render inline (raster images, audio) and PDF keep
- * their real type. Maestro inspects every PDF and refuses /JavaScript, /Launch, /EmbeddedFile and
- * /Encrypt, and the browser PDF viewer does not run script in the page origin, so the web can show
- * a PDF in its View panel. Everything else gets `application/octet-stream`, so navigation
- * downloads the file. Any type whose subtype ends in `+xml` also gets it, even under `audio/`.
- * SVG never reaches a `blob:` (see `MAESTRO_SVG_TYPE`): it is shown from a `data:` URL.
+ * their real type. Everything else gets `application/octet-stream`, so navigation downloads the
+ * file. Any type whose subtype ends in `+xml` also gets it, even under `audio/`. SVG never reaches
+ * a `blob:` (see `MAESTRO_SVG_TYPE`): it is shown from a `data:` URL.
+ *
+ * PDF: the Maestro does not look at the bytes (as production's `POST /uploads`), so a PDF with
+ * `/JavaScript`, `/Launch` or `/EmbeddedFile` keeps `application/pdf` and the web shows it in its
+ * View panel (`<iframe src="blob:...">`, app origin). The blob type is fixed, so the browser never
+ * reads it as HTML. The browser PDF viewers run a PDF's script, if at all, away from the embedding
+ * page (Chromium: PDFium in the out-of-process viewer; Firefox: pdf.js scripting sandbox; Safari:
+ * no PDF script), so the script never reaches the app DOM or storage. Production shows the same
+ * PDF in the same `<iframe>`, but from the storage host. The `<iframe>` has no `sandbox`: a
+ * sandboxed frame turns off the Chromium PDF viewer (the sandboxed plugins flag has no token).
  */
 export function maestroBlobType(mimeType: string): string {
   const type = mimeType.split(';')[0]!.trim().toLowerCase()
@@ -118,6 +125,18 @@ const failure = (code: string, retryable = false, message = 'Artifact request un
   new MaestroClientError(code, message, retryable)
 /** Production's text for a file over the limit (`POST /uploads` of the agent, HTTP 413). */
 export const maestroFileTooLargeText = (maxBytes: number) => `File exceeds ${maxBytes} byte limit`
+/**
+ * The name production stores for a file the browser uploads (I1). Production's `POST /uploads` keeps
+ * `UploadFile.filename` as Starlette decodes it from the multipart header: no NFC, no trim (NFD from
+ * Safari or HFS+ stays NFD). The browser writes that header escaping three characters (HTML
+ * multipart/form-data encoding): LF as `%0A`, CR as `%0D` and `"` as `%22`. An empty name is
+ * `upload` (`file.filename or "upload"`). The Maestro gets the same name, so the handler, the
+ * history and the download see what production shows.
+ */
+export function maestroUploadFilename(filename: string): string {
+  const name = filename.replace(/\n/g, '%0A').replace(/\r/g, '%0D').replace(/"/g, '%22')
+  return name || 'upload'
+}
 /** Uploads sent at the same time; the others wait. The Maestro accepts at least this many per person. */
 export const MAESTRO_PARALLEL_UPLOADS = 4
 /** Files selected at once (the message parts limit of the Maestro, `MESSAGE_MAX_PARTS`). */
@@ -150,7 +169,13 @@ export class MaestroArtifacts {
   private intents = new Map<string, Intent>()
   private resources = new Map<
     MaestroArtifactResource,
-    { threadId: string; timer: ReturnType<typeof setTimeout> }
+    {
+      threadId: string
+      artifactId: string
+      sizeBytes: number
+      svg: boolean
+      timer: ReturnType<typeof setTimeout>
+    }
   >()
   private reads = new Map<AbortController, string>()
   private observers = new Set<() => void>()
@@ -178,7 +203,8 @@ export class MaestroArtifacts {
     }
   }
   /** Select once; retry retains the original bytes, key, hash and workspace. */
-  add(file: Blob, filename: string, options: MaestroUploadOptions = {}): string {
+  add(file: Blob, selected: string, options: MaestroUploadOptions = {}): string {
+    const filename = maestroUploadFilename(selected)
     // The texts production shows (`POST /uploads` of the agent and `AgentServer.chat_upload`).
     if (file.size > this.maxBytes)
       throw failure('PAYLOAD_TOO_LARGE', false, maestroFileTooLargeText(this.maxBytes))
@@ -196,8 +222,6 @@ export class MaestroArtifacts {
       sha256: '0'.repeat(64),
       workspace_id: this.host.workspaceId,
     })
-    // A quote cannot round-trip the strict multipart filename header. Reject instead of renaming user input.
-    if (filename.includes('"')) throw failure('INVALID_REQUEST')
     const id = crypto.randomUUID()
     this.intents.set(id, {
       file,
@@ -433,21 +457,12 @@ export class MaestroArtifacts {
         ? dataUrl(MAESTRO_SVG_TYPE, bytes)
         : URL.createObjectURL(new Blob([bytes], { type: maestroBlobType(type) }))
       bytes.fill(0)
-      const resource: MaestroArtifactResource = Object.freeze({
+      return this.track(
+        { threadId, artifactId: id, sizeBytes: Number(length), svg },
         url,
-        mimeType: type,
-        filename: attachment.filename ?? 'attachment',
-        expiresAt: Date.now() + 60000,
-        release: () => {
-          const entry = this.resources.get(resource)
-          if (!entry) return
-          clearTimeout(entry.timer)
-          this.resources.delete(resource)
-          if (!svg) URL.revokeObjectURL(url)
-        },
-      })
-      this.resources.set(resource, { threadId, timer: setTimeout(() => resource.release(), 60000) })
-      return resource
+        type,
+        attachment.filename ?? 'attachment'
+      )
     } catch (cause) {
       const e = cause instanceof MaestroClientError ? cause : failure('NETWORK_ERROR', true)
       this.host.failure(e, threadId)
@@ -456,6 +471,91 @@ export class MaestroArtifacts {
       // Abort the native transport even when header validation exits before acquiring its reader.
       c.abort()
       for (const chunk of chunks) chunk.fill(0)
+      this.reads.delete(c)
+    }
+  }
+  /** A live resource for 60 s: then its `blob:` URL is revoked (a `data:` URL has nothing to revoke). */
+  private track(
+    entry: { threadId: string; artifactId: string; sizeBytes: number; svg: boolean },
+    url: string,
+    mimeType: string,
+    filename: string
+  ): MaestroArtifactResource {
+    const resource: MaestroArtifactResource = Object.freeze({
+      url,
+      mimeType,
+      filename,
+      expiresAt: Date.now() + 60000,
+      release: () => {
+        const live = this.resources.get(resource)
+        if (!live) return
+        clearTimeout(live.timer)
+        this.resources.delete(resource)
+        if (!live.svg) URL.revokeObjectURL(url)
+      },
+    })
+    this.resources.set(resource, { ...entry, timer: setTimeout(() => resource.release(), 60000) })
+    return resource
+  }
+  /**
+   * Renews a live resource without downloading the file again (M7). One authenticated read of one
+   * byte (`Range: bytes=0-0`; the whole empty body for a file of 0 byte) checks the access again
+   * (history, credential, the Maestro's authorization); then the same URL and the same bytes stay
+   * for another 60 s. The returned resource has the same `url`; the old object no longer revokes
+   * it. Production loads an `<img src>` once and keeps it on screen; this keeps the 60 s access
+   * check without the 25 MiB read.
+   */
+  async renew(
+    resource: MaestroArtifactResource,
+    signal?: AbortSignal
+  ): Promise<MaestroArtifactResource> {
+    const live = this.resources.get(resource)
+    if (!live) throw failure('ARTIFACT_NOT_READY')
+    if (this.reads.size >= 2) throw failure('RATE_LIMITED', true)
+    const { threadId, artifactId, sizeBytes } = live
+    const c = new AbortController()
+    this.reads.set(c, threadId)
+    const lifetime = AbortSignal.any([c.signal, ...(signal ? [signal] : [])])
+    try {
+      this.host.authorize?.(threadId, artifactId)
+      const response = await this.host.request(
+        `/artifacts/${artifactId}/download`,
+        {
+          method: 'GET',
+          signal: lifetime,
+          ...(sizeBytes ? { headers: { Range: 'bytes=0-0' } } : {}),
+        },
+        threadId
+      )
+      if (!response.ok) {
+        const bytes = await this.readResponse(response, 65536, lifetime)
+        throw this.responseError(
+          JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+        )
+      }
+      const type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
+      if (
+        response.status !== (sizeBytes ? 206 : 200) ||
+        response.headers.get('x-content-type-options') !== 'nosniff' ||
+        !/^private,\s*no-store$/i.test(response.headers.get('cache-control') ?? '') ||
+        !/^attachment(?:;|$)/i.test(response.headers.get('content-disposition') ?? '') ||
+        type !== resource.mimeType ||
+        response.headers.get('content-length') !== (sizeBytes ? '1' : '0') ||
+        (sizeBytes && response.headers.get('content-range') !== `bytes 0-0/${sizeBytes}`)
+      )
+        throw failure('PROTOCOL_ERROR')
+      if (sizeBytes) (await this.readResponse(response, 1, lifetime)).fill(0)
+      else await response.body?.cancel().catch(() => {})
+      if (lifetime.aborted || this.resources.get(resource) !== live) throw failure('DISCONNECTED')
+      clearTimeout(live.timer)
+      this.resources.delete(resource)
+      return this.track(live, resource.url, resource.mimeType, resource.filename)
+    } catch (cause) {
+      const e = cause instanceof MaestroClientError ? cause : failure('NETWORK_ERROR', true)
+      this.host.failure(e, threadId)
+      throw e
+    } finally {
+      c.abort()
       this.reads.delete(c)
     }
   }
@@ -493,7 +593,12 @@ export class MaestroArtifacts {
         signal.addEventListener('abort', wake, { once: true })
       })
     }
-    if (signal.aborted) throw failure('DISCONNECTED')
+    if (signal.aborted) {
+      // M9: a release may have woken this waiter for the free slot, and its upload was removed in the
+      // same tick. Pass the wake-up on, or the next waiter would wait for its own abort.
+      this.uploadWaiters.shift()?.()
+      throw failure('DISCONNECTED')
+    }
     this.uploading++
   }
   private releaseUploadSlot() {

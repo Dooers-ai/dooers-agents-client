@@ -24,6 +24,8 @@ interface FakeOptions {
   ignoreAbort?: boolean
   /** MIME type of the fake resource. Default: image/png. */
   mimeType?: string
+  /** Called before a renewal; may throw to simulate a failure. */
+  beforeRenew?: (call: number) => void
 }
 
 /** Fake `artifacts.open` that enforces the same limits as the real host (2 reads, 8 live). */
@@ -35,7 +37,8 @@ function fakeArtifacts(options: FakeOptions = {}) {
     maxLive: 0,
     calls: [] as { at: number; threadId: string; artifactId: string; signal?: AbortSignal }[],
     rateLimited: 0,
-    resources: [] as { url: string; artifactId: string; release: ReturnType<typeof vi.fn>; released: boolean }[],
+    renewals: [] as { at: number; url: string }[],
+    resources: [] as { url: string; artifactId: string; release: ReturnType<typeof vi.fn>; released: boolean; moved?: boolean }[],
   }
   const open = vi.fn(async (threadId: string, attachment: { artifact_id: string }, signal?: AbortSignal) => {
     state.calls.push({ at: Date.now(), threadId, artifactId: attachment.artifact_id, signal })
@@ -70,7 +73,7 @@ function fakeArtifacts(options: FakeOptions = {}) {
       release: vi.fn(),
     }
     entry.release.mockImplementation(() => {
-      if (entry.released) return
+      if (entry.released || (entry as { moved?: boolean }).moved) return
       entry.released = true
       state.live--
     })
@@ -83,7 +86,39 @@ function fakeArtifacts(options: FakeOptions = {}) {
       release: entry.release,
     }
   })
-  return { state, open }
+  /** Like `MaestroArtifacts.renew`: a 1-byte read, then the same URL lives 60 s more; no new bytes. */
+  const renew = vi.fn(async (resource: { url: string; mimeType: string; filename: string }, signal?: AbortSignal) => {
+    state.renewals.push({ at: Date.now(), url: resource.url })
+    options.beforeRenew?.(state.renewals.length)
+    const old = state.resources.find((r) => r.url === resource.url && !r.released && !r.moved)
+    if (!old) throw new MaestroClientError('ARTIFACT_NOT_READY', 'released', false)
+    if (state.reads >= 2) {
+      state.rateLimited++
+      throw new MaestroClientError('RATE_LIMITED', 'Artifact request unavailable', true)
+    }
+    state.reads++
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, 1)
+        signal?.addEventListener('abort', () => {
+          clearTimeout(timer)
+          reject(new MaestroClientError('DISCONNECTED', 'aborted'))
+        })
+      })
+    } finally {
+      state.reads--
+    }
+    old.moved = true
+    const entry = { url: old.url, artifactId: old.artifactId, released: false, moved: false, release: vi.fn() }
+    entry.release.mockImplementation(() => {
+      if (entry.released || entry.moved) return
+      entry.released = true
+      state.live--
+    })
+    state.resources.push(entry)
+    return { ...resource, expiresAt: Date.now() + 60000, release: entry.release }
+  })
+  return { state, open, renew }
 }
 
 /**
@@ -113,7 +148,7 @@ function fakeHistory(citesAll = true) {
 function useFakeMaestro(fake: ReturnType<typeof fakeArtifacts>, history = fakeHistory()) {
   const client = Object.create(MaestroAgentClient.prototype) as MaestroAgentClient
   // stable, like the real client
-  const maestro = { artifacts: { open: fake.open }, citesArtifact: history.citesArtifact, store: history.store }
+  const maestro = { artifacts: { open: fake.open, renew: fake.renew }, citesArtifact: history.citesArtifact, store: history.store }
   client.getMaestroClient = (() => maestro) as never
   holder.client = client
   return history
@@ -336,7 +371,7 @@ describe('useMaestroArtifactUrl', () => {
     expect(fake.state.calls[0]!.signal?.aborted).toBe(true)
   })
 
-  it('renova a URL antes dos 60 s do recurso', async () => {
+  it('M7: renova antes dos 60 s sem baixar o arquivo de novo e mantém a mesma URL', async () => {
     const fake = fakeArtifacts()
     useFakeMaestro(fake)
     const view = render(<Item name="a" refId={id(1)} />)
@@ -344,23 +379,73 @@ describe('useMaestroArtifactUrl', () => {
     const firstUrl = snap(view, 'a').url
     expect(firstUrl).toBeTruthy()
     await advance(40000)
-    expect(fake.open).toHaveBeenCalledTimes(1)
+    expect(fake.renew).not.toHaveBeenCalled()
     await advance(15000)
-    expect(fake.open).toHaveBeenCalledTimes(2)
-    const next = snap(view, 'a')
-    expect(next.status).toBe('ready')
-    expect(next.url).not.toBe(firstUrl)
-    expect(fake.state.resources[0]!.release).toHaveBeenCalled()
+    // One access check (1 byte), no second download, the same URL on screen.
+    expect(fake.renew).toHaveBeenCalledTimes(1)
+    expect(fake.open).toHaveBeenCalledTimes(1)
+    expect(snap(view, 'a')).toMatchObject({ status: 'ready', url: firstUrl })
+    await advance(60000)
+    expect(fake.renew).toHaveBeenCalledTimes(2)
+    expect(fake.open).toHaveBeenCalledTimes(1)
+    expect(snap(view, 'a').url).toBe(firstUrl)
+    // The URL is never revoked while on screen; one live resource.
+    expect(fake.state.resources.filter((r) => r.released)).toHaveLength(0)
     expect(fake.state.live).toBe(1)
+    view.unmount()
+    expect(fake.state.live).toBe(0)
   })
 
-  it('na renovação só revoga a URL antiga depois que o consumidor trocou para a nova', async () => {
+  it('M7: um arquivo grande renova sem ocupar a vaga de arquivo grande', async () => {
+    const fake = fakeArtifacts({ readMsFor: (artifactId) => (artifactId === id(902) ? 30_000 : 10) })
+    useFakeMaestro(fake)
+    const view = render(<Item name="big" refId={id(901)} sizeBytes={25 * 1024 * 1024} />)
+    await advance(100)
+    expect(snap(view, 'big').status).toBe('ready')
+    // Another large file takes the large slot for 30 s, across the renewal of the first one.
+    view.rerender(
+      <>
+        <Item name="big" refId={id(901)} sizeBytes={25 * 1024 * 1024} />
+        <Item name="big2" refId={id(902)} sizeBytes={25 * 1024 * 1024} />
+      </>
+    )
+    await advance(55000)
+    expect(fake.renew).toHaveBeenCalledTimes(1)
+    expect(fake.state.calls.filter((c) => c.artifactId === id(901))).toHaveLength(1)
+    expect(snap(view, 'big')).toMatchObject({ status: 'ready', url: `blob:${id(901)}#1` })
+  })
+
+  it('M7: a renovação recusada mantém a URL até o prazo e então lê de novo (o erro real aparece)', async () => {
+    let denied = false
+    const fake = fakeArtifacts({
+      before: () => {
+        if (denied) throw new MaestroClientError('NOT_FOUND', 'gone', false)
+      },
+      beforeRenew: () => {
+        throw new MaestroClientError('NOT_FOUND', 'gone', false)
+      },
+    })
+    useFakeMaestro(fake)
+    const view = render(<Item name="a" refId={id(1)} />)
+    await advance(100)
+    const firstUrl = snap(view, 'a').url
+    denied = true
+    await advance(51000)
+    expect(fake.renew).toHaveBeenCalledTimes(1)
+    expect(snap(view, 'a')).toMatchObject({ status: 'ready', url: firstUrl })
+    await advance(10000)
+    expect(fake.open).toHaveBeenCalledTimes(2)
+    expect(snap(view, 'a')).toMatchObject({ status: 'error', code: 'NOT_FOUND', url: '' })
+    expect(fake.state.live).toBe(0)
+  })
+
+  it('a renovação de um áudio não troca a URL: o player não é cortado e nada é revogado', async () => {
     const fake = fakeArtifacts()
     useFakeMaestro(fake)
-    const renders: { url: string | null; oldReleasedAtRender: boolean }[] = []
+    const urls = new Set<string | null>()
     function Probe() {
       const result = useMaestroArtifactUrl(T1, { refId: id(1), mimeType: 'audio/ogg', filename: 'a.ogg' })
-      renders.push({ url: result.url, oldReleasedAtRender: fake.state.resources[0]?.released ?? false })
+      urls.add(result.url)
       return <div data-testid="p">{result.url ?? ''}</div>
     }
     const view = render(<Probe />)
@@ -368,14 +453,10 @@ describe('useMaestroArtifactUrl', () => {
     const firstUrl = view.getByTestId('p').textContent
     expect(firstUrl).toBeTruthy()
     await advance(50500)
-    const nextUrl = view.getByTestId('p').textContent
-    expect(nextUrl).not.toBe(firstUrl)
-    // The render that shows the new URL happened while the old resource was still alive.
-    const swap = renders.find((r) => r.url === nextUrl)!
-    expect(swap.oldReleasedAtRender).toBe(false)
-    // After the swap the old resource is released and only the new one is live.
-    expect(fake.state.resources[0]!.released).toBe(true)
-    expect(fake.state.resources[1]!.released).toBe(false)
+    expect(fake.renew).toHaveBeenCalledTimes(1)
+    expect(view.getByTestId('p').textContent).toBe(firstUrl)
+    expect([...urls].filter(Boolean)).toEqual([firstUrl])
+    expect(fake.state.resources.filter((r) => r.released)).toHaveLength(0)
     expect(fake.state.live).toBe(1)
   })
 

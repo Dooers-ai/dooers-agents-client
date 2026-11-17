@@ -4,6 +4,7 @@
 import {
   AgentClient,
   type AgentConnectionConfig,
+  blobPartFilename,
   type PublicSettingsSchemaResult,
   type UploadResult,
 } from './client'
@@ -105,6 +106,30 @@ function accessFailure(cause: unknown): unknown {
 function errorMessage(cause: unknown): string {
   if (cause instanceof Error && cause.message) return cause.message
   return 'Maestro request failed'
+}
+
+/** Reason of the Maestro's refusal of an attachment that cannot enter the message (`binding.ts`). */
+export const MAESTRO_UPLOAD_REFERENCE_UNAVAILABLE = 'upload_reference_unavailable'
+/**
+ * M3: the Maestro refused a message because one of its uploads is gone (unknown, of another person,
+ * expired or removed). Production refuses the same message before creating it (`UploadReferenceError`,
+ * ack `UPLOAD_NOT_FOUND`): the optimistic message leaves, the composer shows the ack text and nothing
+ * is sent again. The Maestro's closed error has no artifact id, so the text names the first upload
+ * of the message, as production names the first missing reference in part order.
+ */
+function uploadReferenceRefusal(
+  cause: unknown,
+  content: readonly { type: string }[]
+): string | null {
+  if (
+    !(cause instanceof MaestroClientError) ||
+    cause.reasonCode !== MAESTRO_UPLOAD_REFERENCE_UNAVAILABLE
+  )
+    return null
+  const first = content.find(
+    (part): part is { type: 'attachment'; artifact_id: string } => part.type === 'attachment'
+  )
+  return first ? `Upload reference '${first.artifact_id}' not found or expired` : null
 }
 
 /**
@@ -232,6 +257,13 @@ export class MaestroAgentClient extends AgentClient {
             }
             this.callbacks.setSendError('Mensagem pendente descartada: a conversa não existe mais')
             this.report(cause)
+            continue
+          }
+          const refusal = uploadReferenceRefusal(cause, input.content)
+          if (refusal) {
+            // M3: the upload is gone; the message can never be delivered (production drops it).
+            this.outbox().remove(input.clientEventId!)
+            this.callbacks.setSendError(refusal)
             continue
           }
           this.callbacks.setSendError(`Envio pendente preservado: ${errorMessage(cause)}`)
@@ -1132,9 +1164,12 @@ export class MaestroAgentClient extends AgentClient {
     } catch (cause) {
       if (threadId && this.pendingClientEvents.delete(clientEventId))
         this.callbacks.removeOptimistic(threadId, clientEventId)
-      const message = errorMessage(cause)
+      const refusal = uploadReferenceRefusal(cause, content)
+      // A refused upload never succeeds: no pending send to replay, as production drops the frame.
+      if (refusal) this.outbox().remove(clientEventId)
+      const message = refusal ?? errorMessage(cause)
       this.callbacks.setSendError(message)
-      throw cause instanceof Error ? cause : new Error(message)
+      throw refusal ? new Error(message) : cause instanceof Error ? cause : new Error(message)
     }
   }
 
@@ -1374,8 +1409,12 @@ export class MaestroAgentClient extends AgentClient {
   override async upload(file: File | Blob, options?: { filename?: string }): Promise<UploadResult> {
     const maestro = this.maestro
     if (!maestro) throw new Error('Not connected')
+    // The name production's `upload` sends (`AgentClient.upload`): trimmed, `upload` when empty, and
+    // `recording.webm` (by type) for a recorded Blob. `artifacts.add` adds the browser's escaping.
     const filename =
-      options?.filename?.trim() || (file instanceof File ? file.name : '') || 'upload'
+      file instanceof File
+        ? options?.filename?.trim() || file.name.trim() || 'upload'
+        : blobPartFilename(file, options?.filename)
     const id = maestro.artifacts.add(file, filename)
     try {
       await maestro.artifacts.retry(id)

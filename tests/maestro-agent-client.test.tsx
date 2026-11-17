@@ -5,6 +5,7 @@ import { useConnection } from '../src/hooks/use-connection'
 import { toMaestroThread } from '../src/protocol/maestro/contracts'
 import { toMaestroNetworkEvent } from '../src/maestro/network'
 import { MaestroClient } from '../src/maestro/client'
+import { MaestroClientError } from '../src/maestro/types'
 import { MaestroAgentClient } from '../src/maestro-agent-client'
 import {
   legacyContentToMaestro,
@@ -268,6 +269,55 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     await tick()
     return { client, store, socket }
   }
+  it('I1: upload names the file as production upload does (trimmed, upload when empty, recording.webm for a Blob)', async () => {
+    const fetcher = vi.fn(async () => json({ items: [], next_cursor: null, has_more: false, watermark: '0' }))
+    const { client } = await setup(fetcher)
+    const names: string[] = []
+    const add = vi.spyOn(client.getMaestroClient()!.artifacts, 'add').mockImplementation((_file, name) => {
+      names.push(name)
+      throw new Error('stop')
+    })
+    const nfd = 'Relatório.pdf'.normalize('NFD')
+    for (const [file, options] of [
+      [new File(['x'], nfd), undefined],
+      [new File(['x'], '  Relatório.pdf  '), undefined],
+      [new File(['x'], 'a.pdf'), { filename: '  outro.pdf ' }],
+      [new File(['x'], '   '), undefined],
+      [new Blob(['x'], { type: 'audio/webm;codecs=opus' }), undefined],
+      [new Blob(['x'], { type: 'audio/ogg' }), { filename: 'voz.ogg' }],
+    ] as const)
+      await expect(client.upload(file, options)).rejects.toThrow('stop')
+    expect(names).toEqual([nfd, 'Relatório.pdf', 'outro.pdf', 'upload', 'recording.webm', 'voz.ogg'])
+    add.mockRestore()
+    client.disconnect()
+  })
+
+  it('M3: an upload the Maestro refuses shows the production text, drops the optimistic message and is not replayed', async () => {
+    localStorage.clear()
+    const mine = { ...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro')]) }
+    const fetcher = vi.fn(async () => json({ items: [mine], next_cursor: null, has_more: false, watermark: '1' }))
+    const { client, store } = await setup(fetcher)
+    await tick()
+    const refused = new MaestroClientError('ARTIFACT_NOT_READY', 'Artefato ainda indisponível.', true, uuid(901), undefined, undefined, undefined, 'upload_reference_unavailable')
+    const send = vi.spyOn(client.getMaestroClient()!, 'send').mockRejectedValue(refused)
+    const artifact = uuid(77)
+    const text = `Upload reference '${artifact}' not found or expired`
+    await expect(
+      client.sendMessage({ threadId, content: [{ type: 'text', text: 'veja' }, { type: 'document', refId: artifact, filename: 'a.pdf', mimeType: 'application/pdf' } as never] })
+    ).rejects.toThrow(text)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(store.getState().connection.sendError).toBe(text)
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('maestro.outbox.'))).toHaveLength(0)
+    expect(Object.values(store.getState().optimistic ?? {}).flat()).toHaveLength(0)
+    // Another refusal keeps the Maestro's text and the pending send, as before.
+    send.mockRejectedValue(new MaestroClientError('CORE_UNAVAILABLE', 'Serviço de autorização indisponível.', true))
+    await expect(client.sendMessage({ threadId, text: 'oi' })).rejects.toThrow('Serviço de autorização indisponível.')
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('maestro.outbox.'))).toHaveLength(1)
+    send.mockRestore()
+    client.disconnect()
+    localStorage.clear()
+  })
+
   it('recovers an interrupted publication with the same identity, recipients and model after reload', async () => {
     localStorage.clear()
     const mine = {...sharedThread('1', [agentParticipant(AGENT, uuid(20), 'Financeiro')]), routing_version:1}

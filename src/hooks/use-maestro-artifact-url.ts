@@ -298,7 +298,10 @@ class ArtifactQueue {
     entry.inflight = controller
     entry.controller = controller
     this.reads++
-    const large = entry.large
+    // M7: a due renewal of a URL on screen checks the access with a 1-byte read and keeps the same
+    // URL and bytes (`MaestroArtifacts.renew`); the file is not downloaded again. It is never large.
+    const renewing = entry.renewalDue && entry.resource !== null && !entry.init.stable
+    const large = entry.large && !renewing
     if (large) this.largeReads++
     const { threadId, refId, mimeType, filename, size } = entry.init
     const attachment = {
@@ -310,9 +313,13 @@ class ArtifactQueue {
     }
     let opening: Promise<MaestroArtifactResource>
     try {
-      opening = this.artifacts.open(threadId, attachment, controller.signal)
-      if (entry.init.stable)
-        opening = opening.then((resource) => copyToOwnBlob(resource, controller.signal))
+      if (renewing && entry.resource)
+        opening = this.artifacts.renew(entry.resource, controller.signal)
+      else {
+        opening = this.artifacts.open(threadId, attachment, controller.signal)
+        if (entry.init.stable)
+          opening = opening.then((resource) => copyToOwnBlob(resource, controller.signal))
+      }
     } catch (cause) {
       opening = Promise.reject(cause)
     }
@@ -401,7 +408,8 @@ class ArtifactQueue {
       return
     }
     if (entry.resource) {
-      // A failed renewal keeps the current URL until it is dropped, then the entry reloads.
+      // A failed renewal keeps the current URL until it is dropped, then the entry reloads (a full
+      // read, which shows the real error if the access is gone).
       entry.renewalDue = false
       return
     }
@@ -460,8 +468,9 @@ function queueFor(artifacts: MaestroArtifacts, history: MaestroHistory): Artifac
  * authenticated download. Only a Maestro client with a part that has `refId` and no `url` opens
  * anything; any other case returns `{ url: null, status: 'idle' }`.
  *
- * The URL expires in about 60 s: the hook renews it while the component is mounted, and aborts
- * the read and releases the resource on unmount or when the thread or part changes.
+ * The URL expires in about 60 s: the hook renews it while the component is mounted (a 1-byte
+ * access check that keeps the same URL; the file is downloaded once), and aborts the read and
+ * releases the resource on unmount or when the thread or part changes.
  *
  * A part whose file the thread history does not cite yet (the message the person is sending,
  * shown before the server event) stays `loading` and opens when the event arrives.
