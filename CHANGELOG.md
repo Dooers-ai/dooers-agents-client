@@ -5,9 +5,9 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.21.0] — 2026-10-31
+## [0.22.0] — 2026-11-17
 
-Requires agents-server 0.26.0 for the new frames; with older servers nothing new is sent
+Requires agents-server 0.27.0 for the new frames; with older servers nothing new is sent
 (they close the socket on unknown frame types).
 
 ### Added
@@ -29,9 +29,28 @@ Requires agents-server 0.26.0 for the new frames; with older servers nothing new
 - **Schedules**: `useSchedules({ threadId? })` — reminders and recurring tasks with
   `pause`, `resume`, `cancel`; live `schedule.upsert`/`schedule.deleted`.
 - `ChatContext.timezone` / `ChatContext.locale`; `sendMessage` fills the browser's values
-  automatically for servers ≥ 0.26.0.
+  automatically for servers ≥ 0.27.0.
 - `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
 - Store: `memory` and `schedules` slices.
+
+## [0.21.0] — 2026-11-16
+
+### Added
+
+- `presence_token` on every `event.create` the client sends (messages and form
+  responses), at the top level of the payload, never in `metadata`. It is the last
+  token from `getAuthToken`, so it only goes out when the provider has one; with a
+  static `authToken` (public chat) the field is never sent. A token younger than
+  60 s is reused and the frame goes out at once; an older one is fetched again
+  first, with one fetch shared by the sends queued behind it, in order. A fetch
+  that fails or does not settle within 15 s never holds a message back: it goes
+  out without the token, and the sends queued behind it skip a new fetch for 15 s.
+  A send still waiting for its token when the socket drops is rejected at once.
+  The token and its failures belong to one connection: `connect()` and
+  `disconnect()` forget them, and a fetch that lands after either is dropped.
+- `connector.interaction` in `EventType` (and the wire `WireEventType`): the event
+  agents-server emits when a tool needs the person to connect an account or approve
+  a call.
 
 ## [0.20.0] — 2026-10-29
 

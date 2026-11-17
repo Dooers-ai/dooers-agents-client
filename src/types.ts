@@ -247,6 +247,7 @@ export type EventType =
   | 'form'
   | 'form.response'
   | 'chart'
+  | 'connector.interaction'
   | 'thread.update'
 export type RunStatus = 'running' | 'succeeded' | 'failed' | 'canceled'
 export type ConnectionStatus = 'idle' | 'connecting' | 'connected' | 'disconnected' | 'error'

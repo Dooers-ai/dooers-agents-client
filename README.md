@@ -158,7 +158,7 @@ const { memories, prefs, available, create, update, remove, updatePrefs, search 
 const { schedules, pause, resume, cancel } = useSchedules()
 ```
 
-Both need agents-server ≥ 0.26.0 (`supported` is false otherwise).
+Both need agents-server ≥ 0.27.0 (`supported` is false otherwise).
 
 ### useMessage
 

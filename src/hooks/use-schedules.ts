@@ -7,7 +7,7 @@ export type UseSchedulesOptions = {
   threadId?: string | null
 }
 
-/** Reminders and recurring tasks of the connected user (agents-server ≥ 0.26.0). */
+/** Reminders and recurring tasks of the connected user (agents-server ≥ 0.27.0). */
 export function useSchedules(options?: UseSchedulesOptions) {
   const { client } = useAgentContext()
   const autoLoad = options?.autoLoad !== false

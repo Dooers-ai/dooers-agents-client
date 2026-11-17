@@ -43,6 +43,10 @@ import {
 import { PACKAGE_VERSION } from './version'
 
 const SEND_MESSAGE_TIMEOUT = 30_000
+/** A presence token older than this is fetched again before the next send. */
+const PRESENCE_MAX_AGE_MS = 60_000
+/** After a failed or timed-out token fetch, queued sends skip a new fetch for this long. */
+const PRESENCE_FAILURE_WINDOW_MS = 15_000
 const ARTIFACTS_LIST_TIMEOUT = 5_000
 
 /** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
@@ -292,6 +296,14 @@ export class AgentClient {
   private pendingOptimistic = new Map<string, { threadId: string; clientEventId: string }>()
 
   // Pending message promises — keyed by outbound frame id (same as client_event_id for sends).
+  /** Last token from `getAuthToken`, attached to `event.create` as `presence_token`. */
+  private presence?: { token: string; at: number }
+  private presenceFetch?: Promise<string | undefined>
+  private presenceChain: Promise<void> = Promise.resolve()
+  private presenceQueue = 0
+  private presenceFailedAt?: number
+  /** Bumped by connect()/disconnect(): work started for an older connection never touches presence. */
+  private presenceEpoch = 0
   private pendingMessages = new Map<
     string,
     {
@@ -490,6 +502,7 @@ export class AgentClient {
     this.consecutiveFailures = 0
     this.fullListInFlight = false
     this.fullListPending = null
+    this.resetPresence()
 
     // Derive HTTP base URL from WebSocket URL for resolving relative content URLs
     if (this.httpBaseUrlOverride) {
@@ -575,11 +588,22 @@ export class AgentClient {
     this.abortPendingPublicSchema('Disconnected')
     this.fullListInFlight = false
     this.fullListPending = null
+    this.resetPresence()
     if (this.ws) {
       detachAndClose(this.ws)
       this.ws = null
     }
     this.callbacks.setConnectionStatus('disconnected')
+  }
+
+  /** A presence token proves presence to one agent: never carry it (or its failures) across connections. */
+  private resetPresence() {
+    this.presenceEpoch++
+    this.presence = undefined
+    this.presenceFailedAt = undefined
+    this.presenceFetch = undefined
+    this.presenceChain = Promise.resolve()
+    this.presenceQueue = 0
   }
 
   retry() {
@@ -904,7 +928,7 @@ export class AgentClient {
 
   // --- Messaging ---
 
-  // --- Run control / memory / schedules (agents-server ≥ 0.26.0) ---------------------------
+  // --- Run control / memory / schedules (agents-server ≥ 0.27.0) ---------------------------
 
   /** True when the connected server supports Stop, memory and schedules frames. */
   supportsFrontierFeatures(): boolean {
@@ -914,7 +938,7 @@ export class AgentClient {
   private requestWithAck(type: string, payload: unknown, timeoutMs = 15_000): Promise<void> {
     if (!this.supportsFrontierFeatures()) {
       return Promise.reject(
-        new Error('This agent does not support this feature yet (agents-server < 0.26.0)')
+        new Error('This agent does not support this feature yet (agents-server < 0.27.0)')
       )
     }
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -1137,7 +1161,7 @@ export class AgentClient {
       payload.queue = params.queue
     }
 
-    this.sendRaw({
+    this.sendEventCreate({
       id: clientEventId,
       type: 'event.create',
       payload,
@@ -1157,7 +1181,7 @@ export class AgentClient {
     const clientEventId = crypto.randomUUID()
     const promise = this.createPendingPromise(clientEventId)
 
-    this.sendRaw({
+    this.sendEventCreate({
       id: clientEventId,
       type: 'event.create',
       payload: {
@@ -1201,15 +1225,108 @@ export class AgentClient {
   /** Rejects when `getAuthToken` throws or has not settled within AUTH_TOKEN_TIMEOUT_MS. */
   private async resolveAuthToken(): Promise<string | undefined> {
     if (!this.config.getAuthToken) return this.config.authToken
+    const epoch = this.presenceEpoch
     let timer: ReturnType<typeof setTimeout> | undefined
     const timeout = new Promise<never>((_, reject) => {
       timer = setTimeout(() => reject(new Error('auth token timeout')), AUTH_TOKEN_TIMEOUT_MS)
     })
     try {
-      return await Promise.race([this.config.getAuthToken(), timeout])
+      const token = await Promise.race([this.config.getAuthToken(), timeout])
+      // Every token fetched this way is also fresh proof of presence for the next sends.
+      if (token && epoch === this.presenceEpoch) this.presence = { token, at: Date.now() }
+      return token
     } finally {
       clearTimeout(timer)
     }
+  }
+
+  /**
+   * Sends an `event.create` carrying a fresh `presence_token` (top level of the payload) when the
+   * client has `getAuthToken`. With a fresh cached token the frame goes out synchronously; otherwise
+   * sends queue behind one shared token fetch, in order. A failed or slow fetch never blocks a
+   * message: it goes out without the token.
+   */
+  private sendEventCreate(frame: { payload: Record<string, unknown> } & Record<string, unknown>) {
+    if (!this.config.getAuthToken) {
+      this.sendRaw(frame)
+      return
+    }
+    if (
+      this.presenceQueue === 0 &&
+      this.presence &&
+      Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS
+    ) {
+      frame.payload.presence_token = this.presence.token
+      this.sendRaw(frame)
+      return
+    }
+    const epoch = this.presenceEpoch
+    this.presenceQueue++
+    this.presenceChain = this.presenceChain
+      .then(async () => {
+        try {
+          // connect()/disconnect() came first: this send belongs to the old connection, and the
+          // provider now configured is the new one's
+          if (epoch !== this.presenceEpoch) {
+            this.failPendingSend(frame.id as string)
+            return
+          }
+          const stale = !this.presence || Date.now() - this.presence.at > PRESENCE_MAX_AGE_MS
+          const recentlyFailed =
+            this.presenceFailedAt !== undefined &&
+            Date.now() - this.presenceFailedAt < PRESENCE_FAILURE_WINDOW_MS
+          if (stale && !recentlyFailed) {
+            try {
+              await this.fetchPresence()
+              if (epoch === this.presenceEpoch) this.presenceFailedAt = undefined
+            } catch {
+              // send without the token; sends queued behind this one skip a new fetch for a while
+              if (epoch === this.presenceEpoch) this.presenceFailedAt = Date.now()
+            }
+          }
+          if (epoch !== this.presenceEpoch) {
+            // ...or it came while this send waited for its token
+            this.failPendingSend(frame.id as string)
+            return
+          }
+          if (this.presence && Date.now() - this.presence.at <= PRESENCE_MAX_AGE_MS) {
+            frame.payload.presence_token = this.presence.token
+          }
+          if (!this.pendingMessages.has(frame.id as string)) {
+            // already rejected (e.g. the connection dropped while waiting): never send it late
+          } else if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            this.failPendingSend(frame.id as string)
+          } else {
+            this.sendRaw(frame)
+          }
+        } finally {
+          if (epoch === this.presenceEpoch) this.presenceQueue--
+        }
+      })
+      .catch(() => {})
+  }
+
+  /** The socket went away while a send waited for its token: reject now instead of timing out. */
+  private failPendingSend(clientEventId: string) {
+    const pending = this.pendingMessages.get(clientEventId)
+    if (!pending) return
+    clearTimeout(pending.timer)
+    const opt = this.pendingOptimistic.get(clientEventId)
+    if (opt?.threadId) this.callbacks.removeOptimistic(opt.threadId, clientEventId)
+    this.pendingOptimistic.delete(clientEventId)
+    this.pendingMessages.delete(clientEventId)
+    pending.reject(new Error('Not connected'))
+  }
+
+  /** One in-flight token fetch shared by every queued send. */
+  private fetchPresence(): Promise<string | undefined> {
+    if (!this.presenceFetch) {
+      const inFlight: Promise<string | undefined> = this.resolveAuthToken().finally(() => {
+        if (this.presenceFetch === inFlight) this.presenceFetch = undefined
+      })
+      this.presenceFetch = inFlight
+    }
+    return this.presenceFetch
   }
 
   private async openConnection(): Promise<void> {
@@ -1986,7 +2103,7 @@ export class AgentClient {
     return Object.keys(base).length > 0 ? base : undefined
   }
 
-  /** Browser time zone and locale for servers that read them (agents-server ≥ 0.26.0). */
+  /** Browser time zone and locale for servers that read them (agents-server ≥ 0.27.0). */
   private withLocaleDefaults(chatContext: ChatContext | undefined): ChatContext | undefined {
     if (!supportsChatContext(this.serverVersion) || !supportsFrontierFeatures(this.serverVersion)) {
       return chatContext

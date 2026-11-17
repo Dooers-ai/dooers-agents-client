@@ -75,10 +75,12 @@ export type C2S_EventCreate = Frame<
       locale?: string | null
     }
     queue?: string | null
+    /** Fresh handshake token proving the person is present; top level, never in `metadata`. */
+    presence_token?: string
   }
 >
 
-// --- Run control / long-term memory / schedules (agents-server ≥ 0.26.0) ---
+// --- Run control / long-term memory / schedules (agents-server ≥ 0.27.0) ---
 
 export type C2S_RunCancel = Frame<'run.cancel', { thread_id: string; run_id?: string | null }>
 
@@ -318,7 +320,7 @@ export type S2C_FeedbackAck = Frame<
 
 export type S2C_AnalyticsEvent = Frame<'analytics.event', WireAnalyticsEvent>
 
-/** Incremental text for an event announced with ``streaming: true`` (agents-server ≥ 0.26.0). */
+/** Incremental text for an event announced with ``streaming: true`` (agents-server ≥ 0.27.0). */
 export type S2C_EventDelta = Frame<
   'event.delta',
   {
