@@ -427,6 +427,9 @@ export const authorizationOperations = [
   'thread.unarchive',
   'thread.delete',
   'thread.ownership.transfer',
+  // SEC-05: an elevated human (organization_admin or workspace_manager) designates the owner of a thread that
+  // has no active human owner. Never an agent or the visitor; transfer stays the owner's own operation.
+  'thread.ownership.assign',
   'participant.add',
   'participant.remove',
   'participant.leave',
@@ -477,6 +480,7 @@ export const authorizationScopeRules: Record<AuthorizationOperation, readonly st
   'thread.unarchive': ['threads:manage'],
   'thread.delete': ['threads:manage'],
   'thread.ownership.transfer': ['threads:manage', 'participants:manage'],
+  'thread.ownership.assign': ['threads:manage', 'participants:manage'],
   'participant.add': ['participants:manage'],
   'participant.remove': ['participants:manage'],
   'participant.leave': ['threads:read'],
@@ -729,6 +733,15 @@ export const authorizeRequestSchema = z
         path: ['targets'],
         message:
           'Alvo external só existe em thread.create, participant.add e thread.create.public_chat',
+      })
+    if (
+      value.operation === 'thread.ownership.assign' &&
+      (value.targets.length > 1 || value.targets.some((target) => target.kind !== 'human'))
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['targets'],
+        message: 'Designar dono aceita só um alvo humano',
       })
     const keys = value.targets.map((target) => `${target.kind}:${targetIdentity(target)}`)
     if (new Set(keys).size !== keys.length)

@@ -1294,6 +1294,35 @@ export class MaestroAgentClient extends AgentClient {
       })
   }
 
+  /**
+   * SEC-05: designates a person (by the legacy user id, the principal) as owner of a thread without an
+   * active human owner. Agents and external contacts are never owners: `false` without a request.
+   */
+  override assignThreadOwner(threadId: string, userId: string): Promise<boolean> {
+    const maestro = this.maestro
+    if (!maestro || this.visitor) return Promise.resolve(false)
+    const id = threadId.toLowerCase()
+    const state = maestro.store.getThread(id)
+    const participant = Object.values(state?.participantsById ?? {}).find(
+      (p) => p.state !== 'removed' && p.kind === 'human' && maestroParticipantLegacyId(p) === userId
+    )
+    if (!participant) return Promise.resolve(false)
+    const key = crypto.randomUUID()
+    return (async () => {
+      const version = state?.thread?.version ?? (await maestro.getThread(id)).version
+      await onceMore(() => maestro.assignOwnership(id, participant.participantId, version, key))
+    })()
+      .then(() => {
+        this.requestThreadList()
+        return true
+      })
+      .catch((cause) => {
+        this.report(cause)
+        this.callbacks.setSendError(`Could not assign the owner: ${errorMessage(cause)}`)
+        return false
+      })
+  }
+
   override archiveThread(threadId: string): Promise<boolean> {
     return this.changeState(threadId, 'archived')
   }

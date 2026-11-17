@@ -101,6 +101,14 @@ describe('external participants (WhatsApp, public chat)', () => {
       displayName: 'Cliente',
     })
   })
+  it('access.assignOwner follows permissions.assign_owner; absent is false', () => {
+    const base = thread('1')
+    expect(maestroThreadToLegacy(toMaestroThread(base), AGENT).access?.assignOwner).toBe(false)
+    const elevated = { ...base, permissions: { ...base.permissions, assign_owner: true } }
+    expect(maestroThreadToLegacy(toMaestroThread(elevated), AGENT).access?.assignOwner).toBe(true)
+    const denied = { ...base, permissions: { ...base.permissions, assign_owner: false } }
+    expect(maestroThreadToLegacy(toMaestroThread(denied), AGENT).access?.assignOwner).toBe(false)
+  })
   it('an external participant is not an agent recipient of mentions', () => {
     const thread = threadWithExternal()
     expect(thread.participants.some((p) => p.kind === 'external')).toBe(true)

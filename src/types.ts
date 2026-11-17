@@ -270,6 +270,11 @@ export interface ThreadAccess {
   archive?: boolean
   /** Maestro only: may remove another participant (same group as ``archive``). */
   removeParticipants?: boolean
+  /**
+   * Maestro only (SEC-05): may designate the owner of a thread with no active human owner (organization
+   * owner or manager, workspace manager).
+   */
+  assignOwner?: boolean
 }
 
 export interface Thread {

@@ -258,6 +258,31 @@
       }
     },
     {
+      "method": "POST",
+      "path": "/threads/:id/ownership/assign",
+      "operation": "thread.ownership.assign",
+      "request_schema": "Public.OwnershipRequest",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.Thread",
+      "status_codes": [200],
+      "required_capability": "participants.humans",
+      "auth": "human",
+      "headers": ["Authorization", "Idempotency-Key", "If-Match"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "only organization_admin or workspace_manager, participating or not",
+        "only when the thread has no active human owner",
+        "target: active human participant; suspended owners become members"
+      ],
+      "fixtures": {
+        "request": "public.OwnershipRequest.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.Thread.assign-owner",
+        "error": "public.Error.valid"
+      }
+    },
+    {
       "method": "GET",
       "path": "/threads/:id/events",
       "operation": "thread.history",

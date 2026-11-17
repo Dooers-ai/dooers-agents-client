@@ -144,3 +144,25 @@ it('with remove_participants a supervisor removes another participant without th
   expect(removal[0]).toBe(`https://maestro.example/api/v1/threads/${threadId}/participants/${uuid(9)}`)
   expect((removal[1]?.headers as Record<string, string>)['Maestro-Supervision-Grant']).toBeUndefined()
 })
+it('assignOwnership posts to /ownership/assign with If-Match and Idempotency-Key', async () => {
+  const value = thread('2'); value.version = 2
+  const fetcher = vi.fn(async (_url, init) => json(init?.method === 'GET' ? value : { ...value, permissions: { ...value.permissions, manage: false } }))
+  const { client } = await setup(fetcher)
+  await client.assignOwnership(threadId, uuid(9).toUpperCase(), 1, 'assign-key')
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  expect(String(fetcher.mock.calls[0]![0])).toBe(`https://maestro.example/api/v1/threads/${threadId}/ownership/assign`)
+  expect(fetcher.mock.calls[0]![1]).toMatchObject({ method: 'POST', credentials: 'omit', headers: { 'If-Match': '1', 'Idempotency-Key': 'assign-key' }, body: JSON.stringify({ participant_id: uuid(9) }) })
+  expect(client.store.getThread(threadId)?.thread?.version).toBe(2)
+})
+it('a supervisor assigns only with assign_owner', async () => {
+  const sent: Array<[string, RequestInit | undefined]> = []
+  const fetcher = vi.fn(async (url: string, init?: RequestInit) => { sent.push([url, init]); return url.endsWith('/supervision') ? json(supervisedGrant()) : json(served.value) })
+  const denied = await supervise({ manage: true }, fetcher)
+  await expect(denied.client.assignOwnership(threadId, uuid(9), 1, 'denied-assign')).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  expect(sent.some(([url]) => url.endsWith('/ownership/assign'))).toBe(false)
+  const { client } = await supervise({ assign_owner: true }, fetcher)
+  await client.assignOwnership(threadId, uuid(9), 1, 'assign-key')
+  const assign = sent.find(([url]) => url.endsWith('/ownership/assign'))!
+  expect(assign[1]?.method).toBe('POST')
+  expect((assign[1]?.headers as Record<string, string>)['Maestro-Supervision-Grant']).toBeUndefined()
+})
