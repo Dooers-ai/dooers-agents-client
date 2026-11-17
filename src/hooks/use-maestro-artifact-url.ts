@@ -45,6 +45,14 @@ export interface MaestroArtifactUrlResult {
 }
 
 const MAX_READS = 2
+/**
+ * Reads of large files at the same time. A large file never takes the last read slot: the chips and
+ * thumbnails of small files, in this thread or another one, keep opening while a 25 MiB file
+ * downloads. A part without a size (it does not happen with Maestro attachments) counts as small.
+ */
+const MAX_LARGE_READS = 1
+/** From this size a read is large (`MAX_LARGE_READS`). */
+export const MAESTRO_LARGE_READ_BYTES = 4 * 1024 * 1024
 const MAX_LIVE = 8
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 /** The host revokes a resource 60 s after the read; renew before that. */
@@ -120,6 +128,11 @@ class Entry {
     this.listener(next)
   }
 
+  /** A large file: it waits for the large-read slot (`MAX_LARGE_READS`). */
+  get large() {
+    return this.init.size !== undefined && this.init.size >= MAESTRO_LARGE_READ_BYTES
+  }
+
   /** Wants a read: on screen and either has no resource or must renew it. */
   get wantsRead() {
     return (
@@ -139,8 +152,8 @@ type MaestroHistory = Pick<MaestroClient, 'citesArtifact'> & {
 }
 
 /**
- * Per-client queue: at most 2 reads at the same time and 8 live resources. A resource that is off
- * screen is released (oldest first) when a visible one needs the slot.
+ * Per-client queue: at most 2 reads at the same time (only 1 of a large file) and 8 live resources.
+ * A resource that is off screen is released (oldest first) when a visible one needs the slot.
  *
  * A file opens only when the thread history in the client cites it. The message the person is
  * sending shows before the server event arrives; the client refuses to read its file until then.
@@ -149,6 +162,7 @@ type MaestroHistory = Pick<MaestroClient, 'citesArtifact'> & {
 class ArtifactQueue {
   private entries = new Set<Entry>()
   private reads = 0
+  private largeReads = 0
   private seq = 0
   private unwatch: (() => void) | null = null
 
@@ -234,6 +248,7 @@ class ArtifactQueue {
     let best: Entry | undefined
     for (const entry of this.entries) {
       if (!entry.wantsRead || !this.isCited(entry)) continue
+      if (entry.large && this.largeReads >= MAX_LARGE_READS) continue
       if (
         !best ||
         (entry.renewalDue && !best.renewalDue) ||
@@ -283,6 +298,8 @@ class ArtifactQueue {
     entry.inflight = controller
     entry.controller = controller
     this.reads++
+    const large = entry.large
+    if (large) this.largeReads++
     const { threadId, refId, mimeType, filename, size } = entry.init
     const attachment = {
       type: 'attachment' as const,
@@ -302,6 +319,7 @@ class ArtifactQueue {
     opening.then(
       (resource) => {
         this.reads--
+        if (large) this.largeReads--
         entry.inflight = null
         if (entry.disposed || controller.signal.aborted) resource.release()
         else this.accept(entry, resource)
@@ -309,6 +327,7 @@ class ArtifactQueue {
       },
       (cause) => {
         this.reads--
+        if (large) this.largeReads--
         entry.inflight = null
         if (!entry.disposed && !controller.signal.aborted) this.fail(entry, cause)
         this.pump()

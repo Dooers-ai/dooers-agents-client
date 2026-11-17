@@ -16,6 +16,8 @@ const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')
 interface FakeOptions {
   /** Time (ms) a read takes. */
   readMs?: number
+  /** Time (ms) the read of one artifact takes (overrides `readMs`). */
+  readMsFor?: (artifactId: string) => number | undefined
   /** Called before the host-like checks; may throw to simulate a failure. */
   before?: (call: number, artifactId: string) => void
   /** When true the fake ignores the abort signal (a read that finishes after abort). */
@@ -46,7 +48,10 @@ function fakeArtifacts(options: FakeOptions = {}) {
     state.maxReads = Math.max(state.maxReads, state.reads)
     try {
       await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(resolve, options.readMs ?? 10)
+        const timer = setTimeout(
+          resolve,
+          options.readMsFor?.(attachment.artifact_id) ?? options.readMs ?? 10
+        )
         if (!options.ignoreAbort)
           signal?.addEventListener('abort', () => {
             clearTimeout(timer)
@@ -121,11 +126,12 @@ interface ItemProps {
   url?: string
   visible?: boolean
   stable?: boolean
+  sizeBytes?: number
 }
-function Item({ name, threadId = T1, refId, url, visible, stable }: ItemProps) {
+function Item({ name, threadId = T1, refId, url, visible, stable, sizeBytes }: ItemProps) {
   const result = useMaestroArtifactUrl(
     threadId,
-    { refId, url, mimeType: 'image/png', filename: 'a.png' },
+    { refId, url, mimeType: 'image/png', filename: 'a.png', ...(sizeBytes === undefined ? {} : { sizeBytes }) },
     visible === undefined && stable === undefined
       ? undefined
       : { ...(visible === undefined ? {} : { visible }), ...(stable === undefined ? {} : { stable }) }
@@ -202,6 +208,34 @@ describe('useMaestroArtifactUrl', () => {
     expect(statuses.filter((s) => s === 'loading')).toHaveLength(4)
     expect(fake.state.maxLive).toBe(8)
     expect(fake.state.maxReads).toBe(2)
+    expect(fake.state.rateLimited).toBe(0)
+  })
+
+  it('F6: anexos grandes não seguram as leituras; os chips pequenos de outra conversa abrem antes', async () => {
+    const MIB = 1024 * 1024
+    const fake = fakeArtifacts({
+      readMsFor: (artifactId) => (artifactId === id(900) || artifactId === id(901) ? 20_000 : 10),
+    })
+    useFakeMaestro(fake)
+    const view = render(
+      <>
+        <Item name="big1" refId={id(900)} sizeBytes={25 * MIB} />
+        <Item name="big2" refId={id(901)} sizeBytes={24 * MIB} />
+        {[0, 1, 2, 3, 4].map((i) => (
+          <Item key={i} name={`small${i}`} threadId={T2} refId={id(910 + i)} sizeBytes={600 * 1024} />
+        ))}
+      </>
+    )
+    await advance(500)
+    for (let i = 0; i < 5; i++) expect(snap(view, `small${i}`).status).toBe('ready')
+    expect(snap(view, 'big1').status).toBe('loading')
+    // Only one large read at a time: the second large file waits for the first.
+    expect(fake.state.calls.filter((call) => call.artifactId === id(901))).toHaveLength(0)
+    await advance(20_000)
+    expect(snap(view, 'big1').status).toBe('ready')
+    await advance(20_000)
+    expect(snap(view, 'big2').status).toBe('ready')
+    expect(fake.state.maxReads).toBeLessThanOrEqual(2)
     expect(fake.state.rateLimited).toBe(0)
   })
 

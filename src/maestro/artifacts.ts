@@ -79,6 +79,20 @@ const INLINE_IMAGE_TYPES = new Set([
   'image/bmp',
 ])
 /**
+ * SVG shows as an image, as in production (`<img src>`). It never gets a `blob:` URL: a `blob:` is
+ * same-origin with the app, so a person who opens it in a new tab would run its script in the app
+ * origin. `open()` gives SVG a `data:image/svg+xml` URL instead: an `<img>` renders it without script,
+ * and a document opened from it has an opaque origin, never the app's (production opens the file from
+ * the storage host, not from the app). The web renders it only inside `<img>`.
+ */
+export const MAESTRO_SVG_TYPE = 'image/svg+xml'
+function dataUrl(type: string, bytes: Uint8Array): string {
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+  return `data:${type};base64,${btoa(binary)}`
+}
+/**
  * MIME type for the `blob:` URL of an artifact. A `blob:` URL is same-origin with the web app:
  * if a tab navigates to one of type text/html, SVG or XML, the file runs script in the app origin.
  * Only media that the production components render inline (raster images, audio) and PDF keep
@@ -86,6 +100,7 @@ const INLINE_IMAGE_TYPES = new Set([
  * /Encrypt, and the browser PDF viewer does not run script in the page origin, so the web can show
  * a PDF in its View panel. Everything else gets `application/octet-stream`, so navigation
  * downloads the file. Any type whose subtype ends in `+xml` also gets it, even under `audio/`.
+ * SVG never reaches a `blob:` (see `MAESTRO_SVG_TYPE`): it is shown from a `data:` URL.
  */
 export function maestroBlobType(mimeType: string): string {
   const type = mimeType.split(';')[0]!.trim().toLowerCase()
@@ -99,8 +114,37 @@ export function maestroBlobType(mimeType: string): string {
     return type
   return 'application/octet-stream'
 }
-const failure = (code: string, retryable = false) =>
-  new MaestroClientError(code, 'Artifact request unavailable', retryable)
+const failure = (code: string, retryable = false, message = 'Artifact request unavailable') =>
+  new MaestroClientError(code, message, retryable)
+/** Production's text for a file over the limit (`POST /uploads` of the agent, HTTP 413). */
+export const maestroFileTooLargeText = (maxBytes: number) => `File exceeds ${maxBytes} byte limit`
+/** Uploads sent at the same time; the others wait. The Maestro accepts at least this many per person. */
+export const MAESTRO_PARALLEL_UPLOADS = 4
+/** Files selected at once (the message parts limit of the Maestro, `MESSAGE_MAX_PARTS`). */
+export const MAESTRO_MAX_SELECTED_FILES = 20
+/** Tries of one upload the Maestro answers with 429 (too many uploads at the same time). */
+const UPLOAD_RATE_LIMITED_TRIES = 4
+/** Production's multipart part type: the browser sends `application/octet-stream` for an unknown type. */
+function uploadType(file: Blob): string {
+  const type = file.type.split(';')[0]!.trim()
+  return /^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(type) && type.length <= 128
+    ? type
+    : 'application/octet-stream'
+}
+function abortableDelay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) return reject(failure('DISCONNECTED'))
+    const timer = setTimeout(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    }, ms)
+    const abort = () => {
+      clearTimeout(timer)
+      reject(failure('DISCONNECTED'))
+    }
+    signal.addEventListener('abort', abort, { once: true })
+  })
+}
 /** Private, bounded File intentions. These are neither canonical events nor storage references. */
 export class MaestroArtifacts {
   private intents = new Map<string, Intent>()
@@ -135,11 +179,19 @@ export class MaestroArtifacts {
   }
   /** Select once; retry retains the original bytes, key, hash and workspace. */
   add(file: Blob, filename: string, options: MaestroUploadOptions = {}): string {
-    if (this.intents.size >= 16 || file.size < 1 || file.size > this.maxBytes)
-      throw failure('PAYLOAD_TOO_LARGE')
+    // The texts production shows (`POST /uploads` of the agent and `AgentServer.chat_upload`).
+    if (file.size > this.maxBytes)
+      throw failure('PAYLOAD_TOO_LARGE', false, maestroFileTooLargeText(this.maxBytes))
+    if (file.size < 1) throw failure('PAYLOAD_TOO_LARGE', false, 'empty file')
+    if (this.intents.size >= MAESTRO_MAX_SELECTED_FILES)
+      throw failure(
+        'PAYLOAD_TOO_LARGE',
+        false,
+        `Too many files at once (${MAESTRO_MAX_SELECTED_FILES})`
+      )
     publicSchemas['Public.ArtifactCreateRequest'].parse({
       filename,
-      mime_type: file.type,
+      mime_type: uploadType(file),
       size_bytes: file.size,
       sha256: '0'.repeat(64),
       workspace_id: this.host.workspaceId,
@@ -192,36 +244,62 @@ export class MaestroArtifacts {
           }
         }
         current()
+        const type = uploadType(intent.file)
         const request = publicSchemas['Public.ArtifactCreateRequest'].parse({
           filename: intent.filename,
-          mime_type: intent.file.type,
+          mime_type: type,
           size_bytes: intent.file.size,
           sha256: intent.hash,
           workspace_id: this.host.workspaceId,
         })
-        const body = new FormData()
-        body.append('metadata', JSON.stringify(request))
-        body.append('file', intent.file, intent.filename)
-        const response = await this.host.request('/artifacts', {
-          method: 'POST',
-          headers: { 'Idempotency-Key': intent.key },
-          body,
-          signal: intent.controller.signal,
-        })
-        const data = await this.readResponse(response, 65536, intent.controller.signal)
-        current()
-        if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? ''))
-          throw failure('PROTOCOL_ERROR')
-        const value: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(data))
-        if (!response.ok) throw this.responseError(value)
-        if (response.status !== 201) throw failure('PROTOCOL_ERROR')
+        let value: unknown
+        let status = 0
+        for (let attempt = 1; ; attempt++) {
+          // At most MAESTRO_PARALLEL_UPLOADS at the same time: the composer sends all the selected files.
+          await this.uploadSlot(intent.controller.signal)
+          try {
+            current()
+            const body = new FormData()
+            body.append('metadata', JSON.stringify(request))
+            body.append(
+              'file',
+              type === intent.file.type ? intent.file : new Blob([intent.file], { type }),
+              intent.filename
+            )
+            const response = await this.host.request('/artifacts', {
+              method: 'POST',
+              headers: { 'Idempotency-Key': intent.key },
+              body,
+              signal: intent.controller.signal,
+            })
+            const data = await this.readResponse(response, 65536, intent.controller.signal)
+            current()
+            if (!/^application\/json(?:\s*;|$)/i.test(response.headers.get('content-type') ?? ''))
+              throw failure('PROTOCOL_ERROR')
+            value = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(data))
+            status = response.status
+          } finally {
+            this.releaseUploadSlot()
+          }
+          if (status < 400) break
+          const error = this.responseError(value)
+          // Too many uploads at the same time: wait as the Maestro asks (Retry-After) and send again.
+          if (error.code !== 'RATE_LIMITED' || attempt >= UPLOAD_RATE_LIMITED_TRIES) throw error
+          await abortableDelay(
+            Math.min(5000, Math.max(250, (error.retryAfterSeconds ?? 1) * 1000)),
+            intent.controller.signal
+          )
+          current()
+        }
+        if (status !== 201) throw failure('PROTOCOL_ERROR')
         const result = parseMaestroNetwork(publicSchemas['Public.UploadSessionResponse'], value)
         const a = result.artifact
+        // The Maestro stores a canonical type (the extension's when the declared one is generic):
+        // the attachment carries the stored one, as the SDK does.
         if (
           result.upload_mode !== 'multipart_proxy' ||
           a.state !== 'ready_unbound' ||
           a.filename !== request.filename ||
-          a.mime_type !== request.mime_type ||
           a.size_bytes !== request.size_bytes ||
           a.sha256 !== request.sha256 ||
           !a.expires_at ||
@@ -236,7 +314,15 @@ export class MaestroArtifacts {
           artifact: Object.freeze(a),
         })
       } catch (cause) {
-        const e = cause instanceof MaestroClientError ? cause : failure('NETWORK_ERROR', true)
+        // A network failure shows the browser's text, as production (`fetch` rejects with it).
+        const e =
+          cause instanceof MaestroClientError
+            ? cause
+            : failure(
+                'NETWORK_ERROR',
+                true,
+                cause instanceof Error && cause.message ? cause.message : 'Upload failed'
+              )
         if (this.intents.get(id) === intent)
           intent.draft = Object.freeze({
             id,
@@ -335,9 +421,12 @@ export class MaestroArtifacts {
         throw failure('PROTOCOL_ERROR')
       const bytes = await this.readResponse(response, Number(length), lifetime, chunks)
       if (bytes.byteLength !== Number(length) || lifetime.aborted) throw failure('PROTOCOL_ERROR')
-      const blob = new Blob([bytes], { type: maestroBlobType(type) })
+      // SVG: a `data:` URL (opaque origin if opened), never a same-origin `blob:` (MAESTRO_SVG_TYPE).
+      const svg = type === MAESTRO_SVG_TYPE
+      const url = svg
+        ? dataUrl(MAESTRO_SVG_TYPE, bytes)
+        : URL.createObjectURL(new Blob([bytes], { type: maestroBlobType(type) }))
       bytes.fill(0)
-      const url = URL.createObjectURL(blob)
       const resource: MaestroArtifactResource = Object.freeze({
         url,
         mimeType: type,
@@ -348,7 +437,7 @@ export class MaestroArtifacts {
           if (!entry) return
           clearTimeout(entry.timer)
           this.resources.delete(resource)
-          URL.revokeObjectURL(url)
+          if (!svg) URL.revokeObjectURL(url)
         },
       })
       this.resources.set(resource, { threadId, timer: setTimeout(() => resource.release(), 60000) })
@@ -364,9 +453,46 @@ export class MaestroArtifacts {
       this.reads.delete(c)
     }
   }
+  /**
+   * The Maestro's refusal with the text the person sees: production's text when production has one
+   * (file over the limit), otherwise the Maestro's own message for that cause. Never a generic text.
+   */
   private responseError(value: unknown) {
     const e = parseMaestroNetwork(publicSchemas['Public.Error'], value).error
-    return failure(e.code, e.retryable)
+    const retryAfter = e.details?.retry_after_seconds
+    return new MaestroClientError(
+      e.code,
+      e.code === 'PAYLOAD_TOO_LARGE' ? maestroFileTooLargeText(this.maxBytes) : e.message,
+      e.retryable,
+      e.request_id,
+      undefined,
+      undefined,
+      undefined,
+      e.details?.reason_code,
+      typeof retryAfter === 'number' ? retryAfter : undefined
+    )
+  }
+  private uploading = 0
+  private uploadWaiters: (() => void)[] = []
+  private async uploadSlot(signal: AbortSignal) {
+    while (this.uploading >= MAESTRO_PARALLEL_UPLOADS) {
+      if (signal.aborted) throw failure('DISCONNECTED')
+      await new Promise<void>((resolve) => {
+        const wake = () => {
+          signal.removeEventListener('abort', wake)
+          this.uploadWaiters = this.uploadWaiters.filter((waiter) => waiter !== wake)
+          resolve()
+        }
+        this.uploadWaiters.push(wake)
+        signal.addEventListener('abort', wake, { once: true })
+      })
+    }
+    if (signal.aborted) throw failure('DISCONNECTED')
+    this.uploading++
+  }
+  private releaseUploadSlot() {
+    this.uploading--
+    this.uploadWaiters.shift()?.()
   }
   private async readResponse(
     response: Response,

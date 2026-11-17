@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { MaestroArtifacts, type MaestroAttachment } from '../src/maestro/artifacts'
+import { MaestroArtifacts, type MaestroAttachment, maestroBlobType } from '../src/maestro/artifacts'
 import type { MaestroClient } from '../src/maestro/client'
 import { event, make, thread, threadId, tick, uuid } from './fixtures/maestro-replay'
 const clients: MaestroClient[] = []
@@ -217,10 +217,91 @@ describe('open() blob type: only inline-rendered media keep their real type', ()
   r.release(); create.mockRestore()
   return blob.type
  }
- it.each(['text/html', 'image/svg+xml', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream', 'audio/x+xml', 'audio/svg+xml', 'audio/x-foo+xml', 'video/mp4', 'font/woff2'])('%s becomes application/octet-stream', async (mime) => {
+ it.each(['text/html', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream', 'audio/x+xml', 'audio/svg+xml', 'audio/x-foo+xml', 'video/mp4', 'font/woff2'])('%s becomes application/octet-stream', async (mime) => {
   expect(await run(mime)).toBe('application/octet-stream')
  })
  it.each(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
   expect(await run(mime)).toBe(mime)
+ })
+})
+
+describe('attachments sweep: production parity of the upload and of SVG', () => {
+ const svgBody = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><script>alert(1)</script><rect width="4" height="4"/></svg>'
+ it('F2: SVG shows as an image from a data: URL, never from a same-origin blob: URL', async () => {
+  const fetcher = vi.fn(async () => new Response(svgBody, { headers: { 'Content-Type': 'image/svg+xml', 'Content-Length': String(svgBody.length), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="f.svg"', 'X-Content-Type-Options': 'nosniff' } }))
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL'); const revoke = vi.spyOn(URL, 'revokeObjectURL'); create.mockClear(); revoke.mockClear()
+  const r = await env.client.artifacts.open(threadId, { ...attachment, filename: 'f.svg', mime_type: 'image/svg+xml', size_bytes: svgBody.length })
+  expect(r.mimeType).toBe('image/svg+xml')
+  expect(r.url.startsWith('data:image/svg+xml;base64,')).toBe(true)
+  expect(atob(r.url.slice('data:image/svg+xml;base64,'.length))).toBe(svgBody)
+  expect(create).not.toHaveBeenCalled()
+  r.release(); expect(revoke).not.toHaveBeenCalled()
+  // Any blob: of SVG/XML stays a download, never a document in the app origin.
+  expect(maestroBlobType('image/svg+xml')).toBe('application/octet-stream')
+ })
+ it('R2: a file over 25 MiB shows production\'s text before any request', async () => {
+  const fetcher = vi.fn(); const { client } = await setup(fetcher)
+  const big = { size: 26214401, type: 'application/pdf' } as Blob
+  expect(() => client.artifacts.add(big, 'grande.pdf')).toThrow('File exceeds 26214400 byte limit')
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it.each([
+  [413, 'PAYLOAD_TOO_LARGE', 'Limite de tamanho excedido.', 'File exceeds 26214400 byte limit'],
+  [422, 'VALIDATION_FAILED', 'A operação não atende às regras exigidas.', 'A operação não atende às regras exigidas.'],
+  [429, 'QUOTA_EXCEEDED', 'Quota excedida.', 'Quota excedida.'],
+ ])('R2: a %i %s shows the cause, not a generic text', async (status, code, message, shown) => {
+  const fetcher = vi.fn(async () => json({ error: { code, message, retryable: false, request_id: uuid(99) } }, status))
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await expect(client.artifacts.retry(id)).rejects.toMatchObject({ code, message: shown })
+ })
+ it('R2: a network failure shows the browser text, as production', async () => {
+  const fetcher = vi.fn(async () => { throw new TypeError('Failed to fetch') })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await expect(client.artifacts.retry(id)).rejects.toMatchObject({ code: 'NETWORK_ERROR', message: 'Failed to fetch' })
+ })
+ it('F3: six files chosen at once all upload, at most four requests at the same time', async () => {
+  let active = 0, peak = 0
+  const fetcher = vi.fn(async (_url, init) => {
+   active++; peak = Math.max(peak, active)
+   await new Promise((resolve) => setTimeout(resolve, 20))
+   active--
+   return json(uploaded(JSON.parse(String((init!.body as FormData).get('metadata')))), 201)
+  })
+  const { client } = await setup(fetcher)
+  const ids = Array.from({ length: 6 }, (_, n) => client.artifacts.add(file(), `image-${n}.png`))
+  await Promise.all(ids.map((id) => client.artifacts.retry(id)))
+  expect(fetcher).toHaveBeenCalledTimes(6); expect(peak).toBe(4)
+  expect(client.artifacts.getSnapshot().every((draft) => draft.state === 'ready')).toBe(true)
+ })
+ it('F3: a 429 (too many uploads at the same time) waits Retry-After and sends the same intention again', async () => {
+  const keys: string[] = []
+  const fetcher = vi.fn(async (_url, init) => {
+   keys.push((init!.headers as Record<string, string>)['Idempotency-Key']!)
+   if (keys.length === 1) return json({ error: { code: 'RATE_LIMITED', message: 'Limite de requisições excedido.', retryable: true, request_id: uuid(99), details: { retry_after_seconds: 1 } } }, 429)
+   return json(uploaded(JSON.parse(String((init!.body as FormData).get('metadata')))), 201)
+  })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await client.artifacts.retry(id)
+  expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1])
+  expect(client.artifacts.getSnapshot()[0]?.state).toBe('ready')
+ })
+ it('R1: a .doc and a file of unknown type upload; the attachment carries the type the Maestro stored', async () => {
+  const sent: string[] = []
+  const fetcher = vi.fn(async (_url, init) => {
+   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent.push(meta.mime_type)
+   const stored = meta.filename.endsWith('.bin') ? 'application/octet-stream' : meta.mime_type
+   return json(uploaded({ ...meta, mime_type: stored === 'application/octet-stream' && meta.filename.endsWith('.csv') ? 'text/csv' : stored }), 201)
+  })
+  const { client } = await setup(fetcher)
+  const doc = client.artifacts.add(new Blob(['ole'], { type: 'application/msword' }), 'contrato.doc')
+  const bin = client.artifacts.add(new Blob(['raw']), 'dados.bin')
+  const csv = client.artifacts.add(new Blob(['a,b']), 'dados.csv')
+  await Promise.all([doc, bin, csv].map((id) => client.artifacts.retry(id)))
+  expect(sent).toEqual(['application/msword', 'application/octet-stream', 'application/octet-stream'])
+  expect(client.artifacts.content().map((part) => part.mime_type)).toEqual(['application/msword', 'application/octet-stream', 'text/csv'])
  })
 })
