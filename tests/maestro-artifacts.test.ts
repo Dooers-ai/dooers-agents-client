@@ -436,10 +436,18 @@ describe('I1: the View panel opens a PDF from the Maestro origin, never from a b
   const env = await setup(vi.fn(async () => link(url))); await pdfHistory(env)
   await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
  })
- it('refuses a link on the app origin (a proxy that serves the app and the Maestro on one origin)', async () => {
+ it('N3: has no view link when the Maestro is on the app origin (a proxy): UNSUPPORTED_CAPABILITY, without a request', async () => {
   vi.stubGlobal('location', { origin: 'https://maestro.example' })
-  const env = await setup(vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))); await pdfHistory(env)
-  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+  const fetcher = vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await pdfHistory(env)
+  // The web downloads the PDF on this code only; every other refusal is shown to the person.
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it('N3: the Maestro without links answers UNSUPPORTED_CAPABILITY, and the session and the thread stay open', async () => {
+  const env = await setup(vi.fn(async () => json({ error: { code: 'UNSUPPORTED_CAPABILITY', message: 'Capacidade não suportada.', retryable: false, request_id: uuid(5) } }, 422))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+  expect(env.client.getConnection().status).toBe('connected')
  })
  it('has no view link for another type, nor for a file the history does not cite', async () => {
   const fetcher = vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))

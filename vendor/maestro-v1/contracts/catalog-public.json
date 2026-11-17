@@ -621,7 +621,8 @@
       "error_schema": "Public.Error",
       "semantic_checks": [
         "the person, the public chat visitor or a supervisor views a PDF of the thread: the same core artifact.download authorization as the download, one per request",
-        "only a file stored as application/pdf (VALIDATION_FAILED otherwise); the link is served inline from the Maestro origin with frame-ancestors of the app origins, never as a blob: in the app origin (production opens the PDF from the storage host)",
+        "only a file stored as application/pdf with %PDF- in its first 1024 bytes (VALIDATION_FAILED otherwise); the link is served inline from the Maestro origin with no Content-Security-Policy, as the storage host of production (the public chat is framed by third-party sites), never as a blob: in the app origin",
+        "without artifact links (ARTIFACT_LINKS_ENABLED off): UNSUPPORTED_CAPABILITY after the request checks and before the core",
         "url is a short-lived unauthenticated link to one artifact (default 3600 s); the read checks the artifact state on every request"
       ],
       "fixtures": {
@@ -1078,7 +1079,7 @@
         "no bearer, cookie or CORS; HMAC-SHA256 token binds artifact, thread, organization and expiry",
         "token, artifact still linked, thread without tombstone: any failure is the same 404",
         "stored MIME with Content-Disposition attachment and nosniff; Cache-Control private, no-store (revocation is immediate); Referrer-Policy no-referrer",
-        "a person's view link of a file stored as application/pdf is inline with Content-Security-Policy frame-ancestors of the app origins (no sandbox: the browser PDF viewer does not run in a sandboxed document); every other link is attachment with default-src 'none'; sandbox",
+        "a person's view link of a file stored as application/pdf is inline with no Content-Security-Policy, as the storage host of production (no frame-ancestors: the public chat is framed by third-party sites; no sandbox: the browser PDF viewer does not run in a sandboxed document); every other link is attachment with default-src 'none'; sandbox",
         "total stream deadline: the base (300 s) plus the requested bytes at 32 KiB/s; an idle reader ends after 15 s",
         "HMAC checked before any database read; per-process and per-organization stream slots, short wait then 429 with Retry-After",
         "single byte range as the proxy; another range form gets the full body"

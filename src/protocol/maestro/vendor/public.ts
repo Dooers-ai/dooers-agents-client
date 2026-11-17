@@ -423,8 +423,8 @@ const KNOWN_FORM_ELEMENT_TYPES: readonly string[] = knownFormElements.map((e) =>
 // Production passes an element of any other type through as it came (a warning in the log, no failure) and fails on
 // one that is not a dict. A known type is never an open object: its own model validates it (semantic rule
 // unknown-form-element, mirrored in semantics.py). The list of elements is bounded as a whole (open-json-bytes).
-const unknownFormElement = z
-  .record(z.string(), jsonValue)
+// N7: the element is a production dict, so a "__proto__" key stays an own key (jsonRecord, as the open JSON).
+const unknownFormElement = jsonRecord()
   .refine((element) => !KNOWN_FORM_ELEMENT_TYPES.includes(element['type'] as string))
   .meta({ 'x-maestro-semantic': 'unknown-form-element' })
 const formElement = z.union([z.discriminatedUnion('type', knownFormElements), unknownFormElement])

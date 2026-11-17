@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "860a987dbdbc7f443daec0e1452f243a63f3cef95b8bfbe547b52ada596c33f0",
-  "source_revision": "sha256:b0b8431cfac98e98d9521822753d7b3fb61b9047088638e815c0c642e7246d80",
-  "bundle_manifest_sha256": "2848b4728e709c237a2695871483d7bd487f584ad28b070a318a52faa4c0301e",
+  "source_manifest_sha256": "9491d78b29e3973295236123b276e95608e2341a200e23f0c489388ddc3a8f39",
+  "source_revision": "sha256:97348e56153fa7d64324079602f7eb4f714e775179c4feaf18a8541ecfa4d9d2",
+  "bundle_manifest_sha256": "d8ff58edb4e2524e0aaeaa45365850dd19a11d7b7616d493a3fa4ab863c51dd8",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -26,7 +26,7 @@
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "c0f5b2a8024255cff84a68b425f087717b5a4fd44c8266de128bab29ca8044fe"
+      "sha256": "580aa39e8462441d6f5702601de92b3a034a38be61c8c27bc9d6030812c262d2"
     },
     "src/protocol/maestro/vendor/identity.ts": {
       "source": "docs/contracts/v1/identity.ts",
@@ -46,15 +46,15 @@
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
       "source": "docs/contracts/catalog-public.json",
-      "sha256": "2f7e710b695c5852694f6063a3bd33b3c06ae968c385079a15bb97cd09f2dfd1"
+      "sha256": "5a60059759bfddacc4415847ddca99739f6f4d929b3819b019b007b8e3181761"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "860a987dbdbc7f443daec0e1452f243a63f3cef95b8bfbe547b52ada596c33f0"
+      "sha256": "9491d78b29e3973295236123b276e95608e2341a200e23f0c489388ddc3a8f39"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "2848b4728e709c237a2695871483d7bd487f584ad28b070a318a52faa4c0301e"
+      "sha256": "d8ff58edb4e2524e0aaeaa45365850dd19a11d7b7616d493a3fa4ab863c51dd8"
     }
   }
 }

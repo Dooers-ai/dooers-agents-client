@@ -559,11 +559,15 @@ export class MaestroArtifacts {
   /**
    * I1: the short-lived link that shows a PDF of the thread in the View panel. The Maestro checks the
    * same access as the download (`POST /artifacts/:id/links`) and serves the file `inline` from its
-   * own origin, with `nosniff` and `frame-ancestors` of the app origins. Production opens the PDF
-   * from the storage host, another origin, in the same `<iframe>`. The link is refused here when it
-   * is not on the Maestro origin or when it is on the app origin (a proxy that serves the app and the
-   * Maestro on one origin): the PDF never opens in the app origin. Only a file of type
-   * `application/pdf` has a view link.
+   * own origin, with `nosniff` and no CSP, as production's storage host (another origin) serves the
+   * PDF to the same `<iframe>`: the public chat is framed by third-party sites (N1). The link is
+   * refused here when it is not on the Maestro origin. Only a file of type `application/pdf` has a
+   * view link.
+   *
+   * N3: `UNSUPPORTED_CAPABILITY` means "no view link here", and only that: the Maestro is on the app
+   * origin (a proxy; the PDF never opens in the app origin, so no request is sent) or the Maestro has
+   * no links (`ARTIFACT_LINKS_ENABLED` off). The web then downloads the PDF; every other code is a
+   * refusal or a failure it shows to the person.
    */
   async viewLink(
     threadId: string,
@@ -575,6 +579,10 @@ export class MaestroArtifacts {
     if (attachment.mime_type?.split(';')[0]?.trim().toLowerCase() !== MAESTRO_VIEW_TYPE)
       throw failure('VALIDATION_FAILED')
     this.host.authorize?.(threadId, id)
+    const maestro = this.host.apiBase ? new URL(this.host.apiBase) : undefined
+    const app = (globalThis as { location?: { origin?: string } }).location?.origin
+    if (maestro && maestro.origin === app)
+      throw failure('UNSUPPORTED_CAPABILITY', false, 'No view link on the app origin')
     try {
       const response = await this.host.request(
         `/artifacts/${id}/links`,
@@ -591,8 +599,6 @@ export class MaestroArtifacts {
       if (!response.ok) throw this.responseError(value)
       const link = parseMaestroNetwork(publicSchemas['Public.ArtifactLinkResponse'], value)
       const url = new URL(link.url)
-      const maestro = this.host.apiBase ? new URL(this.host.apiBase) : undefined
-      const app = (globalThis as { location?: { origin?: string } }).location?.origin
       if (
         response.status !== 200 ||
         !maestro ||
