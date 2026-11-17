@@ -152,6 +152,7 @@ export function maestroThreadToLegacy(
       manage: thread.permissions.manage,
       archive: thread.permissions.archive,
       removeParticipants: thread.permissions.remove_participants,
+      assignOwner: thread.permissions.assign_owner === true,
     },
   }
 }

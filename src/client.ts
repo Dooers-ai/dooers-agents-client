@@ -645,6 +645,16 @@ export class AgentClient {
     return Promise.resolve(false)
   }
 
+  /** Legacy runtimes have no owner designation; only the Maestro transport assigns a thread owner. */
+  assignThreadOwner(_threadId: string, _userId: string): Promise<boolean> {
+    this.onError?.({
+      code: 'UNSUPPORTED',
+      message: 'This runtime does not assign a thread owner',
+      frameType: 'thread.ownership.assign',
+    })
+    return Promise.resolve(false)
+  }
+
   /** Legacy runtimes have no archive state; only the Maestro transport archives conversations. */
   archiveThread(_threadId: string): Promise<boolean> {
     return this.unsupportedArchive()

@@ -922,6 +922,23 @@ export class MaestroClient {
       version
     )
   }
+  /**
+   * SEC-05: an elevated role (organization owner or manager, workspace manager) designates the owner of a
+   * thread with no active human owner. Supervisors may only with the projected `assign_owner`.
+   */
+  async assignOwnership(threadId: string, participantId: string, version: number, key: string) {
+    await this.manageThread(
+      threadId,
+      '/ownership/assign',
+      'POST',
+      'Public.OwnershipRequest',
+      { participant_id: this.checkId(participantId) },
+      key,
+      version,
+      false,
+      'assign_owner'
+    )
+  }
   async changeThreadState(
     threadId: string,
     state: 'active' | 'archived',
@@ -974,7 +991,7 @@ export class MaestroClient {
      * elevated reader may manage the conversation without joining it, as far as the projected
      * permissions say. Without one (e.g. ownership transfer) a supervised call is refused.
      */
-    supervised?: 'manage' | 'archive' | 'remove_participants'
+    supervised?: 'manage' | 'archive' | 'remove_participants' | 'assign_owner'
   ) {
     this.requireCapability('threads.shared')
     threadId = this.checkId(threadId)

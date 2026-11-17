@@ -99,7 +99,7 @@ describe('Maestro → legacy mapping', () => {
     const value = sharedThread('3')
     value.permissions = { ...value.permissions, archive: true, remove_participants: false }
     const legacy = maestroThreadToLegacy(toMaestroThread(value), AGENT)
-    expect(legacy.access).toEqual({ read: true, write: true, manage: true, archive: true, removeParticipants: false })
+    expect(legacy.access).toEqual({ read: true, write: true, manage: true, archive: true, removeParticipants: false, assignOwner: false })
     expect(legacy.metadata).toMatchObject({ authority: 'maestro', state: 'active' })
     value.state = 'archived'
     expect(maestroThreadToLegacy(toMaestroThread(value), AGENT).metadata).toMatchObject({ state: 'archived' })
@@ -552,6 +552,58 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'DELETE')).toHaveLength(1)
     client.disconnect()
   })
+  it('assignThreadOwner promotes a human participant and refreshes the list', async () => {
+    const two = sharedThread('2', [agentParticipant(AGENT, uuid(20), 'Agente Um')])
+    two.version = 3
+    const person = two.participants.find((p) => p.kind === 'human')!
+    const fetcher = vi.fn(async (url: string, init?: RequestInit) =>
+      init?.method === 'POST' || url.includes(`/threads/${threadId}`)
+        ? json(two)
+        : json({ items: [two], next_cursor: null, has_more: false, watermark: '2' })
+    )
+    const { client, socket } = await setup(fetcher)
+    client.subscribe(threadId)
+    await tick()
+    socket.ackSubscribe()
+    socket.frame('thread.snapshot', { thread: two, events: [event(1)], watermark: '2', next_cursor: null, has_more: false })
+    socket.caught('2')
+    await tick()
+    const listed = vi.spyOn(client, 'requestThreadList')
+    await expect(client.assignThreadOwner(threadId, String(person.principal_id))).resolves.toBe(true)
+    const assign = fetcher.mock.calls.find(([, init]) => init?.method === 'POST')!
+    expect(String(assign[0])).toBe(`https://maestro.example/api/v1/threads/${threadId}/ownership/assign`)
+    expect(assign[1]?.headers).toMatchObject({ 'If-Match': '3' })
+    expect(JSON.parse(String(assign[1]?.body))).toEqual({ participant_id: person.participant_id })
+    expect(listed).toHaveBeenCalled()
+    client.disconnect()
+  })
+  it('assignThreadOwner returns false for an agent or external contact', async () => {
+    const two = sharedThread('2', [agentParticipant(AGENT, uuid(20), 'Agente Um')])
+    two.participants = [
+      ...two.participants,
+      { participant_id: uuid(30), kind: 'external', external_id: '+5511999990000', channel: 'whatsapp', display_name: 'Cliente', role: 'member', state: 'active', joined_sequence: '1', left_sequence: null },
+    ] as typeof two.participants
+    const fetcher = vi.fn(async (url: string) =>
+      url.includes(`/threads/${threadId}`) ? json(two) : json({ items: [two], next_cursor: null, has_more: false, watermark: '2' })
+    )
+    const { client, socket } = await setup(fetcher)
+    client.subscribe(threadId)
+    await tick()
+    socket.ackSubscribe()
+    socket.frame('thread.snapshot', { thread: two, events: [event(1)], watermark: '2', next_cursor: null, has_more: false })
+    socket.caught('2')
+    await tick()
+    await expect(client.assignThreadOwner(threadId, AGENT)).resolves.toBe(false)
+    await expect(client.assignThreadOwner(threadId, '+5511999990000')).resolves.toBe(false)
+    await expect(client.assignThreadOwner(threadId, 'nobody')).resolves.toBe(false)
+    expect(fetcher.mock.calls.filter(([, init]) => init?.method === 'POST')).toHaveLength(0)
+    const errors: string[] = []
+    const legacy = new AgentClient(createAgentStore().getState().actions)
+    legacy.setOnError((e) => errors.push(e.code))
+    await expect(legacy.assignThreadOwner(threadId, 'someone')).resolves.toBe(false)
+    expect(errors).toEqual(['UNSUPPORTED'])
+    client.disconnect()
+  })
   it('legacy runtimes cannot remove participants', async () => {
     const errors: string[] = []
     const legacy = new AgentClient(createAgentStore().getState().actions)
@@ -636,7 +688,7 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
       socket.frame('thread.snapshot', { thread: view, events: [event(1)], watermark: '1', next_cursor: null, has_more: false })
       socket.caught('1')
       await tick()
-      expect(store.getState().threads[threadId]?.access).toEqual({ read: true, write: false, manage: false, archive: true, removeParticipants: true })
+      expect(store.getState().threads[threadId]?.access).toEqual({ read: true, write: false, manage: false, archive: true, removeParticipants: true, assignOwner: false })
       expect(store.getState().events[threadId]).toHaveLength(1)
       expect(client.getMaestroClient()?.isSupervision(threadId)).toBe(true)
       client.disconnect()
