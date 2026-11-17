@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { productionUploadFilename } from '../upload-filename'
 import type { MaestroUploadOptions } from './artifacts.js'
 import { MaestroClient } from './client.js'
 import type { MaestroClientConfig, MaestroSendInput, MaestroTransport } from './types.js'
@@ -202,8 +203,9 @@ export function useMaestroUploads() {
   return useMemo(
     () => ({
       drafts,
+      // The name production's upload sends (trimmed, `upload`, `recording.webm` for a recorded Blob).
       add: (file: Blob, filename: string, options?: MaestroUploadOptions) =>
-        client.artifacts.add(file, filename, options),
+        client.artifacts.add(file, productionUploadFilename(file, filename), options),
       retry: (id: string) => client.artifacts.retry(id),
       remove: (id: string) => client.artifacts.remove(id),
       clear: () => client.artifacts.clearUploads(),

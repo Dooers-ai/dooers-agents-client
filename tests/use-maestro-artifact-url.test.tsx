@@ -118,7 +118,11 @@ function fakeArtifacts(options: FakeOptions = {}) {
     state.resources.push(entry)
     return { ...resource, expiresAt: Date.now() + 60000, release: entry.release }
   })
-  return { state, open, renew }
+  const viewLink = vi.fn(async (_threadId: string, attachment: { artifact_id: string }) => ({
+    url: `https://maestro.example/api/v1/artifact-links/${attachment.artifact_id}`,
+    expiresAt: new Date(Date.now() + 3600000).toISOString(),
+  }))
+  return { state, open, renew, viewLink }
 }
 
 /**
@@ -148,7 +152,7 @@ function fakeHistory(citesAll = true) {
 function useFakeMaestro(fake: ReturnType<typeof fakeArtifacts>, history = fakeHistory()) {
   const client = Object.create(MaestroAgentClient.prototype) as MaestroAgentClient
   // stable, like the real client
-  const maestro = { artifacts: { open: fake.open, renew: fake.renew }, citesArtifact: history.citesArtifact, store: history.store }
+  const maestro = { artifacts: { open: fake.open, renew: fake.renew, viewLink: fake.viewLink }, citesArtifact: history.citesArtifact, store: history.store }
   client.getMaestroClient = (() => maestro) as never
   holder.client = client
   return history
@@ -520,13 +524,13 @@ describe('useMaestroArtifactUrl', () => {
         view.unmount()
         return blob.type
       }
-      it.each(['text/html', 'image/svg+xml', 'application/xml', 'application/json'])(
+      it.each(['application/pdf', 'text/html', 'image/svg+xml', 'application/xml', 'application/json'])(
         '%s vira application/octet-stream',
         async (mime) => {
           expect(await copiedType(mime)).toBe('application/octet-stream')
         }
       )
-      it.each(['application/pdf', 'image/png', 'audio/webm'])('%s mantém o tipo', async (mime) => {
+      it.each(['image/png', 'audio/webm'])('%s mantém o tipo', async (mime) => {
         expect(await copiedType(mime)).toBe(mime)
       })
     })
@@ -678,5 +682,32 @@ describe('useMaestroArtifactUrl com o cliente Maestro real', () => {
     expect(downloads()[1]).toContain(`/artifacts/${uuid(41)}/download`)
     view.unmount()
     env.client.dispose()
+  })
+})
+
+describe('I1: viewLink of a PDF part', () => {
+  function Pdf({ name, mimeType }: { name: string; mimeType: string }) {
+    const result = useMaestroArtifactUrl(T1, { refId: id(1), mimeType, filename: 'doc.pdf' })
+    viewers[name] = result.viewLink
+    return <div data-testid={name} data-status={result.status} />
+  }
+  const viewers: Record<string, ((signal?: AbortSignal) => Promise<string>) | undefined> = {}
+  it('a PDF part has viewLink (the Maestro view link); another type has none', async () => {
+    const fake = fakeArtifacts()
+    useFakeMaestro(fake)
+    render(
+      <>
+        <Pdf name="pdf" mimeType="application/pdf" />
+        <Pdf name="png" mimeType="image/png" />
+      </>
+    )
+    await advance(100)
+    expect(viewers['png']).toBeUndefined()
+    await expect(viewers['pdf']?.()).resolves.toBe(`https://maestro.example/api/v1/artifact-links/${id(1)}`)
+    expect(fake.viewLink).toHaveBeenCalledWith(
+      T1,
+      expect.objectContaining({ artifact_id: id(1), mime_type: 'application/pdf' }),
+      undefined
+    )
   })
 })

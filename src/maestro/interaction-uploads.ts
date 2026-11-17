@@ -1,3 +1,4 @@
+import { productionUploadFilename } from '../upload-filename'
 import type { MaestroArtifacts } from './artifacts.js'
 import type { MaestroBoundFieldArtifact } from './interactions.js'
 import { immutable } from './publications.js'
@@ -177,6 +178,8 @@ export class MaestroInteractionUploads {
     )
       throw new MaestroClientError('CLIENT_LIMIT', 'Field draft limit reached')
     this.authorize(threadId, interactionId, fieldName)
+    // The name production's upload sends (M6): trimmed, `upload` when empty, `recording.webm` for a Blob.
+    filename = productionUploadFilename(file, filename)
     const id = this.artifacts.add(file, filename)
     this.entries.set(
       id,

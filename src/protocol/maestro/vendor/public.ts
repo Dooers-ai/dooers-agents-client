@@ -151,18 +151,50 @@ const notRawRecord = (value: unknown) => {
     ? undefined
     : value
 }
+// M1: production's dict keeps a "__proto__" key like any other key. Zod's record skips it (so the prototype of its
+// output never changes), which drops the value or, with an exact number in it, refuses the request. The record of an
+// open object validates "__proto__" under a stand-in key (NUL + "__proto__") and writes it back as an own data property
+// (defineProperty), never through the prototype setter. A key of the object that already looks like a stand-in (NUL +
+// "__proto__" + NULs) gets one NUL more on the way in and one less on the way out, so the mapping is one to one. The
+// order of the keys stays. The exported JSON Schema is the plain record's.
+const PROTO_KEY = '__proto__'
+const PROTO_STAND_IN = `\u0000${PROTO_KEY}`
+const isStandIn = (key: string) =>
+  key.startsWith(PROTO_STAND_IN) &&
+  [...key.slice(PROTO_STAND_IN.length)].every((char) => char === '\u0000')
+const renamedKeys = (value: Record<string, unknown>, rename: (key: string) => string) => {
+  const copy: Record<string, unknown> = {}
+  for (const key of Object.keys(value))
+    Object.defineProperty(copy, rename(key), {
+      value: value[key],
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    })
+  return copy
+}
+const hideProtoKey = (value: unknown) =>
+  typeof value === 'object' &&
+  value !== null &&
+  !Array.isArray(value) &&
+  Object.keys(value).some((key) => key === PROTO_KEY || isStandIn(key))
+    ? renamedKeys(value as Record<string, unknown>, (key) =>
+        key === PROTO_KEY ? PROTO_STAND_IN : isStandIn(key) ? `${key}\u0000` : key
+      )
+    : value
+const restoreProtoKey = (value: Record<string, Json>): Record<string, Json> =>
+  Object.keys(value).some(isStandIn)
+    ? (renamedKeys(value, (key) =>
+        key === PROTO_STAND_IN ? PROTO_KEY : isStandIn(key) ? key.slice(0, -1) : key
+      ) as Record<string, Json>)
+    : value
+const jsonRecord = () =>
+  z.preprocess(hideProtoKey, z.record(z.string(), jsonValue)).overwrite(restoreProtoKey)
 const jsonValue: z.ZodType<Json> = z
   .lazy(() =>
     z.preprocess(
       notRawRecord,
-      z.union([
-        z.string(),
-        jsonNumber,
-        z.boolean(),
-        z.null(),
-        z.array(jsonValue),
-        z.record(z.string(), jsonValue),
-      ])
+      z.union([z.string(), jsonNumber, z.boolean(), z.null(), z.array(jsonValue), jsonRecord()])
     )
   )
   .meta({ id: 'JsonValue' })
@@ -173,13 +205,13 @@ const boundedJson = <T extends z.ZodType>(schema: T) =>
   schema
     .refine(withinOpenJsonBytes, 'Open JSON must not exceed 1 MiB serialized')
     .meta({ 'x-maestro-semantic': 'open-json-bytes' })
-const openObject = boundedJson(z.record(z.string(), jsonValue))
+const openObject = boundedJson(jsonRecord())
 // Production never checks the type of tool args and results (the dict annotation is not enforced: handlers send
 // None, "", 0, False, [], "ok"). Any JSON value, null and scalars included, with the same size ceiling.
 // The lazy wrapper keeps the exported schema a plain $ref to JsonValue instead of inlining the union at each use.
 const openValue = boundedJson(z.lazy(() => jsonValue))
 // Production ContactPart.phones is list[dict[str, Any]]: open objects, passed through as-is.
-const contactPhone = z.record(z.string(), jsonValue)
+const contactPhone = jsonRecord()
 // display_name: production str with no length rule (WireS2C_ContactPart).
 const contactPart = z.strictObject({
   type: z.literal('contact'),
@@ -230,7 +262,7 @@ const humanContent = z
 const messageTemplate = z.strictObject({
   template_name: z.string(),
   template_language: z.string(),
-  template_components: boundedJson(z.array(z.record(z.string(), jsonValue))).optional(),
+  template_components: boundedJson(z.array(jsonRecord())).optional(),
 })
 // Production send.whatsapp.*: to_e164 and instance_id are str, stored as sent.
 const messageWhatsapp = z.strictObject({
@@ -326,7 +358,7 @@ const chartPayload = z.looseObject({
   size: panelSize.optional(),
   x_key: agentLabel,
   y_keys: z.array(agentLabel),
-  data: boundedJson(z.array(z.record(z.string(), jsonValue))),
+  data: boundedJson(z.array(jsonRecord())),
   series: z.array(chartSeries).optional(),
   x_label: agentLabel.nullish(),
   y_label: agentLabel.nullish(),

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  MAESTRO_VIEW_TYPE,
   type MaestroArtifactResource,
   type MaestroArtifacts,
   maestroBlobType,
@@ -42,6 +43,12 @@ export interface MaestroArtifactUrlResult {
   url: string | null
   status: 'idle' | 'loading' | 'ready' | 'error'
   errorCode?: string
+  /**
+   * I1: only for a file of type `application/pdf`. Asks the Maestro for the short-lived view link of
+   * the PDF (served `inline` from the Maestro origin, never from the app origin). The View panel opens
+   * this link; `url` (a `blob:` of type `application/octet-stream`) only downloads the file.
+   */
+  viewLink?: (signal?: AbortSignal) => Promise<string>
 }
 
 const MAX_READS = 2
@@ -533,8 +540,32 @@ export function useMaestroArtifactUrl(
     if (live) live.queue.releaseSuperseded(live.entry)
   }, [url])
 
+  const viewable = mimeType?.split(';')[0]?.trim().toLowerCase() === MAESTRO_VIEW_TYPE
+  const viewLink = useMemo(
+    () =>
+      eligible && viewable && artifacts && threadId && refId
+        ? (signal?: AbortSignal) =>
+            artifacts
+              .viewLink(
+                threadId,
+                {
+                  type: 'attachment',
+                  artifact_id: refId,
+                  ...(filename ? { filename } : {}),
+                  ...(mimeType ? { mime_type: mimeType } : {}),
+                  ...(size !== undefined ? { size_bytes: size } : {}),
+                },
+                signal
+              )
+              .then((link) => link.url)
+        : undefined,
+    [eligible, viewable, artifacts, threadId, refId, filename, mimeType, size]
+  )
+
   return useMemo(() => {
     if (!eligible) return IDLE
-    return errorCode && status === 'error' ? { url: null, status, errorCode } : { url, status }
-  }, [eligible, url, status, errorCode])
+    const base =
+      errorCode && status === 'error' ? { url: null, status, errorCode } : { url, status }
+    return viewLink ? { ...base, viewLink } : base
+  }, [eligible, url, status, errorCode, viewLink])
 }

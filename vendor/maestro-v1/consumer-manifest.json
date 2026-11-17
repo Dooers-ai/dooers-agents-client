@@ -8,9 +8,9 @@
   "protocol_version": 1,
   "schema_version": 1,
   "source_repository": "dooers-service-maestro",
-  "source_manifest_sha256": "316e16942550edc9d541ee5e873fdd1c29c5f40b8c156ceec0d18d8e139999ff",
-  "source_revision": "sha256:6f8bc80c236a76e80e3c4b695794b2ce4232edb6b64aac6b0f1fc29cf9e4b274",
-  "bundle_manifest_sha256": "1d108518709c4a612f8ab52c7b2370f35f50b9945d80c2632aa5b3af7f3d90bb",
+  "source_manifest_sha256": "860a987dbdbc7f443daec0e1452f243a63f3cef95b8bfbe547b52ada596c33f0",
+  "source_revision": "sha256:b0b8431cfac98e98d9521822753d7b3fb61b9047088638e815c0c642e7246d80",
+  "bundle_manifest_sha256": "2848b4728e709c237a2695871483d7bd487f584ad28b070a318a52faa4c0301e",
   "runtime_dependency": {
     "zod": "4.4.3"
   },
@@ -26,7 +26,7 @@
     },
     "src/protocol/maestro/vendor/public.ts": {
       "source": "docs/contracts/v1/public.ts",
-      "sha256": "a153aca1abf010697cfd0e170f32745ffaef4290dd3804dfc71d44869325c98b"
+      "sha256": "c0f5b2a8024255cff84a68b425f087717b5a4fd44c8266de128bab29ca8044fe"
     },
     "src/protocol/maestro/vendor/identity.ts": {
       "source": "docs/contracts/v1/identity.ts",
@@ -46,15 +46,15 @@
     },
     "vendor/maestro-v1/contracts/catalog-public.json": {
       "source": "docs/contracts/catalog-public.json",
-      "sha256": "e3ea4799f19b27199317d6c236a6d7fe496bbb1c149181a1eafac8878b8a434b"
+      "sha256": "2f7e710b695c5852694f6063a3bd33b3c06ae968c385079a15bb97cd09f2dfd1"
     },
     "vendor/maestro-v1/contracts/manifest.json": {
       "source": "docs/contracts/manifest.json",
-      "sha256": "316e16942550edc9d541ee5e873fdd1c29c5f40b8c156ceec0d18d8e139999ff"
+      "sha256": "860a987dbdbc7f443daec0e1452f243a63f3cef95b8bfbe547b52ada596c33f0"
     },
     "vendor/maestro-v1/contracts/generated/v1/bundle-manifest.json": {
       "source": "docs/contracts/generated/v1/bundle-manifest.json",
-      "sha256": "1d108518709c4a612f8ab52c7b2370f35f50b9945d80c2632aa5b3af7f3d90bb"
+      "sha256": "2848b4728e709c237a2695871483d7bd487f584ad28b070a318a52faa4c0301e"
     }
   }
 }

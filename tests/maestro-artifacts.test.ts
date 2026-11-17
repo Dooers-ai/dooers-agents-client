@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { MaestroArtifacts, type MaestroAttachment, maestroBlobType } from '../src/maestro/artifacts'
 import type { MaestroClient } from '../src/maestro/client'
+import { productionUploadFilename } from '../src/upload-filename'
 import { event, make, thread, threadId, tick, uuid } from './fixtures/maestro-replay'
 const clients: MaestroClient[] = []
 afterEach(() => { for (const c of clients) c.dispose(); clients.length = 0; vi.useRealTimers(); vi.unstubAllGlobals() })
@@ -219,10 +220,11 @@ describe('open() blob type: only inline-rendered media keep their real type', ()
   r.release(); create.mockRestore()
   return blob.type
  }
- it.each(['text/html', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream', 'audio/x+xml', 'audio/svg+xml', 'audio/x-foo+xml', 'video/mp4', 'font/woff2'])('%s becomes application/octet-stream', async (mime) => {
+ // I1: a PDF never opens from a blob: in the app origin; the View panel uses the Maestro's view link.
+ it.each(['application/pdf', 'text/html', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream', 'audio/x+xml', 'audio/svg+xml', 'audio/x-foo+xml', 'video/mp4', 'font/woff2'])('%s becomes application/octet-stream', async (mime) => {
   expect(await run(mime)).toBe('application/octet-stream')
  })
- it.each(['application/pdf', 'image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
+ it.each(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
   expect(await run(mime)).toBe(mime)
  })
 })
@@ -354,12 +356,9 @@ describe('round 2 of the attachments review', () => {
   expect(client.artifacts.content().map((part) => part.filename)).toEqual(expected)
   expect('Relatório.pdf'.normalize('NFD')).not.toBe('Relatório.pdf'.normalize('NFC'))
  })
- it('M7: renew checks the access with a 1-byte read and keeps the same URL; the old object no longer revokes it', async () => {
-  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
-   const range = (init?.headers as Record<string, string> | undefined)?.Range
-   if (range) return new Response('s', { status: 206, headers: { 'Content-Type': 'image/png', 'Content-Length': '1', 'Content-Range': `bytes 0-0/${file().size}`, 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="image.png"', 'X-Content-Type-Options': 'nosniff' } })
-   return bytes()
-  })
+ const headOk = (headers: Record<string, string> = {}) => new Response(null, { status: 200, headers: { 'Content-Type': 'image/png', 'Content-Length': String(file().size), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="image.png"', 'X-Content-Type-Options': 'nosniff', ...headers } })
+ it('M3/M7: renew checks the access with a HEAD (no byte of the file) and keeps the same URL; the old object no longer revokes it', async () => {
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'HEAD' ? headOk() : bytes())
   const env = await setup(fetcher); await history(env)
   const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
   // Spies of earlier tests in this file stay installed: count only this test's calls.
@@ -369,7 +368,10 @@ describe('round 2 of the attachments review', () => {
   vi.advanceTimersByTime(50000)
   const renewed = await env.client.artifacts.renew(first)
   expect(fetcher).toHaveBeenCalledTimes(2)
-  expect((fetcher.mock.calls[1]![1]!.headers as Record<string, string>).Range).toBe('bytes=0-0')
+  const [url, init] = fetcher.mock.calls[1]!
+  expect(url).toBe(`https://maestro.example/api/v1/artifacts/${attachment.artifact_id}/download`)
+  expect(init!.method).toBe('HEAD')
+  expect((init!.headers as Record<string, string>).Range).toBeUndefined()
   expect(renewed.url).toBe(first.url); expect(renewed.expiresAt).toBeGreaterThan(first.expiresAt)
   expect(create).toHaveBeenCalledTimes(1)
   first.release(); vi.advanceTimersByTime(15000); expect(revoke).not.toHaveBeenCalled()
@@ -377,16 +379,20 @@ describe('round 2 of the attachments review', () => {
   // A released resource is not renewed: the hook opens the file again.
   await expect(env.client.artifacts.renew(renewed)).rejects.toMatchObject({ code: 'ARTIFACT_NOT_READY' })
  })
- it('M7: renew refuses an answer that is not the 1-byte range of the same file', async () => {
-  let range = 'bytes 0-0/999'
-  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => (init?.headers as Record<string, string> | undefined)?.Range
-   ? new Response('s', { status: 206, headers: { 'Content-Type': 'image/png', 'Content-Length': '1', 'Content-Range': range, 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment', 'X-Content-Type-Options': 'nosniff' } })
-   : bytes())
+ it('M3: renew refuses a HEAD that is not the same file, and maps a refusal by its status', async () => {
+  let head = headOk({ 'Content-Length': '999' })
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'HEAD' ? head : bytes())
   const env = await setup(fetcher); await history(env)
   vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
   const first = await env.client.artifacts.open(threadId, attachment)
   await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
-  range = `bytes 0-0/${file().size}`
+  head = headOk({ 'Content-Disposition': 'inline' })
+  await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+  for (const [status, code] of [[404, 'NOT_FOUND'], [429, 'RATE_LIMITED'], [503, 'DEPENDENCY_UNAVAILABLE'], [409, 'ARTIFACT_NOT_READY']] as const) {
+   head = new Response(null, { status })
+   await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code })
+  }
+  head = headOk()
   await expect(env.client.artifacts.renew(first)).resolves.toMatchObject({ url: 'blob:private-object' })
  })
  it('M9: a waiter woken for a free slot whose upload was removed passes the slot to the next waiter', async () => {
@@ -401,5 +407,70 @@ describe('round 2 of the attachments review', () => {
   await expect(a).rejects.toMatchObject({ code: 'DISCONNECTED' })
   const outcome = await Promise.race([b.then(() => 'slot'), new Promise((resolve) => setTimeout(() => resolve('stuck'), 50))])
   expect(outcome).toBe('slot'); expect(manager.uploading).toBe(4)
+ })
+})
+
+describe('I1: the View panel opens a PDF from the Maestro origin, never from a blob: in the app origin', () => {
+ const pdf: MaestroAttachment = { ...attachment, filename: 'doc.pdf', mime_type: 'application/pdf' }
+ async function pdfHistory(env: Awaited<ReturnType<typeof setup>>) {
+  env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+  const e = event(1); e.payload.content = [pdf]
+  const t = thread('1'); t.capabilities.push('attachments.durable')
+  env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ }
+ const link = (url: string) => json({ url, expires_at: new Date(Date.now() + 3600000).toISOString() })
+ it('asks the Maestro for the view link with the bearer and an empty body', async () => {
+  const fetcher = vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).resolves.toMatchObject({ url: 'https://maestro.example/api/v1/artifact-links/abc.def' })
+  const [url, init] = fetcher.mock.calls[0]! as unknown as [string, RequestInit]
+  expect(url).toBe(`https://maestro.example/api/v1/artifacts/${pdf.artifact_id}/links`)
+  expect(init.method).toBe('POST'); expect(init.body).toBe('{}'); expect(init.credentials).toBe('omit')
+  expect((init.headers as Record<string, string>).Authorization).toMatch(/^Bearer /)
+ })
+ it.each([
+  ['another origin', 'https://outra.example/api/v1/artifact-links/abc.def'],
+  ['another path', 'https://maestro.example/api/v1/artifacts/x/download'],
+  ['a query', 'https://maestro.example/api/v1/artifact-links/abc.def?x=1'],
+ ])('refuses a link on %s', async (_name, url) => {
+  const env = await setup(vi.fn(async () => link(url))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+ })
+ it('refuses a link on the app origin (a proxy that serves the app and the Maestro on one origin)', async () => {
+  vi.stubGlobal('location', { origin: 'https://maestro.example' })
+  const env = await setup(vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+ })
+ it('has no view link for another type, nor for a file the history does not cite', async () => {
+  const fetcher = vi.fn(async () => link('https://maestro.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await history(env)
+  await expect(env.client.artifacts.viewLink(threadId, attachment)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+  await expect(env.client.artifacts.viewLink(threadId, { ...pdf, artifact_id: uuid(77) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it('shows the refusal of the Maestro', async () => {
+  const env = await setup(vi.fn(async () => json({ error: { code: 'VALIDATION_FAILED', message: 'A operação não atende às regras exigidas.', retryable: false, request_id: uuid(5) } }, 422))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+ })
+})
+
+describe('M6: every Maestro upload path sends the name production sends', () => {
+ it.each([
+  ['  relatório.pdf  ', 'relatório.pdf'],
+  ['   ', 'upload'],
+ ])('a form field upload of %j is named %j', async (selected, expected) => {
+  const requests: string[] = []
+  const fetcher = vi.fn(async (_url, init) => { const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); requests.push(meta.filename); return json(uploaded(meta), 201) })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(new File(['x'], 'ignored.txt', { type: 'text/plain' }), productionUploadFilename(new File(['x'], 'ignored.txt'), selected))
+  await ready(client, id)
+  expect(requests).toEqual([expected === 'upload' ? 'ignored.txt' : expected])
+ })
+ it('productionUploadFilename: trim, the File name, upload, and recording.webm for a Blob', () => {
+  expect(productionUploadFilename(new File(['x'], ' a.txt '), '  b.txt ')).toBe('b.txt')
+  expect(productionUploadFilename(new File(['x'], ' a.txt '))).toBe('a.txt')
+  expect(productionUploadFilename(new File(['x'], '  '), '  ')).toBe('upload')
+  expect(productionUploadFilename(new Blob(['x'], { type: 'audio/webm;codecs=opus' }))).toBe('recording.webm')
+  expect(productionUploadFilename(new Blob(['x'], { type: 'audio/webm' }), ' voz.webm ')).toBe('voz.webm')
  })
 })

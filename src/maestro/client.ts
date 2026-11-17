@@ -527,7 +527,8 @@ export class MaestroClient {
           request: async (path, init, threadId) => {
             this.requireCapability('attachments.durable')
             if (threadId) {
-              const id = /^\/artifacts\/([0-9a-f-]{36})\/download$/.exec(path)?.[1]
+              // The download, its renewal (HEAD) and the PDF view link (I1) of a cited file.
+              const id = /^\/artifacts\/([0-9a-f-]{36})\/(?:download|links)$/.exec(path)?.[1]
               if (id === undefined || !this.citesArtifact(threadId, id))
                 throw error('FORBIDDEN', 'Attachment is not in the authorized thread history')
             }
@@ -555,6 +556,7 @@ export class MaestroClient {
               throw error('PROTOCOL_ERROR', 'Unexpected artifact origin')
             return response
           },
+          apiBase: this.api,
           failure: (failure, threadId) => {
             // A file download (it has a thread) is bound to that thread: a FORBIDDEN there closes at
             // most that thread and never the whole session. A NOT_FOUND names only the file (the URL

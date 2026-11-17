@@ -31,24 +31,13 @@ import {
   toThreadEvent,
   toWireContentPart,
 } from './types'
+import { blobPartFilename } from './upload-filename'
 import { PACKAGE_VERSION } from './version'
 
 const SEND_MESSAGE_TIMEOUT = 30_000
 const ARTIFACTS_LIST_TIMEOUT = 5_000
 
-/** Multipart filename for ``Blob`` uploads so server blob keys match WebSocket ``filename``. */
-/** The multipart part name production's `upload` gives a Blob (an audio recording has no name). */
-export function blobPartFilename(blob: Blob, override?: string): string {
-  const o = (override ?? '').trim()
-  if (o) return o
-  const t = (blob.type || '').toLowerCase()
-  if (t.includes('webm')) return 'recording.webm'
-  if (t.includes('ogg')) return 'recording.ogg'
-  if (t.includes('mpeg') || t.includes('mp3')) return 'recording.mp3'
-  if (t.includes('mp4') || t.includes('m4a') || t.includes('aac')) return 'recording.m4a'
-  if (t.startsWith('audio/')) return `recording.${t.split('/')[1]?.split('+')[0] || 'bin'}`
-  return 'recording.bin'
-}
+export { blobPartFilename }
 
 /** Silence a socket's handlers, then close it, so its late events never reach the client. */
 function detachAndClose(ws: WebSocket, code?: number) {

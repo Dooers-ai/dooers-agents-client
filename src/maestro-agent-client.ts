@@ -4,7 +4,6 @@
 import {
   AgentClient,
   type AgentConnectionConfig,
-  blobPartFilename,
   type PublicSettingsSchemaResult,
   type UploadResult,
 } from './client'
@@ -36,6 +35,7 @@ import type {
   ThreadArtifact,
   ThreadEvent,
 } from './types'
+import { productionUploadFilename } from './upload-filename'
 
 /** Configuração do transporte Maestro. Presente ⇒ o agente selecionado é servido pelo Maestro. */
 export interface AgentMaestroOptions {
@@ -1411,10 +1411,7 @@ export class MaestroAgentClient extends AgentClient {
     if (!maestro) throw new Error('Not connected')
     // The name production's `upload` sends (`AgentClient.upload`): trimmed, `upload` when empty, and
     // `recording.webm` (by type) for a recorded Blob. `artifacts.add` adds the browser's escaping.
-    const filename =
-      file instanceof File
-        ? options?.filename?.trim() || file.name.trim() || 'upload'
-        : blobPartFilename(file, options?.filename)
+    const filename = productionUploadFilename(file, options?.filename)
     const id = maestro.artifacts.add(file, filename)
     try {
       await maestro.artifacts.retry(id)

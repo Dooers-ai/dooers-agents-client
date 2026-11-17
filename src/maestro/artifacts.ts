@@ -34,6 +34,8 @@ type Host = {
   authorize?(threadId: string, artifactId: string): void
   request(path: string, init: RequestInit, threadId?: string): Promise<Response>
   failure(error: MaestroClientError, threadId?: string): void
+  /** I1: the Maestro API base (`origin + prefix`); a view link must be on this origin. */
+  apiBase?: string
 }
 type Intent = {
   authorize?: (signal: AbortSignal) => Promise<void>
@@ -95,34 +97,36 @@ function dataUrl(type: string, bytes: Uint8Array): string {
 /**
  * MIME type for the `blob:` URL of an artifact. A `blob:` URL is same-origin with the web app:
  * if a tab navigates to one of type text/html, SVG or XML, the file runs script in the app origin.
- * Only media that the production components render inline (raster images, audio) and PDF keep
- * their real type. Everything else gets `application/octet-stream`, so navigation downloads the
- * file. Any type whose subtype ends in `+xml` also gets it, even under `audio/`. SVG never reaches
- * a `blob:` (see `MAESTRO_SVG_TYPE`): it is shown from a `data:` URL.
+ * Only media that the production components render inline (raster images, audio) keep their real
+ * type. Everything else gets `application/octet-stream`, so navigation downloads the file. Any type
+ * whose subtype ends in `+xml` also gets it, even under `audio/`. SVG never reaches a `blob:` (see
+ * `MAESTRO_SVG_TYPE`): it is shown from a `data:` URL.
  *
- * PDF: the Maestro does not look at the bytes (as production's `POST /uploads`), so a PDF with
- * `/JavaScript`, `/Launch` or `/EmbeddedFile` keeps `application/pdf` and the web shows it in its
- * View panel (`<iframe src="blob:...">`, app origin). The blob type is fixed, so the browser never
- * reads it as HTML. The browser PDF viewers run a PDF's script, if at all, away from the embedding
- * page (Chromium: PDFium in the out-of-process viewer; Firefox: pdf.js scripting sandbox; Safari:
- * no PDF script), so the script never reaches the app DOM or storage. Production shows the same
- * PDF in the same `<iframe>`, but from the storage host. The `<iframe>` has no `sandbox`: a
- * sandboxed frame turns off the Chromium PDF viewer (the sandboxed plugins flag has no token).
+ * PDF (I1): the `blob:` is `application/octet-stream` too, so no PDF ever opens in the app origin.
+ * Production opens a PDF in its View panel from the storage host, another origin; the View panel
+ * here opens the Maestro's short-lived view link (`viewLink`), served `inline` from the Maestro
+ * origin. The `blob:` only downloads the file, with its real name.
  */
 export function maestroBlobType(mimeType: string): string {
   const type = mimeType.split(';')[0]!.trim().toLowerCase()
   // A `+xml` suffix marks an XML document whatever the type says (audio/x+xml, image/svg+xml).
   if (type.endsWith('+xml')) return 'application/octet-stream'
-  if (
-    type === 'application/pdf' ||
-    INLINE_IMAGE_TYPES.has(type) ||
-    /^audio\/[a-z0-9][a-z0-9.+_-]*$/.test(type)
-  )
-    return type
+  if (INLINE_IMAGE_TYPES.has(type) || /^audio\/[a-z0-9][a-z0-9.+_-]*$/.test(type)) return type
   return 'application/octet-stream'
 }
+/** I1: the only type the person views through the Maestro's view link. */
+export const MAESTRO_VIEW_TYPE = 'application/pdf'
 const failure = (code: string, retryable = false, message = 'Artifact request unavailable') =>
   new MaestroClientError(code, message, retryable)
+/** M3: the refusal of a `HEAD` (no body): the same codes the Maestro gives a GET with that status. */
+function headError(status: number): MaestroClientError {
+  if (status === 401) return failure('UNAUTHENTICATED')
+  if (status === 403) return failure('FORBIDDEN')
+  if (status === 404) return failure('NOT_FOUND')
+  if (status === 409) return failure('ARTIFACT_NOT_READY', true)
+  if (status === 429) return failure('RATE_LIMITED', true)
+  return status >= 500 ? failure('DEPENDENCY_UNAVAILABLE', true) : failure('PROTOCOL_ERROR')
+}
 /** Production's text for a file over the limit (`POST /uploads` of the agent, HTTP 413). */
 export const maestroFileTooLargeText = (maxBytes: number) => `File exceeds ${maxBytes} byte limit`
 /**
@@ -498,12 +502,12 @@ export class MaestroArtifacts {
     return resource
   }
   /**
-   * Renews a live resource without downloading the file again (M7). One authenticated read of one
-   * byte (`Range: bytes=0-0`; the whole empty body for a file of 0 byte) checks the access again
-   * (history, credential, the Maestro's authorization); then the same URL and the same bytes stay
-   * for another 60 s. The returned resource has the same `url`; the old object no longer revokes
-   * it. Production loads an `<img src>` once and keeps it on screen; this keeps the 60 s access
-   * check without the 25 MiB read.
+   * Renews a live resource without downloading the file again (M7). One authenticated `HEAD` of the
+   * download (M3: the Maestro runs the same authorization and reads no byte of the file) checks the
+   * access again (history, credential, the Maestro's authorization); then the same URL and the same
+   * bytes stay for another 60 s. The returned resource has the same `url`; the old object no longer
+   * revokes it. Production loads an `<img src>` once and keeps it on screen; this keeps the 60 s
+   * access check without the 25 MiB read.
    */
   async renew(
     resource: MaestroArtifactResource,
@@ -520,32 +524,25 @@ export class MaestroArtifacts {
       this.host.authorize?.(threadId, artifactId)
       const response = await this.host.request(
         `/artifacts/${artifactId}/download`,
-        {
-          method: 'GET',
-          signal: lifetime,
-          ...(sizeBytes ? { headers: { Range: 'bytes=0-0' } } : {}),
-        },
+        { method: 'HEAD', signal: lifetime },
         threadId
       )
       if (!response.ok) {
-        const bytes = await this.readResponse(response, 65536, lifetime)
-        throw this.responseError(
-          JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
-        )
+        // A HEAD has no body: the refusal comes from the status alone.
+        await response.body?.cancel().catch(() => {})
+        throw headError(response.status)
       }
       const type = (response.headers.get('content-type') ?? '').split(';')[0]!.trim().toLowerCase()
       if (
-        response.status !== (sizeBytes ? 206 : 200) ||
+        response.status !== 200 ||
         response.headers.get('x-content-type-options') !== 'nosniff' ||
         !/^private,\s*no-store$/i.test(response.headers.get('cache-control') ?? '') ||
         !/^attachment(?:;|$)/i.test(response.headers.get('content-disposition') ?? '') ||
         type !== resource.mimeType ||
-        response.headers.get('content-length') !== (sizeBytes ? '1' : '0') ||
-        (sizeBytes && response.headers.get('content-range') !== `bytes 0-0/${sizeBytes}`)
+        response.headers.get('content-length') !== String(sizeBytes)
       )
         throw failure('PROTOCOL_ERROR')
-      if (sizeBytes) (await this.readResponse(response, 1, lifetime)).fill(0)
-      else await response.body?.cancel().catch(() => {})
+      await response.body?.cancel().catch(() => {})
       if (lifetime.aborted || this.resources.get(resource) !== live) throw failure('DISCONNECTED')
       clearTimeout(live.timer)
       this.resources.delete(resource)
@@ -557,6 +554,65 @@ export class MaestroArtifacts {
     } finally {
       c.abort()
       this.reads.delete(c)
+    }
+  }
+  /**
+   * I1: the short-lived link that shows a PDF of the thread in the View panel. The Maestro checks the
+   * same access as the download (`POST /artifacts/:id/links`) and serves the file `inline` from its
+   * own origin, with `nosniff` and `frame-ancestors` of the app origins. Production opens the PDF
+   * from the storage host, another origin, in the same `<iframe>`. The link is refused here when it
+   * is not on the Maestro origin or when it is on the app origin (a proxy that serves the app and the
+   * Maestro on one origin): the PDF never opens in the app origin. Only a file of type
+   * `application/pdf` has a view link.
+   */
+  async viewLink(
+    threadId: string,
+    attachment: MaestroAttachment,
+    signal?: AbortSignal
+  ): Promise<{ url: string; expiresAt: string }> {
+    threadId = uuidSchema.parse(threadId).toLowerCase()
+    const id = uuidSchema.parse(attachment.artifact_id).toLowerCase()
+    if (attachment.mime_type?.split(';')[0]?.trim().toLowerCase() !== MAESTRO_VIEW_TYPE)
+      throw failure('VALIDATION_FAILED')
+    this.host.authorize?.(threadId, id)
+    try {
+      const response = await this.host.request(
+        `/artifacts/${id}/links`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+          ...(signal ? { signal } : {}),
+        },
+        threadId
+      )
+      const bytes = await this.readResponse(response, 65536, signal ?? new AbortController().signal)
+      const value: unknown = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(bytes))
+      if (!response.ok) throw this.responseError(value)
+      const link = parseMaestroNetwork(publicSchemas['Public.ArtifactLinkResponse'], value)
+      const url = new URL(link.url)
+      const maestro = this.host.apiBase ? new URL(this.host.apiBase) : undefined
+      const app = (globalThis as { location?: { origin?: string } }).location?.origin
+      if (
+        response.status !== 200 ||
+        !maestro ||
+        url.origin !== maestro.origin ||
+        url.origin === app ||
+        !url.pathname.startsWith(`${maestro.pathname.replace(/\/$/, '')}/artifact-links/`) ||
+        url.search ||
+        url.hash
+      )
+        throw failure('PROTOCOL_ERROR')
+      return { url: url.href, expiresAt: link.expires_at }
+    } catch (cause) {
+      const e =
+        cause instanceof MaestroClientError
+          ? cause
+          : cause instanceof SyntaxError
+            ? failure('PROTOCOL_ERROR')
+            : failure('NETWORK_ERROR', true)
+      this.host.failure(e, threadId)
+      throw e
     }
   }
   /**

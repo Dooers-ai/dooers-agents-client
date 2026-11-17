@@ -597,11 +597,37 @@
       "semantic_checks": [
         "actual body is binary; metadata schema describes response headers, not JSON body",
         "Range validated by HTTP adapter",
-        "authenticated proxy and current ACL; never expose storage URL"
+        "authenticated proxy and current ACL; never expose storage URL",
+        "HEAD (the client's renewal) runs the same authorization and returns the same headers without reading the file"
       ],
       "fixtures": {
         "path": "public.IdPath.valid",
         "response": "public.DownloadMetadata.valid",
+        "error": "public.Error.valid"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/artifacts/:id/links",
+      "operation": "artifact.view_link.issue",
+      "request_schema": "Public.Empty",
+      "query_schema": null,
+      "path_schema": "Public.IdPath",
+      "response_schema": "Public.ArtifactLinkResponse",
+      "status_codes": [200],
+      "required_capability": "attachments.durable",
+      "auth": "human",
+      "headers": ["Authorization", "Maestro-Supervision-Grant (optional)"],
+      "error_schema": "Public.Error",
+      "semantic_checks": [
+        "the person, the public chat visitor or a supervisor views a PDF of the thread: the same core artifact.download authorization as the download, one per request",
+        "only a file stored as application/pdf (VALIDATION_FAILED otherwise); the link is served inline from the Maestro origin with frame-ancestors of the app origins, never as a blob: in the app origin (production opens the PDF from the storage host)",
+        "url is a short-lived unauthenticated link to one artifact (default 3600 s); the read checks the artifact state on every request"
+      ],
+      "fixtures": {
+        "request": "public.Empty.valid",
+        "path": "public.IdPath.valid",
+        "response": "public.ArtifactLinkResponse.valid",
         "error": "public.Error.valid"
       }
     },
@@ -1051,7 +1077,9 @@
         "actual body is binary; metadata schema describes response headers, not JSON body",
         "no bearer, cookie or CORS; HMAC-SHA256 token binds artifact, thread, organization and expiry",
         "token, artifact still linked, thread without tombstone: any failure is the same 404",
-        "stored MIME with Content-Disposition attachment and nosniff; Cache-Control private, no-store (revocation is immediate)",
+        "stored MIME with Content-Disposition attachment and nosniff; Cache-Control private, no-store (revocation is immediate); Referrer-Policy no-referrer",
+        "a person's view link of a file stored as application/pdf is inline with Content-Security-Policy frame-ancestors of the app origins (no sandbox: the browser PDF viewer does not run in a sandboxed document); every other link is attachment with default-src 'none'; sandbox",
+        "total stream deadline: the base (300 s) plus the requested bytes at 32 KiB/s; an idle reader ends after 15 s",
         "HMAC checked before any database read; per-process and per-organization stream slots, short wait then 429 with Retry-After",
         "single byte range as the proxy; another range form gets the full body"
       ],

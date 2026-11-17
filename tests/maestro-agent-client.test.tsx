@@ -313,6 +313,14 @@ describe('MaestroAgentClient projects Maestro state into the legacy store', () =
     send.mockRejectedValue(new MaestroClientError('CORE_UNAVAILABLE', 'Serviço de autorização indisponível.', true))
     await expect(client.sendMessage({ threadId, text: 'oi' })).rejects.toThrow('Serviço de autorização indisponível.')
     expect(Object.keys(localStorage).filter((k) => k.startsWith('maestro.outbox.'))).toHaveLength(1)
+    // I2: a transient failure of the store is the same code without the reason: the message with the
+    // attachment stays in the outbox (replayed on reconnect) and the person never sees "not found".
+    send.mockRejectedValue(new MaestroClientError('ARTIFACT_NOT_READY', 'Artefato ainda indisponível.', true, uuid(902)))
+    await expect(
+      client.sendMessage({ threadId, content: [{ type: 'text', text: 'de novo' }, { type: 'document', refId: artifact, filename: 'a.pdf', mimeType: 'application/pdf' } as never] })
+    ).rejects.toThrow('Artefato ainda indisponível.')
+    expect(store.getState().connection.sendError).not.toContain('not found or expired')
+    expect(Object.keys(localStorage).filter((k) => k.startsWith('maestro.outbox.'))).toHaveLength(2)
     send.mockRestore()
     client.disconnect()
     localStorage.clear()
