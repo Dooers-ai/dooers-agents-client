@@ -761,4 +761,20 @@ describe('SEC-03: a thread read by supervision opens no file', () => {
     expect(fake.viewLink).not.toHaveBeenCalled()
     expect(view.getByTestId('other').dataset.status).toBe('ready')
   })
+
+  it('a supervisão que termina (a pessoa entrou na conversa) abre o arquivo no próximo render', async () => {
+    const fake = fakeArtifacts()
+    const supervised = new Set([T1])
+    useFakeMaestro(fake, fakeHistory(), supervised)
+    const view = render(<Part name="image" threadId={T1} mimeType="image/png" />)
+    await advance(100)
+    expect(view.getByTestId('image').dataset.reason).toBe('supervision_read_only')
+    expect(fake.open).not.toHaveBeenCalled()
+    // Entrar na conversa apaga o grant e reprojeta os eventos: o anexo desenha de novo.
+    supervised.delete(T1)
+    view.rerender(<Part name="image" threadId={T1} mimeType="image/png" />)
+    await advance(100)
+    expect(view.getByTestId('image').dataset).toMatchObject({ status: 'ready', reason: '' })
+    expect(fake.open).toHaveBeenCalledTimes(1)
+  })
 })
