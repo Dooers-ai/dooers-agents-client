@@ -67,6 +67,8 @@ export type C2S_EventCreate = Frame<
     metadata?: Record<string, unknown>
     chat_context?: { llm_model?: string | null; reasoning_effort?: string | null }
     queue?: string | null
+    /** Fresh handshake token proving the person is present; top level, never in `metadata`. */
+    presence_token?: string
   }
 >
 
