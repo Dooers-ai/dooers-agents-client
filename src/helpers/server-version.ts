@@ -18,7 +18,7 @@ export const THREAD_SEARCH_MIN_SERVER_VERSION = '0.25.0'
 
 /**
  * Minimum agents-server semver for token streaming (``event.delta``), ``run.cancel``, long-term
- * memory (``memory.*``) and schedules (``schedule.*``). Older servers close the socket on these
+ * memory (``memory.*``). Older servers close the socket on these
  * frame types, so the client never sends them there.
  */
 export const FRONTIER_MIN_SERVER_VERSION = '0.27.0'
@@ -65,7 +65,7 @@ export function supportsThreadSearch(serverVersion: string | null | undefined): 
   return isServerAtLeast(serverVersion, THREAD_SEARCH_MIN_SERVER_VERSION)
 }
 
-/** ``run.cancel`` (Stop), ``memory.*`` and ``schedule.*`` frames. */
+/** ``run.cancel`` (Stop) and ``memory.*`` frames. */
 export function supportsFrontierFeatures(serverVersion: string | null | undefined): boolean {
   return isServerAtLeast(serverVersion, FRONTIER_MIN_SERVER_VERSION)
 }

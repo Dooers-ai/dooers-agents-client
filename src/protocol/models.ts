@@ -374,39 +374,3 @@ export interface WireMemoryPreferences {
   about_me: string
   updated_at?: string | null
 }
-
-// --- Schedules (agents-server ≥ 0.27.0) ---
-
-export interface WireRecurrence {
-  freq: 'once' | 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly'
-  interval: number
-  by_weekday?: number[] | null
-  by_monthday?: number | null
-  at_time?: string | null
-  until?: string | null
-  count?: number | null
-}
-
-export interface WireScheduleRecord {
-  id: string
-  agent_id: string
-  organization_id: string
-  workspace_id: string
-  user_id: string
-  user_name?: string | null
-  thread_id?: string | null
-  title: string
-  instruction: string
-  kind: 'reminder' | 'task'
-  recurrence: WireRecurrence
-  timezone: string
-  next_run_at?: string | null
-  status: 'active' | 'paused' | 'completed' | 'canceled' | 'failed'
-  run_count: number
-  last_run_at?: string | null
-  last_status?: string | null
-  last_error?: string | null
-  last_thread_id?: string | null
-  created_at: string
-  updated_at: string
-}

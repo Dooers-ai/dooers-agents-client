@@ -26,12 +26,11 @@ Requires agents-server 0.27.0 for the new frames; with older servers nothing new
   `canEditMemory()` (and `useMemories().canEdit`) say who may change a memory (personal: its owner;
   workspace: managers and its author); `shareMemory()` / `useMemories().share` move a personal
   memory to the workspace as an explicit action.
-- **Schedules**: `useSchedules({ threadId? })` — reminders and recurring tasks with
-  `pause`, `resume`, `cancel`; live `schedule.upsert`/`schedule.deleted`.
 - `ChatContext.timezone` / `ChatContext.locale`; `sendMessage` fills the browser's values
   automatically for servers ≥ 0.27.0.
 - `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
-- Store: `memory` and `schedules` slices.
+- Store: `memory` slice. Reminders and recurring tasks are not on the socket: they live on the
+  Dooers Tasks service (agents-server 0.27.0 has no `schedule.*` frames).
 
 ## [0.21.0] — 2026-11-16
 

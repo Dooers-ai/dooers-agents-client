@@ -7,8 +7,6 @@ import type {
   MemoryRecord,
   MemoryState,
   Run,
-  ScheduleRecord,
-  ScheduleState,
   SettingsItem,
   Thread,
   ThreadEvent,
@@ -99,17 +97,6 @@ const EMPTY_MEMORY: MemoryState = {
   cursor: null,
   query: '',
   prefs: null,
-}
-
-const EMPTY_SCHEDULES: ScheduleState = {
-  items: [],
-  available: false,
-  loaded: false,
-  isLoading: false,
-}
-
-function sortSchedules(items: ScheduleRecord[]): ScheduleRecord[] {
-  return [...items].sort((a, b) => (a.nextRunAt ?? '9999').localeCompare(b.nextRunAt ?? '9999'))
 }
 
 function sortMemories(items: MemoryRecord[]): MemoryRecord[] {
@@ -282,10 +269,6 @@ export interface AgentActions {
   onMemoryUpsert: (memory: MemoryRecord) => void
   onMemoryDeleted: (memoryId: string) => void
   onMemoryPrefs: (prefs: MemoryPreferences, available: boolean) => void
-  onScheduleListStart: () => void
-  onScheduleList: (items: ScheduleRecord[], available: boolean) => void
-  onScheduleUpsert: (schedule: ScheduleRecord) => void
-  onScheduleDeleted: (scheduleId: string) => void
   addOptimistic: (threadId: string, event: ThreadEvent, clientEventId: string) => void
   removeOptimistic: (threadId: string, clientEventId: string) => void
   addSubscription: (threadId: string) => void
@@ -359,7 +342,6 @@ export interface AgentState {
   /** Long-term memory of the connected user (agents-server ≥ 0.27.0). */
   memory: MemoryState
   /** Reminders / recurring tasks of the connected user (agents-server ≥ 0.27.0). */
-  schedules: ScheduleState
   actions: AgentActions
 }
 
@@ -402,7 +384,6 @@ export function createAgentStore() {
     subscriptions: new Set(),
     loadingThreads: new Set(),
     memory: EMPTY_MEMORY,
-    schedules: EMPTY_SCHEDULES,
 
     actions: {
       setConnectionStatus: (status, error) =>
@@ -756,33 +737,6 @@ export function createAgentStore() {
             ...s.memory,
             prefs,
             available: s.memory.loaded ? s.memory.available : available,
-          },
-        })),
-
-      onScheduleListStart: () => set((s) => ({ schedules: { ...s.schedules, isLoading: true } })),
-
-      onScheduleList: (items, available) =>
-        set(() => ({
-          schedules: { items: sortSchedules(items), available, loaded: true, isLoading: false },
-        })),
-
-      onScheduleUpsert: (schedule) =>
-        set((s) => {
-          const others = s.schedules.items.filter((x) => x.id !== schedule.id)
-          const keep = schedule.status === 'active' || schedule.status === 'paused'
-          return {
-            schedules: {
-              ...s.schedules,
-              items: sortSchedules(keep ? [...others, schedule] : others),
-            },
-          }
-        }),
-
-      onScheduleDeleted: (scheduleId) =>
-        set((s) => ({
-          schedules: {
-            ...s.schedules,
-            items: s.schedules.items.filter((x) => x.id !== scheduleId),
           },
         })),
 

@@ -421,7 +421,6 @@ import type {
   WireRun,
   WireS2C_ContentPart,
   WireS2C_FormElement,
-  WireScheduleRecord,
   WireSettingsField,
   WireSettingsFieldGroup,
   WireSettingsItem,
@@ -877,75 +876,5 @@ export function toMemoryPreferences(w: WireMemoryPreferences): MemoryPreferences
     customInstructions: w.custom_instructions ?? '',
     aboutMe: w.about_me ?? '',
     updatedAt: w.updated_at ?? null,
-  }
-}
-
-// --- Schedules ---
-
-export type ScheduleStatus = 'active' | 'paused' | 'completed' | 'canceled' | 'failed'
-
-export interface Recurrence {
-  freq: 'once' | 'minutely' | 'hourly' | 'daily' | 'weekly' | 'monthly'
-  interval: number
-  byWeekday: number[] | null
-  byMonthday: number | null
-  atTime: string | null
-  until: string | null
-  count: number | null
-}
-
-export interface ScheduleRecord {
-  id: string
-  title: string
-  instruction: string
-  kind: 'reminder' | 'task'
-  recurrence: Recurrence
-  timezone: string
-  threadId: string | null
-  nextRunAt: string | null
-  status: ScheduleStatus
-  runCount: number
-  lastRunAt: string | null
-  lastStatus: string | null
-  lastError: string | null
-  lastThreadId: string | null
-  createdAt: string
-  updatedAt: string
-}
-
-export interface ScheduleState {
-  items: ScheduleRecord[]
-  available: boolean
-  loaded: boolean
-  isLoading: boolean
-}
-
-export function toScheduleRecord(w: WireScheduleRecord): ScheduleRecord {
-  const r = w.recurrence ?? { freq: 'once', interval: 1 }
-  return {
-    id: w.id,
-    title: w.title,
-    instruction: w.instruction,
-    kind: w.kind,
-    recurrence: {
-      freq: r.freq,
-      interval: r.interval ?? 1,
-      byWeekday: r.by_weekday ?? null,
-      byMonthday: r.by_monthday ?? null,
-      atTime: r.at_time ?? null,
-      until: r.until ?? null,
-      count: r.count ?? null,
-    },
-    timezone: w.timezone,
-    threadId: w.thread_id ?? null,
-    nextRunAt: w.next_run_at ?? null,
-    status: w.status,
-    runCount: w.run_count ?? 0,
-    lastRunAt: w.last_run_at ?? null,
-    lastStatus: w.last_status ?? null,
-    lastError: w.last_error ?? null,
-    lastThreadId: w.last_thread_id ?? null,
-    createdAt: w.created_at,
-    updatedAt: w.updated_at,
   }
 }

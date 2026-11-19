@@ -213,39 +213,6 @@ describe("frontier features", () => {
     await shared;
   });
 
-  it("tracks schedules and drops canceled ones", async () => {
-    const { client, store, ws } = await connectTo("0.27.0");
-    client.requestSchedules();
-    const schedule = (id: string, status: string, next: string) => ({
-      id,
-      agent_id: "w1",
-      organization_id: "o",
-      workspace_id: "",
-      user_id: "u1",
-      title: id,
-      instruction: "x",
-      kind: "reminder",
-      recurrence: { freq: "daily", interval: 1, at_time: "09:00" },
-      timezone: "America/Sao_Paulo",
-      next_run_at: next,
-      status,
-      run_count: 0,
-      created_at: "2026-10-31T10:00:00Z",
-      updated_at: "2026-10-31T10:00:00Z",
-    });
-    ws.receive({
-      id: "s",
-      type: "schedule.list.result",
-      payload: { schedules: [schedule("b", "active", "2026-11-02T12:00:00Z"), schedule("a", "active", "2026-11-01T12:00:00Z")], available: true },
-    });
-    expect(store.getState().schedules.items.map((s) => s.id)).toEqual(["a", "b"]);
-    expect(store.getState().schedules.items[0]?.recurrence.atTime).toBe("09:00");
-    ws.receive({ id: "u", type: "schedule.upsert", payload: { schedule: schedule("a", "paused", "2026-11-01T12:00:00Z") } });
-    expect(store.getState().schedules.items.find((s) => s.id === "a")?.status).toBe("paused");
-    ws.receive({ id: "d", type: "schedule.deleted", payload: { schedule_id: "b" } });
-    expect(store.getState().schedules.items.map((s) => s.id)).toEqual(["a"]);
-  });
-
   it("sends the browser time zone and locale only to servers that read them", async () => {
     const old = await connectTo("0.25.0");
     void old.client.sendMessage({ text: "oi", threadId: "t1" }).catch(() => {});

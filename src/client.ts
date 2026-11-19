@@ -33,7 +33,6 @@ import {
   toMemoryPreferences,
   toMemoryRecord,
   toRun,
-  toScheduleRecord,
   toSettingsItem,
   toThread,
   toThreadArtifact,
@@ -313,7 +312,7 @@ export class AgentClient {
     }
   >()
 
-  /** Mutations acknowledged by a plain ``ack`` (run.cancel, memory.*, schedule.*). */
+  /** Mutations acknowledged by a plain ``ack`` (run.cancel, memory.*). */
   private pendingAcks = new Map<
     string,
     { resolve: () => void; reject: (reason: Error) => void; timer: ReturnType<typeof setTimeout> }
@@ -928,9 +927,9 @@ export class AgentClient {
 
   // --- Messaging ---
 
-  // --- Run control / memory / schedules (agents-server ≥ 0.27.0) ---------------------------
+  // --- Run control / memory (agents-server ≥ 0.27.0) ---------------------------
 
-  /** True when the connected server supports Stop, memory and schedules frames. */
+  /** True when the connected server supports Stop and memory frames. */
   supportsFrontierFeatures(): boolean {
     return supportsFrontierFeatures(this.serverVersion)
   }
@@ -1042,24 +1041,6 @@ export class AgentClient {
         : {}),
       ...(patch.aboutMe !== undefined ? { about_me: patch.aboutMe } : {}),
     })
-  }
-
-  requestSchedules(options?: { threadId?: string | null; includeClosed?: boolean }): boolean {
-    if (!this.supportsFrontierFeatures()) return false
-    this.callbacks.onScheduleListStart()
-    this.send('schedule.list', {
-      thread_id: options?.threadId ?? null,
-      include_closed: !!options?.includeClosed,
-    })
-    return true
-  }
-
-  setScheduleStatus(scheduleId: string, status: 'active' | 'paused') {
-    return this.requestWithAck('schedule.update', { schedule_id: scheduleId, status })
-  }
-
-  deleteSchedule(scheduleId: string) {
-    return this.requestWithAck('schedule.delete', { schedule_id: scheduleId })
   }
 
   sendMessage(params: {
@@ -1774,21 +1755,6 @@ export class AgentClient {
           toMemoryPreferences(frame.payload.prefs),
           frame.payload.available !== false
         )
-        break
-
-      case 'schedule.list.result':
-        this.callbacks.onScheduleList(
-          frame.payload.schedules.map(toScheduleRecord),
-          frame.payload.available !== false
-        )
-        break
-
-      case 'schedule.upsert':
-        this.callbacks.onScheduleUpsert(toScheduleRecord(frame.payload.schedule))
-        break
-
-      case 'schedule.deleted':
-        this.callbacks.onScheduleDeleted(frame.payload.schedule_id)
         break
 
       case 'pong':

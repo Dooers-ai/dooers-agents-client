@@ -4,7 +4,6 @@ import type {
   WireMemoryPreferences,
   WireMemoryRecord,
   WireRun,
-  WireScheduleRecord,
   WireSettingsItem,
   WireThread,
   WireThreadArtifact,
@@ -80,7 +79,7 @@ export type C2S_EventCreate = Frame<
   }
 >
 
-// --- Run control / long-term memory / schedules (agents-server ≥ 0.27.0) ---
+// --- Run control / long-term memory (agents-server ≥ 0.27.0) ---
 
 export type C2S_RunCancel = Frame<'run.cancel', { thread_id: string; run_id?: string | null }>
 
@@ -118,18 +117,6 @@ export type C2S_MemoryPrefsUpdate = Frame<
   'memory.prefs.update',
   { enabled?: boolean; custom_instructions?: string; about_me?: string }
 >
-
-export type C2S_ScheduleList = Frame<
-  'schedule.list',
-  { thread_id?: string | null; include_closed?: boolean }
->
-
-export type C2S_ScheduleUpdate = Frame<
-  'schedule.update',
-  { schedule_id: string; status: 'active' | 'paused' }
->
-
-export type C2S_ScheduleDelete = Frame<'schedule.delete', { schedule_id: string }>
 
 // --- Event pagination C2S ---
 
@@ -224,9 +211,6 @@ export type ClientToServer =
   | C2S_MemoryDelete
   | C2S_MemoryPrefsGet
   | C2S_MemoryPrefsUpdate
-  | C2S_ScheduleList
-  | C2S_ScheduleUpdate
-  | C2S_ScheduleDelete
   | C2S_Ping
 
 // --- Server to Client (S2C) ---
@@ -353,15 +337,6 @@ export type S2C_MemoryPrefs = Frame<
   { prefs: WireMemoryPreferences; available: boolean }
 >
 
-export type S2C_ScheduleListResult = Frame<
-  'schedule.list.result',
-  { schedules: WireScheduleRecord[]; available: boolean }
->
-
-export type S2C_ScheduleUpsert = Frame<'schedule.upsert', { schedule: WireScheduleRecord }>
-
-export type S2C_ScheduleDeleted = Frame<'schedule.deleted', { schedule_id: string }>
-
 export type S2C_Pong = Frame<'pong', Record<string, never>>
 
 export type ServerToClient =
@@ -385,7 +360,4 @@ export type ServerToClient =
   | S2C_MemoryUpsert
   | S2C_MemoryDeleted
   | S2C_MemoryPrefs
-  | S2C_ScheduleListResult
-  | S2C_ScheduleUpsert
-  | S2C_ScheduleDeleted
   | S2C_Pong

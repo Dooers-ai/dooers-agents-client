@@ -38,8 +38,6 @@ export type { UseMemoriesOptions } from './hooks/use-memories'
 export { useMemories } from './hooks/use-memories'
 export { useMessage } from './hooks/use-message'
 export { useRunControl } from './hooks/use-run-control'
-export type { UseSchedulesOptions } from './hooks/use-schedules'
-export { useSchedules } from './hooks/use-schedules'
 export { useSettings } from './hooks/use-settings'
 export type { SettingsFileMetadata } from './hooks/use-settings-file-upload'
 export { useSettingsFileUpload } from './hooks/use-settings-file-upload'
@@ -93,12 +91,8 @@ export type {
   MemoryRecord,
   MemoryScope,
   MemoryState,
-  Recurrence,
   Run,
   RunStatus,
-  ScheduleRecord,
-  ScheduleState,
-  ScheduleStatus,
   SendContentPart,
   SettingsField,
   SettingsFieldGroup,

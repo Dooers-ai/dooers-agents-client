@@ -151,14 +151,14 @@ const { isRunning, canCancel, cancel } = useRunControl(threadId)
 
 Assistant messages stream token by token (`event.streaming === true` while being written).
 
-### useMemories / useSchedules
+### useMemories
 
 ```tsx
 const { memories, prefs, available, create, update, remove, updatePrefs, search } = useMemories()
-const { schedules, pause, resume, cancel } = useSchedules()
 ```
 
-Both need agents-server ≥ 0.27.0 (`supported` is false otherwise).
+Needs agents-server ≥ 0.27.0 (`supported` is false otherwise). Reminders and recurring tasks live on
+the Dooers Tasks service, not on the agent socket.
 
 ### useMessage
 
