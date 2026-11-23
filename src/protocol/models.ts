@@ -336,7 +336,7 @@ export interface WireAnalyticsEvent {
   data: Record<string, unknown> | null
 }
 
-// --- Long-term memory (agents-server ≥ 0.27.0) ---
+// --- Long-term memory (agents-server ≥ 0.30.0) ---
 
 export type WireMemoryScope = 'user' | 'workspace'
 export type WireMemoryKind = 'fact' | 'preference' | 'instruction' | 'context' | 'note'
@@ -355,7 +355,7 @@ export interface WireMemoryRecord {
   source_thread_id?: string | null
   source_event_id?: string | null
   created_by?: string | null
-  /** Who the memory came from (agents-server ≥ 0.27, rows written before have it empty). */
+  /** Who the memory came from (agents-server ≥ 0.30, rows written before have it empty). */
   author_id?: string
   author_name?: string
   use_count: number

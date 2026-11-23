@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.22.0] — 2026-11-17
 
-Requires agents-server 0.27.0 for the new frames; with older servers nothing new is sent
+Requires agents-server 0.30.0 for the new frames; with older servers nothing new is sent
 (they close the socket on unknown frame types).
 
 ### Added
@@ -27,10 +27,10 @@ Requires agents-server 0.27.0 for the new frames; with older servers nothing new
   workspace: managers and its author); `shareMemory()` / `useMemories().share` move a personal
   memory to the workspace as an explicit action.
 - `ChatContext.timezone` / `ChatContext.locale`; `sendMessage` fills the browser's values
-  automatically for servers ≥ 0.27.0.
+  automatically for servers ≥ 0.30.0.
 - `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
 - Store: `memory` slice. Reminders and recurring tasks are not on the socket: they live on the
-  Dooers Tasks service (agents-server 0.27.0 has no `schedule.*` frames).
+  Dooers Tasks service (agents-server 0.30.0 has no `schedule.*` frames).
 
 ## [0.21.0] — 2026-11-16
 

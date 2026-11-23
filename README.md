@@ -157,7 +157,7 @@ Assistant messages stream token by token (`event.streaming === true` while being
 const { memories, prefs, available, create, update, remove, updatePrefs, search } = useMemories()
 ```
 
-Needs agents-server ≥ 0.27.0 (`supported` is false otherwise). Reminders and recurring tasks live on
+Needs agents-server ≥ 0.30.0 (`supported` is false otherwise). Reminders and recurring tasks live on
 the Dooers Tasks service, not on the agent socket.
 
 ### useMessage

@@ -339,9 +339,9 @@ export interface AgentState {
   formStates: Record<string, FormState>
   subscriptions: Set<string>
   loadingThreads: Set<string>
-  /** Long-term memory of the connected user (agents-server ≥ 0.27.0). */
+  /** Long-term memory of the connected user (agents-server ≥ 0.30.0). */
   memory: MemoryState
-  /** Reminders / recurring tasks of the connected user (agents-server ≥ 0.27.0). */
+  /** Reminders / recurring tasks of the connected user (agents-server ≥ 0.30.0). */
   actions: AgentActions
 }
 
