@@ -210,7 +210,8 @@ export interface AgentActions {
   removeSubscription: (threadId: string) => void
   onSettingsSnapshot: (fields: SettingsItem[], updatedAt: string) => void
   onSettingsPatch: (fieldId: string, value: unknown, updatedAt: string) => void
-  onFeedbackAck: (targetId: string, feedback: 'like' | 'dislike') => void
+  onFeedbackAck: (targetId: string, feedback: 'like' | 'dislike' | 'clear') => void
+  rememberFeedback: (entries: Array<{ targetId: string; feedback: 'like' | 'dislike' }>) => void
   onAnalyticsEvent: (event: AnalyticsEvent) => void
   resetAnalytics: () => void
   initFormState: (formEventId: string, defaults: Record<string, unknown>) => void
@@ -263,6 +264,8 @@ export interface AgentState {
     isLoading: boolean
   }
   feedback: Record<string, 'like' | 'dislike'>
+  /** Votes cancelled in this session, so a late restore does not turn them back on. */
+  clearedFeedback: Record<string, true>
   analytics: {
     events: AnalyticsEvent[]
     counters: {
@@ -308,6 +311,7 @@ export function createAgentStore() {
       isLoading: true,
     },
     feedback: {},
+    clearedFeedback: {},
     formStates: {},
     analytics: {
       events: [],
@@ -686,9 +690,32 @@ export function createAgentStore() {
         })),
 
       onFeedbackAck: (targetId, feedback) =>
-        set((s) => ({
-          feedback: { ...s.feedback, [targetId]: feedback },
-        })),
+        set((s) => {
+          if (feedback === 'clear') {
+            const next = { ...s.feedback }
+            delete next[targetId]
+            return {
+              feedback: next,
+              clearedFeedback: { ...s.clearedFeedback, [targetId]: true },
+            }
+          }
+          const clearedFeedback = { ...s.clearedFeedback }
+          delete clearedFeedback[targetId]
+          return {
+            feedback: { ...s.feedback, [targetId]: feedback },
+            clearedFeedback,
+          }
+        }),
+
+      rememberFeedback: (entries) =>
+        set((s) => {
+          const feedback = { ...s.feedback }
+          for (const entry of entries) {
+            if (s.clearedFeedback[entry.targetId] || feedback[entry.targetId]) continue
+            feedback[entry.targetId] = entry.feedback
+          }
+          return { feedback }
+        }),
 
       onAnalyticsEvent: (event) =>
         set((s) => {
