@@ -874,7 +874,7 @@ export class AgentClient {
   sendFeedback(
     targetType: string,
     targetId: string,
-    feedback: 'like' | 'dislike',
+    feedback: 'like' | 'dislike' | 'clear',
     reason?: string,
     classification?: string
   ) {
@@ -1545,7 +1545,7 @@ export class AgentClient {
         if (frame.payload.ok) {
           this.callbacks.onFeedbackAck(
             frame.payload.target_id,
-            frame.payload.feedback as 'like' | 'dislike'
+            frame.payload.feedback as 'like' | 'dislike' | 'clear'
           )
         }
         break

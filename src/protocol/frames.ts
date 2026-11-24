@@ -125,7 +125,7 @@ export type C2S_Feedback = Frame<
   {
     target_type: string
     target_id: string
-    feedback: 'like' | 'dislike'
+    feedback: 'like' | 'dislike' | 'clear'
     reason?: string
     classification?: string
   }

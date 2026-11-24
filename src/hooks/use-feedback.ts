@@ -2,6 +2,10 @@ import { useCallback } from 'react'
 import { useAgentContext, useStore } from '../provider'
 import type { FeedbackTarget } from '../types'
 
+export function useRememberFeedback() {
+  return useStore((s) => s.rememberFeedback)
+}
+
 export function useFeedback(targetId: string, targetType: FeedbackTarget = 'event') {
   const { client } = useAgentContext()
 
@@ -19,5 +23,10 @@ export function useFeedback(targetId: string, targetType: FeedbackTarget = 'even
     [client, targetType, targetId]
   )
 
-  return { feedback, like, dislike }
+  const clear = useCallback(
+    () => client.sendFeedback(targetType, targetId, 'clear'),
+    [client, targetType, targetId]
+  )
+
+  return { feedback, like, dislike, clear }
 }
