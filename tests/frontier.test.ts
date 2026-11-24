@@ -61,7 +61,7 @@ describe("frontier features", () => {
   });
 
   it("streams deltas into the draft event, drops replays and ends with the final event", async () => {
-    const { store, ws } = await connectTo("0.30.0");
+    const { store, ws } = await connectTo("0.31.0");
     ws.receive({ id: "s", type: "thread.snapshot", payload: { thread, events: [], runs: [] } });
     ws.receive({ id: "a", type: "event.append", payload: { thread_id: "t1", events: [draft("Olá", { streaming: true })] } });
     ws.receive({ id: "d1", type: "event.delta", payload: { thread_id: "t1", event_id: "e1", kind: "text", delta: ", mun", seq: 1 } });
@@ -80,7 +80,7 @@ describe("frontier features", () => {
   });
 
   it("appends reasoning deltas to data.text and ignores unknown events", async () => {
-    const { store, ws } = await connectTo("0.30.0");
+    const { store, ws } = await connectTo("0.31.0");
     ws.receive({ id: "s", type: "thread.snapshot", payload: { thread, events: [], runs: [] } });
     ws.receive({
       id: "a",
@@ -95,19 +95,23 @@ describe("frontier features", () => {
 
   it("only sends run.cancel to servers that support it and settles on the ack", async () => {
     const old = await connectTo("0.25.0");
-    await expect(old.client.cancelRun("t1")).rejects.toThrow(/0.30.0/);
+    await expect(old.client.cancelRun("t1")).rejects.toThrow(/0.31.0/);
     expect(sentOfType(old.ws, "run.cancel")).toHaveLength(0);
     // 0.26.0 shipped the connectors, not these frames: it still closes the socket on them.
     const connectors = await connectTo("0.26.0");
-    await expect(connectors.client.cancelRun("t1")).rejects.toThrow(/0.30.0/);
+    await expect(connectors.client.cancelRun("t1")).rejects.toThrow(/0.31.0/);
     expect(sentOfType(connectors.ws, "run.cancel")).toHaveLength(0);
     // 0.27–0.29 shipped feedback export and thread permissions, not these frames either.
     const feedback = await connectTo("0.29.0");
-    await expect(feedback.client.cancelRun("t1")).rejects.toThrow(/0.30.0/);
+    await expect(feedback.client.cancelRun("t1")).rejects.toThrow(/0.31.0/);
     expect(sentOfType(feedback.ws, "run.cancel")).toHaveLength(0);
+    // 0.30.0 was published from main with feedback.clear only.
+    const published = await connectTo("0.30.0");
+    await expect(published.client.cancelRun("t1")).rejects.toThrow(/0.31.0/);
+    expect(sentOfType(published.ws, "run.cancel")).toHaveLength(0);
 
     MockWebSocket.instances = [];
-    const { client, ws } = await connectTo("0.30.0");
+    const { client, ws } = await connectTo("0.31.0");
     const done = client.cancelRun("t1", "r1");
     const frame = sentOfType(ws, "run.cancel")[0];
     expect(frame.payload).toEqual({ thread_id: "t1", run_id: "r1" });
@@ -120,7 +124,7 @@ describe("frontier features", () => {
   });
 
   it("keeps the memory list in sync with list results, upserts and deletions", async () => {
-    const { client, store, ws } = await connectTo("0.30.0");
+    const { client, store, ws } = await connectTo("0.31.0");
     expect(client.requestMemories({ query: "café" })).toBe(true);
     expect(sentOfType(ws, "memory.list")[0].payload).toMatchObject({ query: "café", cursor: null });
     expect(store.getState().memory.isLoading).toBe(true);
@@ -175,7 +179,7 @@ describe("frontier features", () => {
   });
 
   it("separates personal and workspace memory: author, editing rights and sharing", async () => {
-    const { client, store, ws } = await connectTo("0.30.0");
+    const { client, store, ws } = await connectTo("0.31.0");
     client.updateConnectionConfig({ userId: "ana" });
     const base = {
       agent_id: "w1",
@@ -223,7 +227,7 @@ describe("frontier features", () => {
     expect(sentOfType(old.ws, "event.create")[0].payload.chat_context).toBeUndefined();
 
     MockWebSocket.instances = [];
-    const { client, ws } = await connectTo("0.30.0");
+    const { client, ws } = await connectTo("0.31.0");
     void client.sendMessage({ text: "oi", threadId: "t1", chatContext: { llmModel: "m" } }).catch(() => {});
     const context = sentOfType(ws, "event.create")[0].payload.chat_context;
     expect(context.llm_model).toBe("m");

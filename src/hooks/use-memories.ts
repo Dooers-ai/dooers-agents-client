@@ -10,7 +10,7 @@ export type UseMemoriesOptions = {
 
 /**
  * Long-term memory of the connected user for this agent: list/search, create, edit, pin, delete,
- * plus custom instructions ("about me", "how to answer"). Requires agents-server ≥ 0.30.0.
+ * plus custom instructions ("about me", "how to answer"). Requires agents-server ≥ 0.31.0.
  */
 export function useMemories(options?: UseMemoriesOptions) {
   const { client } = useAgentContext()

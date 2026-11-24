@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.22.0] — 2026-11-17
+## [0.24.0] — 2026-11-24
 
 Requires agents-server 0.30.0 for the new frames; with older servers nothing new is sent
 (they close the socket on unknown frame types).
@@ -31,6 +31,14 @@ Requires agents-server 0.30.0 for the new frames; with older servers nothing new
 - `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
 - Store: `memory` slice. Reminders and recurring tasks are not on the socket: they live on the
   Dooers Tasks service (agents-server 0.30.0 has no `schedule.*` frames).
+
+## [0.23.1] — 2026-11-24
+
+### Added
+
+- `useFeedback` returns `clear`. Sending it cancels the vote on that message.
+- `useRememberFeedback` restores votes already stored for the signed-in person,
+  without turning back on a vote cancelled in this session.
 
 ## [0.21.0] — 2026-11-16
 

@@ -79,7 +79,7 @@ export type C2S_EventCreate = Frame<
   }
 >
 
-// --- Run control / long-term memory (agents-server ≥ 0.30.0) ---
+// --- Run control / long-term memory (agents-server ≥ 0.31.0) ---
 
 export type C2S_RunCancel = Frame<'run.cancel', { thread_id: string; run_id?: string | null }>
 
@@ -171,7 +171,7 @@ export type C2S_Feedback = Frame<
   {
     target_type: string
     target_id: string
-    feedback: 'like' | 'dislike'
+    feedback: 'like' | 'dislike' | 'clear'
     reason?: string
     classification?: string
   }
@@ -304,7 +304,7 @@ export type S2C_FeedbackAck = Frame<
 
 export type S2C_AnalyticsEvent = Frame<'analytics.event', WireAnalyticsEvent>
 
-/** Incremental text for an event announced with ``streaming: true`` (agents-server ≥ 0.30.0). */
+/** Incremental text for an event announced with ``streaming: true`` (agents-server ≥ 0.31.0). */
 export type S2C_EventDelta = Frame<
   'event.delta',
   {

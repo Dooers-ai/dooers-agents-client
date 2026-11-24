@@ -30,7 +30,7 @@ export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
 // Hooks
 export { useConnection } from './hooks/use-connection'
-export { useFeedback } from './hooks/use-feedback'
+export { useFeedback, useRememberFeedback } from './hooks/use-feedback'
 export { useForm } from './hooks/use-form'
 export type { FormFileMetadata } from './hooks/use-form-file-upload'
 export { useFormFileUpload } from './hooks/use-form-file-upload'

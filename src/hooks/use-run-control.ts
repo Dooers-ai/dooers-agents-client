@@ -3,7 +3,7 @@ import { useAgentContext, useStore } from '../provider'
 
 /**
  * Stop button support for a thread: whether a run is in progress and a ``cancel()`` that sends
- * ``run.cancel`` (agents-server ≥ 0.30.0). The answer streamed so far stays in the thread.
+ * ``run.cancel`` (agents-server ≥ 0.31.0). The answer streamed so far stays in the thread.
  */
 export function useRunControl(threadId: string | null) {
   const { client } = useAgentContext()

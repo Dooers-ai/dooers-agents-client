@@ -388,6 +388,7 @@ export function isSettingsFieldGroup(item: SettingsItem): item is SettingsFieldG
 // --- Feedback ---
 
 export type FeedbackType = 'like' | 'dislike'
+export type FeedbackSignal = FeedbackType | 'clear'
 export type FeedbackTarget = 'event' | 'run' | 'thread'
 
 // --- Analytics ---

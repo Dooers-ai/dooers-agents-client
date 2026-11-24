@@ -21,7 +21,7 @@ export const THREAD_SEARCH_MIN_SERVER_VERSION = '0.25.0'
  * memory (``memory.*``). Older servers close the socket on these
  * frame types, so the client never sends them there.
  */
-export const FRONTIER_MIN_SERVER_VERSION = '0.30.0'
+export const FRONTIER_MIN_SERVER_VERSION = '0.31.0'
 
 /** Parse ``major.minor.patch`` prefix; non-numeric parts become 0. */
 function parseSemverParts(version: string): [number, number, number] {

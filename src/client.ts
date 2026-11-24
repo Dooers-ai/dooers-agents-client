@@ -900,7 +900,7 @@ export class AgentClient {
   sendFeedback(
     targetType: string,
     targetId: string,
-    feedback: 'like' | 'dislike',
+    feedback: 'like' | 'dislike' | 'clear',
     reason?: string,
     classification?: string
   ) {
@@ -927,7 +927,7 @@ export class AgentClient {
 
   // --- Messaging ---
 
-  // --- Run control / memory (agents-server ≥ 0.30.0) ---------------------------
+  // --- Run control / memory (agents-server ≥ 0.31.0) ---------------------------
 
   /** True when the connected server supports Stop and memory frames. */
   supportsFrontierFeatures(): boolean {
@@ -937,7 +937,7 @@ export class AgentClient {
   private requestWithAck(type: string, payload: unknown, timeoutMs = 15_000): Promise<void> {
     if (!this.supportsFrontierFeatures()) {
       return Promise.reject(
-        new Error('This agent does not support this feature yet (agents-server < 0.30.0)')
+        new Error('This agent does not support this feature yet (agents-server < 0.31.0)')
       )
     }
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
@@ -1700,7 +1700,7 @@ export class AgentClient {
         if (frame.payload.ok) {
           this.callbacks.onFeedbackAck(
             frame.payload.target_id,
-            frame.payload.feedback as 'like' | 'dislike'
+            frame.payload.feedback as 'like' | 'dislike' | 'clear'
           )
         }
         break
@@ -2069,7 +2069,7 @@ export class AgentClient {
     return Object.keys(base).length > 0 ? base : undefined
   }
 
-  /** Browser time zone and locale for servers that read them (agents-server ≥ 0.30.0). */
+  /** Browser time zone and locale for servers that read them (agents-server ≥ 0.31.0). */
   private withLocaleDefaults(chatContext: ChatContext | undefined): ChatContext | undefined {
     if (!supportsChatContext(this.serverVersion) || !supportsFrontierFeatures(this.serverVersion)) {
       return chatContext
