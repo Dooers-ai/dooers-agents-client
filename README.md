@@ -142,6 +142,24 @@ const { deleteThread, loadMore } = useThreadsActions()
 
 `loadMore()` for cursor-based pagination. `deleteThread(id)` broadcasts deletion to all connected clients.
 
+### useRunControl (Stop)
+
+```tsx
+const { isRunning, canCancel, cancel } = useRunControl(threadId)
+{isRunning && <button disabled={!canCancel} onClick={() => cancel()}>Parar</button>}
+```
+
+Assistant messages stream token by token (`event.streaming === true` while being written).
+
+### useMemories
+
+```tsx
+const { memories, prefs, available, create, update, remove, updatePrefs, search } = useMemories()
+```
+
+Needs agents-server ≥ 0.30.0 (`supported` is false otherwise). Reminders and recurring tasks live on
+the Dooers Tasks service, not on the agent socket.
+
 ### useMessage
 
 ```tsx

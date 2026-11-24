@@ -40,6 +40,10 @@ export type SendContentPart = TextSendPart | AudioSendPart | ImageSendPart | Doc
 export interface ChatContext {
   llmModel?: string
   reasoningEffort?: string
+  /** IANA time zone (``America/Sao_Paulo``). ``sendMessage`` fills the browser's by default. */
+  timezone?: string
+  /** BCP 47 locale (``pt-BR``). ``sendMessage`` fills the browser's by default. */
+  locale?: string
 }
 
 /** Reserved settings field id: SELECT options are the chat model catalog. */
@@ -310,6 +314,8 @@ export interface ThreadEvent {
   data?: Record<string, unknown>
   createdAt: string
   clientEventId?: string
+  /** True while the assistant is still generating this message (token streaming). */
+  streaming?: boolean
 }
 
 export interface Run {
@@ -411,6 +417,8 @@ export interface ThreadState {
 import type {
   WireAnalyticsEvent,
   WireC2S_ContentPart,
+  WireMemoryPreferences,
+  WireMemoryRecord,
   WireRun,
   WireS2C_ContentPart,
   WireS2C_FormElement,
@@ -629,6 +637,7 @@ export function toThreadEvent(w: WireThreadEvent): ThreadEvent {
     data: w.data,
     createdAt: w.created_at,
     clientEventId: w.client_event_id,
+    ...(w.streaming ? { streaming: true } : {}),
   }
 }
 
@@ -781,5 +790,92 @@ export function toWireContentPart(p: SendContentPart): WireC2S_ContentPart {
       if (p.url) w.url = p.url
       return w
     }
+  }
+}
+
+// --- Long-term memory ---
+
+export type MemoryScope = 'user' | 'workspace'
+export type MemoryKind = 'fact' | 'preference' | 'instruction' | 'context' | 'note'
+
+export interface MemoryRecord {
+  id: string
+  scope: MemoryScope
+  kind: MemoryKind
+  content: string
+  tags: string[]
+  pinned: boolean
+  workspaceId: string
+  userId: string
+  createdBy: string | null
+  /** The person the memory came from; on workspace memory, who may edit it besides managers. */
+  authorId: string
+  authorName: string
+  sourceThreadId: string | null
+  useCount: number
+  createdAt: string
+  updatedAt: string
+  lastUsedAt: string | null
+}
+
+export interface MemoryPreferences {
+  enabled: boolean
+  customInstructions: string
+  aboutMe: string
+  updatedAt: string | null
+}
+
+export interface MemoryState {
+  items: MemoryRecord[]
+  /** False when the agent has no long-term memory (or the user is a guest / old server). */
+  available: boolean
+  canManageWorkspace: boolean
+  loaded: boolean
+  isLoading: boolean
+  hasMore: boolean
+  cursor: string | null
+  query: string
+  prefs: MemoryPreferences | null
+}
+
+export function toMemoryRecord(w: WireMemoryRecord): MemoryRecord {
+  return {
+    id: w.id,
+    scope: w.scope,
+    kind: w.kind,
+    content: w.content,
+    tags: w.tags ?? [],
+    pinned: !!w.pinned,
+    workspaceId: w.workspace_id ?? '',
+    userId: w.user_id ?? '',
+    createdBy: w.created_by ?? null,
+    authorId: w.author_id ?? '',
+    authorName: w.author_name ?? '',
+    sourceThreadId: w.source_thread_id ?? null,
+    useCount: w.use_count ?? 0,
+    createdAt: w.created_at,
+    updatedAt: w.updated_at,
+    lastUsedAt: w.last_used_at ?? null,
+  }
+}
+
+/**
+ * Whether ``viewerId`` may edit or delete ``record``: personal memory belongs to its owner (the
+ * server only lists the viewer's own); workspace memory to the managers and to its author.
+ */
+export function canEditMemory(
+  record: MemoryRecord,
+  viewer: { userId: string; canManageWorkspace: boolean }
+): boolean {
+  if (record.scope !== 'workspace') return true
+  return viewer.canManageWorkspace || (!!record.authorId && record.authorId === viewer.userId)
+}
+
+export function toMemoryPreferences(w: WireMemoryPreferences): MemoryPreferences {
+  return {
+    enabled: w.enabled !== false,
+    customInstructions: w.custom_instructions ?? '',
+    aboutMe: w.about_me ?? '',
+    updatedAt: w.updated_at ?? null,
   }
 }

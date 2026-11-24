@@ -12,8 +12,10 @@ export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 export {
   CHAT_CONTEXT_MIN_SERVER_VERSION,
   compareSemver,
+  FRONTIER_MIN_SERVER_VERSION,
   isServerAtLeast,
   supportsChatContext,
+  supportsFrontierFeatures,
   supportsThreadAccess,
   supportsThreadArtifactsList,
   supportsThreadQueues,
@@ -32,7 +34,10 @@ export { useFeedback, useRememberFeedback } from './hooks/use-feedback'
 export { useForm } from './hooks/use-form'
 export type { FormFileMetadata } from './hooks/use-form-file-upload'
 export { useFormFileUpload } from './hooks/use-form-file-upload'
+export type { UseMemoriesOptions } from './hooks/use-memories'
+export { useMemories } from './hooks/use-memories'
 export { useMessage } from './hooks/use-message'
+export { useRunControl } from './hooks/use-run-control'
 export { useSettings } from './hooks/use-settings'
 export type { SettingsFileMetadata } from './hooks/use-settings-file-upload'
 export { useSettingsFileUpload } from './hooks/use-settings-file-upload'
@@ -81,6 +86,11 @@ export type {
   ImageDisplayPart,
   ImagePart,
   ImageSendPart,
+  MemoryKind,
+  MemoryPreferences,
+  MemoryRecord,
+  MemoryScope,
+  MemoryState,
   Run,
   RunStatus,
   SendContentPart,
@@ -101,6 +111,7 @@ export type {
   User,
 } from './types'
 export {
+  canEditMemory,
   isSettingsFieldGroup,
   LLM_MODELS_FIELD_ID,
   toChartEventData,

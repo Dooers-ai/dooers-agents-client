@@ -335,3 +335,42 @@ export interface WireAnalyticsEvent {
   event_id: string | null
   data: Record<string, unknown> | null
 }
+
+// --- Long-term memory (agents-server ≥ 0.31.0) ---
+
+export type WireMemoryScope = 'user' | 'workspace'
+export type WireMemoryKind = 'fact' | 'preference' | 'instruction' | 'context' | 'note'
+
+export interface WireMemoryRecord {
+  id: string
+  agent_id: string
+  organization_id: string
+  workspace_id: string
+  user_id: string
+  scope: WireMemoryScope
+  kind: WireMemoryKind
+  content: string
+  tags: string[]
+  pinned: boolean
+  source_thread_id?: string | null
+  source_event_id?: string | null
+  created_by?: string | null
+  /** Who the memory came from (agents-server ≥ 0.31, rows written before have it empty). */
+  author_id?: string
+  author_name?: string
+  use_count: number
+  created_at: string
+  updated_at: string
+  last_used_at?: string | null
+  expires_at?: string | null
+}
+
+export interface WireMemoryPreferences {
+  agent_id: string
+  organization_id: string
+  user_id: string
+  enabled: boolean
+  custom_instructions: string
+  about_me: string
+  updated_at?: string | null
+}

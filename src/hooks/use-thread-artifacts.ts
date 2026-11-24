@@ -8,10 +8,7 @@ export interface UseThreadArtifactsOptions {
   limit?: number
 }
 
-export function useThreadArtifacts(
-  threadId: string | null,
-  options?: UseThreadArtifactsOptions
-) {
+export function useThreadArtifacts(threadId: string | null, options?: UseThreadArtifactsOptions) {
   const { client } = useAgentContext()
   const direction = options?.direction ?? 'all'
   const enabled = options?.enabled !== false

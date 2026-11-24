@@ -70,6 +70,8 @@ export function AgentProvider({
   if (!storeRef.current) {
     storeRef.current = createAgentStore()
     clientRef.current = new AgentClient(storeRef.current.getState().actions)
+    const store = storeRef.current
+    clientRef.current.setMemoryCursorReader(() => store.getState().memory.cursor)
   }
 
   // Update onError callback
