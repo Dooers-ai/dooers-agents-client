@@ -121,6 +121,7 @@ export function AgentProvider({
             resolveName: (kind, id) => maestroRef.current?.resolveName?.(kind, id),
           })
         : new AgentClient(actions)
+    client.setMemoryCursorReader(() => store.getState().memory.cursor)
     return { store, client }
   }, [transportKey])
 

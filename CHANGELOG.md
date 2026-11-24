@@ -17,6 +17,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.24.0] — 2026-11-24
+
+Requires agents-server 0.30.0 for the new frames; with older servers nothing new is sent
+(they close the socket on unknown frame types).
+
+### Added
+
+- **Token streaming**: `event.delta` frames append to the event announced with
+  `streaming: true` (text or reasoning). `ThreadEvent.streaming` is true while the assistant is
+  still writing and is cleared by the final `event.append`. Replayed deltas (same `seq`) are
+  dropped; deltas for events the client never saw are ignored.
+- **Stop**: `client.cancelRun(threadId, runId?)` and `useRunControl(threadId)`
+  (`isRunning`, `activeRunId`, `canCancel`, `isCanceling`, `cancel()`).
+- **Long-term memory**: `useMemories()` — list/search with pagination, create, edit, pin, delete,
+  workspace memories (editable by managers and by their author) and preferences (enabled, custom
+  instructions, about me). Client methods `requestMemories`, `createMemory`, `updateMemory`,
+  `deleteMemory`, `requestMemoryPrefs`, `updateMemoryPrefs`; live `memory.upsert`/`memory.deleted`.
+  Personal and workspace memory are separate: records carry `authorId`/`authorName`;
+  `canEditMemory()` (and `useMemories().canEdit`) say who may change a memory (personal: its owner;
+  workspace: managers and its author); `shareMemory()` / `useMemories().share` move a personal
+  memory to the workspace as an explicit action.
+- `ChatContext.timezone` / `ChatContext.locale`; `sendMessage` fills the browser's values
+  automatically for servers ≥ 0.30.0.
+- `FRONTIER_MIN_SERVER_VERSION`, `supportsFrontierFeatures()`, `client.supportsFrontierFeatures()`.
+- Store: `memory` slice. Reminders and recurring tasks are not on the socket: they live on the
+  Dooers Tasks service (agents-server 0.30.0 has no `schedule.*` frames).
+
+## [0.23.1] — 2026-11-24
+
+### Added
+
+- `useFeedback` returns `clear`. Sending it cancels the vote on that message.
+- `useRememberFeedback` restores votes already stored for the signed-in person,
+  without turning back on a vote cancelled in this session.
+
 ## [0.21.0] — 2026-11-16
 
 ### Added

@@ -3,6 +3,9 @@ import { isUnqueuedQueueFilter } from './helpers/thread-queue'
 import type {
   AnalyticsEvent,
   DisplayContentPart,
+  MemoryPreferences,
+  MemoryRecord,
+  MemoryState,
   Run,
   SettingsItem,
   Thread,
@@ -57,8 +60,49 @@ function mergeThreadEventById(prev: ThreadEvent, next: ThreadEvent): ThreadEvent
   return {
     ...prev,
     ...next,
+    // A finalized event (no ``streaming`` flag) ends the live stream of the draft it replaces.
+    streaming: next.streaming,
     ...(content !== undefined ? { content } : {}),
   }
+}
+
+/** Append a streamed ``delta`` to the text (or reasoning) of ``event``. */
+export function appendEventDelta(
+  event: ThreadEvent,
+  kind: 'text' | 'reasoning',
+  delta: string
+): ThreadEvent {
+  if (kind === 'reasoning') {
+    const current = typeof event.data?.text === 'string' ? (event.data.text as string) : ''
+    return { ...event, data: { ...(event.data ?? {}), text: current + delta } }
+  }
+  const parts = event.content ? [...event.content] : []
+  const index = parts.findIndex((part) => part.type === 'text')
+  if (index >= 0) {
+    const part = parts[index]
+    if (part && part.type === 'text') parts[index] = { ...part, text: part.text + delta }
+  } else {
+    parts.push({ type: 'text', text: delta })
+  }
+  return { ...event, content: parts }
+}
+
+const EMPTY_MEMORY: MemoryState = {
+  items: [],
+  available: false,
+  canManageWorkspace: false,
+  loaded: false,
+  isLoading: false,
+  hasMore: false,
+  cursor: null,
+  query: '',
+  prefs: null,
+}
+
+function sortMemories(items: MemoryRecord[]): MemoryRecord[] {
+  return [...items].sort((a, b) =>
+    a.pinned !== b.pinned ? (a.pinned ? -1 : 1) : b.updatedAt.localeCompare(a.updatedAt)
+  )
 }
 
 function eventTime(event: ThreadEvent): number {
@@ -204,13 +248,35 @@ export interface AgentActions {
     hasMore: boolean
   ) => void
   onRunUpsert: (run: Run) => void
+  /** Streaming text for an event announced with ``streaming: true`` (unknown events are ignored). */
+  onEventDelta: (
+    threadId: string,
+    eventId: string,
+    kind: 'text' | 'reasoning',
+    delta: string
+  ) => void
+  onMemoryListStart: (query: string, append: boolean) => void
+  onMemoryList: (
+    items: MemoryRecord[],
+    meta: {
+      cursor: string | null
+      hasMore: boolean
+      available: boolean
+      canManageWorkspace: boolean
+    },
+    append: boolean
+  ) => void
+  onMemoryUpsert: (memory: MemoryRecord) => void
+  onMemoryDeleted: (memoryId: string) => void
+  onMemoryPrefs: (prefs: MemoryPreferences, available: boolean) => void
   addOptimistic: (threadId: string, event: ThreadEvent, clientEventId: string) => void
   removeOptimistic: (threadId: string, clientEventId: string) => void
   addSubscription: (threadId: string) => void
   removeSubscription: (threadId: string) => void
   onSettingsSnapshot: (fields: SettingsItem[], updatedAt: string) => void
   onSettingsPatch: (fieldId: string, value: unknown, updatedAt: string) => void
-  onFeedbackAck: (targetId: string, feedback: 'like' | 'dislike') => void
+  onFeedbackAck: (targetId: string, feedback: 'like' | 'dislike' | 'clear') => void
+  rememberFeedback: (entries: Array<{ targetId: string; feedback: 'like' | 'dislike' }>) => void
   onAnalyticsEvent: (event: AnalyticsEvent) => void
   resetAnalytics: () => void
   initFormState: (formEventId: string, defaults: Record<string, unknown>) => void
@@ -263,6 +329,8 @@ export interface AgentState {
     isLoading: boolean
   }
   feedback: Record<string, 'like' | 'dislike'>
+  /** Votes cancelled in this session, so a late restore does not turn them back on. */
+  clearedFeedback: Record<string, true>
   analytics: {
     events: AnalyticsEvent[]
     counters: {
@@ -274,6 +342,9 @@ export interface AgentState {
   formStates: Record<string, FormState>
   subscriptions: Set<string>
   loadingThreads: Set<string>
+  /** Long-term memory of the connected user (agents-server ≥ 0.31.0). */
+  memory: MemoryState
+  /** Reminders / recurring tasks of the connected user (agents-server ≥ 0.31.0). */
   actions: AgentActions
 }
 
@@ -308,6 +379,7 @@ export function createAgentStore() {
       isLoading: true,
     },
     feedback: {},
+    clearedFeedback: {},
     formStates: {},
     analytics: {
       events: [],
@@ -315,6 +387,7 @@ export function createAgentStore() {
     },
     subscriptions: new Set(),
     loadingThreads: new Set(),
+    memory: EMPTY_MEMORY,
 
     actions: {
       setConnectionStatus: (status, error) =>
@@ -611,6 +684,66 @@ export function createAgentStore() {
           return { runs: { ...s.runs, [run.threadId]: updated } }
         }),
 
+      onEventDelta: (threadId, eventId, kind, delta) =>
+        set((s) => {
+          const existing = s.events[threadId]
+          if (!existing) return s
+          const index = existing.findIndex((event) => event.id === eventId)
+          if (index < 0) return s
+          const current = existing[index]
+          if (!current) return s
+          const next = existing.slice()
+          next[index] = appendEventDelta(current, kind, delta)
+          return { events: { ...s.events, [threadId]: next } }
+        }),
+
+      onMemoryListStart: (query, append) =>
+        set((s) => ({
+          memory: { ...s.memory, isLoading: true, query, ...(append ? {} : { cursor: null }) },
+        })),
+
+      onMemoryList: (items, meta, append) =>
+        set((s) => {
+          const merged = append
+            ? [
+                ...s.memory.items,
+                ...items.filter((m) => !s.memory.items.some((x) => x.id === m.id)),
+              ]
+            : items
+          return {
+            memory: {
+              ...s.memory,
+              items: merged,
+              available: meta.available,
+              canManageWorkspace: meta.canManageWorkspace,
+              hasMore: meta.hasMore,
+              cursor: meta.cursor,
+              loaded: true,
+              isLoading: false,
+            },
+          }
+        }),
+
+      onMemoryUpsert: (memory) =>
+        set((s) => {
+          const others = s.memory.items.filter((m) => m.id !== memory.id)
+          return { memory: { ...s.memory, items: sortMemories([memory, ...others]) } }
+        }),
+
+      onMemoryDeleted: (memoryId) =>
+        set((s) => ({
+          memory: { ...s.memory, items: s.memory.items.filter((m) => m.id !== memoryId) },
+        })),
+
+      onMemoryPrefs: (prefs, available) =>
+        set((s) => ({
+          memory: {
+            ...s.memory,
+            prefs,
+            available: s.memory.loaded ? s.memory.available : available,
+          },
+        })),
+
       addOptimistic: (threadId, event, clientEventId) =>
         set((s) => ({
           optimistic: {
@@ -686,9 +819,32 @@ export function createAgentStore() {
         })),
 
       onFeedbackAck: (targetId, feedback) =>
-        set((s) => ({
-          feedback: { ...s.feedback, [targetId]: feedback },
-        })),
+        set((s) => {
+          if (feedback === 'clear') {
+            const next = { ...s.feedback }
+            delete next[targetId]
+            return {
+              feedback: next,
+              clearedFeedback: { ...s.clearedFeedback, [targetId]: true },
+            }
+          }
+          const clearedFeedback = { ...s.clearedFeedback }
+          delete clearedFeedback[targetId]
+          return {
+            feedback: { ...s.feedback, [targetId]: feedback },
+            clearedFeedback,
+          }
+        }),
+
+      rememberFeedback: (entries) =>
+        set((s) => {
+          const feedback = { ...s.feedback }
+          for (const entry of entries) {
+            if (s.clearedFeedback[entry.targetId] || feedback[entry.targetId]) continue
+            feedback[entry.targetId] = entry.feedback
+          }
+          return { feedback }
+        }),
 
       onAnalyticsEvent: (event) =>
         set((s) => {

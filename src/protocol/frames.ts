@@ -1,6 +1,8 @@
 import type {
   WireAnalyticsEvent,
   WireC2S_ContentPart,
+  WireMemoryPreferences,
+  WireMemoryRecord,
   WireRun,
   WireSettingsItem,
   WireThread,
@@ -65,11 +67,55 @@ export type C2S_EventCreate = Frame<
       data?: Record<string, unknown>
     }
     metadata?: Record<string, unknown>
-    chat_context?: { llm_model?: string | null; reasoning_effort?: string | null }
+    chat_context?: {
+      llm_model?: string | null
+      reasoning_effort?: string | null
+      timezone?: string | null
+      locale?: string | null
+    }
     queue?: string | null
     /** Fresh handshake token proving the person is present; top level, never in `metadata`. */
     presence_token?: string
   }
+>
+
+// --- Run control / long-term memory (agents-server ≥ 0.31.0) ---
+
+export type C2S_RunCancel = Frame<'run.cancel', { thread_id: string; run_id?: string | null }>
+
+export type C2S_MemoryList = Frame<
+  'memory.list',
+  {
+    scope?: 'user' | 'workspace' | null
+    query?: string | null
+    cursor?: string | null
+    limit?: number
+  }
+>
+
+export type C2S_MemoryCreate = Frame<
+  'memory.create',
+  {
+    content: string
+    scope?: 'user' | 'workspace'
+    kind?: string
+    tags?: string[]
+    pinned?: boolean
+  }
+>
+
+export type C2S_MemoryUpdate = Frame<
+  'memory.update',
+  { memory_id: string; content?: string; tags?: string[]; pinned?: boolean; kind?: string }
+>
+
+export type C2S_MemoryDelete = Frame<'memory.delete', { memory_id: string }>
+
+export type C2S_MemoryPrefsGet = Frame<'memory.prefs.get', Record<string, never>>
+
+export type C2S_MemoryPrefsUpdate = Frame<
+  'memory.prefs.update',
+  { enabled?: boolean; custom_instructions?: string; about_me?: string }
 >
 
 // --- Event pagination C2S ---
@@ -125,7 +171,7 @@ export type C2S_Feedback = Frame<
   {
     target_type: string
     target_id: string
-    feedback: 'like' | 'dislike'
+    feedback: 'like' | 'dislike' | 'clear'
     reason?: string
     classification?: string
   }
@@ -158,6 +204,13 @@ export type ClientToServer =
   | C2S_Feedback
   | C2S_AnalyticsSubscribe
   | C2S_AnalyticsUnsubscribe
+  | C2S_RunCancel
+  | C2S_MemoryList
+  | C2S_MemoryCreate
+  | C2S_MemoryUpdate
+  | C2S_MemoryDelete
+  | C2S_MemoryPrefsGet
+  | C2S_MemoryPrefsUpdate
   | C2S_Ping
 
 // --- Server to Client (S2C) ---
@@ -251,6 +304,39 @@ export type S2C_FeedbackAck = Frame<
 
 export type S2C_AnalyticsEvent = Frame<'analytics.event', WireAnalyticsEvent>
 
+/** Incremental text for an event announced with ``streaming: true`` (agents-server ≥ 0.31.0). */
+export type S2C_EventDelta = Frame<
+  'event.delta',
+  {
+    thread_id: string
+    event_id: string
+    run_id?: string | null
+    kind: 'text' | 'reasoning'
+    delta: string
+    seq: number
+  }
+>
+
+export type S2C_MemoryListResult = Frame<
+  'memory.list.result',
+  {
+    memories: WireMemoryRecord[]
+    cursor?: string | null
+    has_more: boolean
+    available: boolean
+    can_manage_workspace: boolean
+  }
+>
+
+export type S2C_MemoryUpsert = Frame<'memory.upsert', { memory: WireMemoryRecord }>
+
+export type S2C_MemoryDeleted = Frame<'memory.deleted', { memory_id: string }>
+
+export type S2C_MemoryPrefs = Frame<
+  'memory.prefs',
+  { prefs: WireMemoryPreferences; available: boolean }
+>
+
 export type S2C_Pong = Frame<'pong', Record<string, never>>
 
 export type ServerToClient =
@@ -269,4 +355,9 @@ export type ServerToClient =
   | S2C_SettingsPublicSchemaResult
   | S2C_FeedbackAck
   | S2C_AnalyticsEvent
+  | S2C_EventDelta
+  | S2C_MemoryListResult
+  | S2C_MemoryUpsert
+  | S2C_MemoryDeleted
+  | S2C_MemoryPrefs
   | S2C_Pong
