@@ -3,7 +3,7 @@ import { useAgentContext, useStore } from '../provider'
 import type { FeedbackTarget } from '../types'
 
 export function useRememberFeedback() {
-  return useStore((s) => s.rememberFeedback)
+  return useStore((s) => s.actions.rememberFeedback)
 }
 
 export function useFeedback(targetId: string, targetType: FeedbackTarget = 'event') {
