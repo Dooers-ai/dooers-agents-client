@@ -284,11 +284,11 @@ The client handles:
 
 - [dooers-agents-server](https://github.com/Dooers-ai/dooers-agents-server) — Python SDK for building the agents this client connects to
 
-### Maestro presentation model (local candidate E07-01)
+### Dooers Threads presentation model (local candidate E07-01)
 
-`dooers-agents-client/maestro` exports `toMaestroConversationPresentation(snapshot,
-threadId, connection, expectedScope)` and its `MaestroConversationPresentation`
-type. Feed the canonical `MaestroStore` snapshot and the authenticated session scope.
+`dooers-agents-client/dooers-threads` exports `toDooersThreadsConversationPresentation(snapshot,
+threadId, connection, expectedScope)` and its `DooersThreadsConversationPresentation`
+type. Feed the canonical `DooersThreadsStore` snapshot and the authenticated session scope.
 The adapter checks the scope/authority, preserves decimal sequence strings and
 IDs, converts delivery/execution fields explicitly, and keeps publication commands
 separate from persisted events. It returns `null` for absent, revoked, unreadable,
@@ -309,12 +309,12 @@ are not recursively renamed. This local candidate retains package version 0.17.1
 identify it by tarball SHA-256, not a registry release. No UI/provider is mounted by
 this pure adapter.
 
-### Unknown form elements (Maestro)
+### Unknown form elements (Dooers Threads)
 
 `toFormElement` and `toFormEventData` keep the production behaviour by default: an
 element of an unknown type becomes `undefined` (the legacy transport is unchanged).
-With the Maestro transport, call them with `{ tolerateUnknown: true }`: the unknown
+With the Dooers Threads transport, call them with `{ tolerateUnknown: true }`: the unknown
 element keeps its original `type`, gets `required: false` and no default, so the
 web renders the same empty element it renders for any unknown type and the form can
 still be submitted. Declared difference: production fails on such an element;
-Maestro mode shows the empty element.
+Dooers Threads mode shows the empty element.

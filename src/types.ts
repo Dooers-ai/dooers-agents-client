@@ -1,4 +1,4 @@
-// Legacy direct-agent models. Maestro models are exported separately from ./maestro.
+// Legacy direct-agent models. Dooers Threads models are exported separately from ./dooers-threads.
 // --- Send content parts (client → server, used in send()) ---
 
 export interface TextSendPart {
@@ -65,7 +65,7 @@ export interface AudioDisplayPart {
   filename?: string
   /** Upload ref when present on the wire (replay / blob key correlation). */
   refId?: string
-  /** File size in bytes when known (Maestro attachments). */
+  /** File size in bytes when known (Dooers Threads attachments). */
   sizeBytes?: number
 }
 
@@ -271,19 +271,19 @@ export interface ThreadAccess {
   read: boolean
   write: boolean
   manage: boolean
-  /** Maestro only: may archive/unarchive (organization admin, workspace manager, platform admin). */
+  /** Dooers Threads only: may archive/unarchive (organization admin, workspace manager, platform admin). */
   archive?: boolean
-  /** Maestro only: may remove another participant (same group as ``archive``). */
+  /** Dooers Threads only: may remove another participant (same group as ``archive``). */
   removeParticipants?: boolean
   /**
-   * Maestro only (SEC-05): may designate the owner of a thread with no active human owner (organization
+   * Dooers Threads only (SEC-05): may designate the owner of a thread with no active human owner (organization
    * owner or manager, workspace manager).
    */
   assignOwner?: boolean
   /**
-   * Maestro only (SEC-03): the reader reads the thread by supervision and does not participate.
+   * Dooers Threads only (SEC-03): the reader reads the thread by supervision and does not participate.
    * Supervision only reads: no reply, no export, no file download and no file view (the client refuses
-   * them with `MAESTRO_SUPERVISION_READ_ONLY`). The person joins the conversation for these actions.
+   * them with `DOOERS_THREADS_SUPERVISION_READ_ONLY`). The person joins the conversation for these actions.
    */
   supervised?: boolean
 }
@@ -328,7 +328,7 @@ export interface ThreadEvent {
   actor: Actor
   author: string | null
   /**
-   * The agent that produced the event. Set only by the Maestro transport, on events whose actor is an
+   * The agent that produced the event. Set only by the Dooers Threads transport, on events whose actor is an
    * agent: `id` is the agent's principal id and `name` its platform name, present only when the
    * name resolver knows it (the stored display name is generic and is never reported here).
    * Absent for people, system events and on the legacy transport.
@@ -538,7 +538,7 @@ export const toContentPart = toDisplayContentPart
 
 export interface FormParseOptions {
   /**
-   * Maestro transport: an element of a type this client does not know is kept as its base element
+   * Dooers Threads transport: an element of a type this client does not know is kept as its base element
    * (name, label, order, disabled) with its original `type`, never required, so a renderer that has no
    * case for the type shows nothing and the form can still be submitted. Without it (legacy runtime) an
    * unknown element yields `undefined`, exactly as the production client does.

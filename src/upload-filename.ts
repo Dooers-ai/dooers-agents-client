@@ -14,7 +14,7 @@ export function blobPartFilename(blob: Blob, override?: string): string {
 /**
  * The file name production's `AgentClient.upload` sends: a `File` keeps its name trimmed (or the
  * name given, trimmed), `upload` when empty; a `Blob` without name gets `recording.webm` (by type).
- * Every Maestro upload path (chat, `useMaestroUploads`, form field) uses it, so the handler and the
+ * Every Dooers Threads upload path (chat, `useDooersThreadsUploads`, form field) uses it, so the handler and the
  * history see the name production shows.
  */
 export function productionUploadFilename(file: Blob, filename?: string): string {

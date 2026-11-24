@@ -1,0 +1,484 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { DooersThreadsArtifacts, type DooersThreadsAttachment, dooersThreadsBlobType } from '../src/dooers-threads/artifacts'
+import type { DooersThreadsClient } from '../src/dooers-threads/client'
+import { productionUploadFilename } from '../src/upload-filename'
+import { event, make, thread, threadId, tick, uuid } from './fixtures/dooers-threads-replay'
+const clients: DooersThreadsClient[] = []
+afterEach(() => { for (const c of clients) c.dispose(); clients.length = 0; vi.useRealTimers(); vi.unstubAllGlobals() })
+const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
+const uploaded = (metadata: any) => ({ artifact: { artifact_id: uuid(40), ...metadata, state: 'ready_unbound', created_at: new Date().toISOString(), expires_at: new Date(Date.now() + 120000).toISOString() }, upload_session_id: uuid(41), upload_mode: 'multipart_proxy', max_size_bytes: 8388608, expires_at: new Date(Date.now() + 120000).toISOString() })
+async function setup(fetcher: typeof fetch, attachments = true) {
+ const env = make({ fetch: fetcher }); clients.push(env.client)
+ const connecting = env.client.connect(); await tick(); const socket = env.sockets[0]!; socket.open(); await tick()
+ socket.receive({ id: socket.last('connect').id, type: 'ack', payload: { status: 'connected', connection_id: uuid(100), server_version: '0.0.0', protocol_version: 1, history_authority: 'dooers_threads', capabilities: ['messages.text', 'threads.shared', 'history.replay', ...(attachments ? ['attachments.durable'] : [])], expires_at: new Date(Date.now() + 300000).toISOString() } }); await connecting
+ return { ...env, socket }
+}
+const file = () => new Blob(['synthetic durable media'], { type: 'image/png' })
+async function ready(client: DooersThreadsClient, id: string) { await client.artifacts.retry(id) }
+const attachment: DooersThreadsAttachment = { type: 'attachment', artifact_id: uuid(40), filename: 'image.png', mime_type: 'image/png', size_bytes: file().size }
+async function history(env: Awaited<ReturnType<typeof setup>>) {
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const e = event(1); e.payload.content = [attachment]
+ const t = thread('1'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+}
+const bytes = () => new Response('synthetic durable media', { headers: { 'Content-Type': 'image/png', 'Content-Length': String(file().size), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="image.png"', 'X-Content-Type-Options': 'nosniff' } })
+it('lost ACK retries the same multipart File/hash/key and never supplies an agent endpoint or JSON content type', async () => {
+ const requests: any[] = []
+ const fetcher = vi.fn(async (url, init) => { const body = init!.body as FormData; const meta = JSON.parse(String(body.get('metadata'))); requests.push({ url, init, meta, file: await (body.get('file') as Blob).text() }); if (requests.length === 1) throw new TypeError('ACK lost'); return json(uploaded(meta), 201) })
+ const { client } = await setup(fetcher)
+ const id = client.artifacts.add(file(), 'image.png'); await expect(ready(client, id)).rejects.toMatchObject({ code: 'NETWORK_ERROR' })
+ expect(client.artifacts.getSnapshot()[0]!.state).toBe('error'); expect(() => client.artifacts.content()).toThrow()
+ await ready(client, id)
+ expect(requests).toHaveLength(2); expect(requests[0].meta).toEqual(requests[1].meta); expect(requests[0].file).toBe(requests[1].file)
+ expect(requests[0].init.headers['Idempotency-Key']).toBe(requests[1].init.headers['Idempotency-Key'])
+ expect(requests[0].url).toBe('https://dooers-threads.example/api/v1/artifacts'); expect(requests[0].meta.workspace_id).toBeNull(); expect(requests[0].meta.thread_id).toBeUndefined()
+ expect(requests[0].init.headers['Content-Type']).toBeUndefined(); expect(requests[0].init).toMatchObject({ credentials: 'omit', redirect: 'error', cache: 'no-store' })
+ expect(client.artifacts.content()).toEqual([attachment]); expect(JSON.stringify(client.artifacts.content())).not.toMatch(/url|Bearer|sha256/)
+})
+it('removing a pending file aborts and ignores a late response', async () => {
+ let resolve!: (r: Response) => void; let meta: any
+ const { client } = await setup(vi.fn(async (_url, init) => { meta = JSON.parse(String((init!.body as FormData).get('metadata'))); return new Promise<Response>(r => { resolve = r }) }))
+ const id = client.artifacts.add(file(), 'image.png'); const pending = client.artifacts.retry(id); await vi.waitFor(() => expect(resolve).toBeDefined())
+ client.artifacts.remove(id); resolve(json(uploaded(meta), 201)); await expect(pending).rejects.toMatchObject({ code: 'DISCONNECTED' }); expect(client.artifacts.getSnapshot()).toEqual([])
+})
+it('scope reset and revoked credentials clear File intentions before a late upload can restore them', async () => {
+ const fetcher = vi.fn(async () => json({ error: { code: 'FORBIDDEN', message: 'Access denied', retryable: false, request_id: uuid(99) } }, 403))
+ const { client } = await setup(fetcher)
+ const id = client.artifacts.add(file(), 'image.png'); await expect(client.artifacts.retry(id)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ expect(client.artifacts.getSnapshot()).toEqual([]); expect(client.getConnection().status).toBe('unauthenticated'); expect(fetcher).toHaveBeenCalledTimes(1)
+})
+it('missing negotiated capability never sends the selected file', async () => {
+ const fetcher = vi.fn(); const { client } = await setup(fetcher, false)
+ const id = client.artifacts.add(file(), 'image.png'); await expect(ready(client, id)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' }); expect(fetcher).not.toHaveBeenCalled()
+})
+it('download builds only the proxy ID path, keeps authorization out of URLs and bounds resources to 60 seconds', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ vi.useFakeTimers(); const r = await env.client.artifacts.open(threadId, attachment)
+ expect(fetcher.mock.calls[0]![0]).toBe(`https://dooers-threads.example/api/v1/artifacts/${attachment.artifact_id}/download`)
+ expect(fetcher.mock.calls[0]![1]).toMatchObject({ credentials: 'omit', redirect: 'error', cache: 'no-store', headers: { Authorization: expect.stringMatching(/^Bearer /) } })
+ expect(r.url).toBe('blob:private-object'); expect(create).toHaveBeenCalledTimes(1)
+ await vi.advanceTimersByTimeAsync(60000); expect(revoke).toHaveBeenCalledWith('blob:private-object'); expect(fetcher).toHaveBeenCalledTimes(1)
+ create.mockRestore(); revoke.mockRestore()
+})
+it('revocation during chunks cancels the read, exposes no partial Blob and does not renew', async () => {
+ let stream!: ReadableStreamDefaultController<Uint8Array>
+ const fetcher = vi.fn(async () => new Response(new ReadableStream({ start(c) { stream = c; c.enqueue(new Uint8Array([1,2])) } }), { headers: { 'content-type': 'image/png', 'content-length': String(file().size), 'cache-control': 'private, no-store', 'content-disposition': 'attachment', 'x-content-type-options': 'nosniff' } }))
+ const env = await setup(fetcher); await history(env)
+ const create = vi.spyOn(URL, 'createObjectURL'); const pending = env.client.artifacts.open(threadId, attachment); const rejected = expect(pending).rejects.toMatchObject({ code: 'DISCONNECTED' })
+ await tick(); env.client.closeThread(threadId); await rejected
+ expect(create).not.toHaveBeenCalled(); expect(fetcher).toHaveBeenCalledTimes(1); create.mockRestore()
+})
+it('known thread revocation releases an existing Blob and prevents new calls', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:released'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ await env.client.artifacts.open(threadId, attachment)
+ env.client.closeThread(threadId); expect(revoke).toHaveBeenCalledWith('blob:released')
+ await expect(env.client.artifacts.open(threadId, attachment)).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(fetcher).toHaveBeenCalledTimes(1)
+ create.mockRestore(); revoke.mockRestore()
+})
+it('a download that answers 404 NOT_FOUND fails that file only and keeps the thread and other media', async () => {
+ const missing = { ...attachment, artifact_id: uuid(42) }
+ const fetcher = vi.fn(async (url: string) => String(url).includes(uuid(42)) ? json({ error: { code: 'NOT_FOUND', message: 'Missing', retryable: false, request_id: uuid(99) } }, 404) : bytes())
+ const env = await setup(fetcher as never)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const e = event(1); e.payload.content = [missing, attachment]
+ const t = thread('1'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:still-works'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'NOT_FOUND' })
+ expect(env.client.store.getThread(threadId)?.phase).not.toBe('revoked')
+ const ok = await env.client.artifacts.open(threadId, attachment)
+ expect(ok.url).toBe('blob:still-works')
+ ok.release(); create.mockRestore(); revoke.mockRestore()
+})
+async function twoMedia(fetcher: (url: string) => Promise<Response>) {
+ const missing = { ...attachment, artifact_id: uuid(42) }
+ const env = await setup(fetcher as never)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const e = event(1); e.payload.content = [missing, attachment]
+ const t = thread('1'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ return { env, missing }
+}
+const errorResponse = (code: string, status: number) => json({ error: { code, message: 'Denied', retryable: false, request_id: uuid(99) } }, status)
+it('a FORBIDDEN on one file download closes at most that thread and never the session', async () => {
+ const { env, missing } = await twoMedia(async (url) => String(url).includes(uuid(42)) ? errorResponse('FORBIDDEN', 403) : bytes())
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ expect(env.client.getConnection().status).not.toBe('unauthenticated')
+ expect(env.client.getConnection().status).toBe('connected')
+})
+it('an attachment the history does not cite yet (optimistic message) is refused locally and the thread stays open', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:cited'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ const cited = await env.client.artifacts.open(threadId, attachment)
+ expect(fetcher).toHaveBeenCalledTimes(1)
+ // The chat opens the file of the message it is sending before the server event cites it.
+ await expect(env.client.artifacts.open(threadId, { ...attachment, artifact_id: uuid(41) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ expect(fetcher).toHaveBeenCalledTimes(1)
+ expect(env.client.store.getThread(threadId)?.phase).toBe('live')
+ expect(revoke).not.toHaveBeenCalled()
+ expect(env.client.citesArtifact(threadId, uuid(41))).toBe(false)
+ expect(env.client.citesArtifact(threadId, attachment.artifact_id)).toBe(true)
+ const again = await env.client.artifacts.open(threadId, attachment)
+ expect(fetcher).toHaveBeenCalledTimes(2)
+ cited.release(); again.release(); create.mockRestore(); revoke.mockRestore()
+})
+it('an UNAUTHENTICATED on a file download still ends the session', async () => {
+ const { env, missing } = await twoMedia(async () => errorResponse('UNAUTHENTICATED', 401))
+ await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code: 'UNAUTHENTICATED' })
+ expect(env.client.getConnection().status).toBe('unauthenticated')
+})
+it('THREAD_DELETING on a file download still closes the thread and keeps the session', async () => {
+ for (const code of ['THREAD_DELETING']) {
+  const { env, missing } = await twoMedia(async () => errorResponse(code, 409))
+  await expect(env.client.artifacts.open(threadId, missing)).rejects.toMatchObject({ code })
+  expect(env.client.store.getThread(threadId)?.phase).toBe('revoked')
+  expect(env.client.getConnection().status).toBe('connected')
+ }
+})
+it('an artifact from another history cannot be retained under the wrong thread', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher); await history(env)
+ await expect(env.client.artifacts.open(uuid(80), attachment)).rejects.toMatchObject({ code: 'FORBIDDEN' }); expect(fetcher).not.toHaveBeenCalled()
+})
+it('rejects oversize/active header filenames before I/O and stops ambiguous length/content responses', async () => {
+ const request = vi.fn(async () => new Response('abc', { headers: { 'content-type':'image/png','content-length':'4','cache-control':'private, no-store','content-disposition':'attachment','x-content-type-options':'nosniff' } }))
+ const manager = new DooersThreadsArtifacts({ workspaceId:null, request, failure:()=>{} }, 3)
+ expect(() => manager.add(new Blob(['1234'], {type:'image/png'}), 'x.png')).toThrow()
+ // A quote is escaped as the browser writes it in the multipart header (production stores `%22`).
+ expect(manager.getSnapshot()).toEqual([]); manager.add(new Blob(['x'], {type:'image/png'}), 'bad"name.png')
+ expect(manager.getSnapshot()[0]?.filename).toBe('bad%22name.png')
+ await expect(manager.open(threadId, attachment)).rejects.toMatchObject({ code:'PROTOCOL_ERROR' }); expect(request).toHaveBeenCalledTimes(1); manager.clear()
+})
+
+it('explicit upload authorization failure preserves the selected File and retries the same intention before any bytes leave', async () => {
+ const fetcher=vi.fn(async(_url,init)=>json(uploaded(JSON.parse(String((init!.body as FormData).get('metadata')))),201))
+ const {client}=await setup(fetcher)
+ const authorize=vi.fn().mockRejectedValueOnce(new TypeError('Synthetic Core token outage')).mockResolvedValue(undefined)
+ const id=client.artifacts.add(file(),'image.png',{authorize})
+ await expect(client.artifacts.retry(id)).rejects.toMatchObject({code:'NETWORK_ERROR'})
+ expect(fetcher).not.toHaveBeenCalled();expect(client.artifacts.getSnapshot()[0]?.state).toBe('error')
+ await client.artifacts.retry(id);expect(authorize).toHaveBeenCalledTimes(2);expect(fetcher).toHaveBeenCalledTimes(1);expect(client.artifacts.content()).toEqual([attachment])
+})
+it('invalid download headers abort the native request before its slot is released', async () => {
+ const signals:AbortSignal[]=[]
+ let active=0
+ const env=await setup(vi.fn(async(_url,init)=>{
+   const signal=init!.signal!;signals.push(signal);active++
+   const body=new ReadableStream<Uint8Array>({start(controller){
+     controller.enqueue(new Uint8Array([1]))
+     signal.addEventListener('abort',()=>{active--;controller.error(new DOMException('Canceled','AbortError'))},{once:true})
+   }})
+   return new Response(body,{headers:{'content-type':'image/png','content-length':String(file().size),'cache-control':'private, no-store','content-disposition':'attachment'}})
+ }))
+ await history(env)
+ for(let attempt=0;attempt<3;attempt++){
+   await expect(env.client.artifacts.open(threadId,attachment)).rejects.toMatchObject({code:'PROTOCOL_ERROR'})
+   expect(signals.at(-1)?.aborted).toBe(true)
+   expect(active).toBe(0)
+ }
+})
+it('default per-file bound is 25 MiB and the configured bound still caps at 64 MiB', () => {
+ const host = { workspaceId: null, request: vi.fn(), failure: vi.fn() }
+ expect(new DooersThreadsArtifacts(host).maxBytes).toBe(26214400)
+ expect(new DooersThreadsArtifacts(host, 64 * 1024 * 1024).maxBytes).toBe(64 * 1024 * 1024)
+ expect(() => new DooersThreadsArtifacts(host, 64 * 1024 * 1024 + 1)).toThrow()
+})
+it('an attachment cited only by another thread event (not message.created) is readable', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const created = event(1); created.payload.content = [{ type: 'text', text: 'no attachment here' }]
+ const edited = event(2); edited.type = 'hologram.created'; edited.payload = { message_event_id: created.event_id, content: [attachment] }
+ const t = thread('2'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [created, edited], watermark: '2', next_cursor: null, has_more: false }); env.socket.caught('2'); await tick()
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:edited'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ const r = await env.client.artifacts.open(threadId, attachment); expect(r.url).toBe('blob:edited'); r.release()
+ await expect(env.client.artifacts.open(threadId, { ...attachment, artifact_id: uuid(41) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ create.mockRestore(); revoke.mockRestore()
+})
+it('an attachment cited by a message.updated event is readable', async () => {
+ const fetcher = vi.fn(async () => bytes()); const env = await setup(fetcher)
+ env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+ const created = event(1); created.payload.content = [{ type: 'text', text: 'no attachment here' }]
+ const edited = event(2); edited.type = 'message.updated'; edited.payload = { event_id: created.event_id, content: [attachment] }
+ const t = thread('2'); t.capabilities.push('attachments.durable')
+ env.socket.frame('thread.snapshot', { thread: t, events: [created, edited], watermark: '2', next_cursor: null, has_more: false }); env.socket.caught('2'); await tick()
+ const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:updated'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+ const r = await env.client.artifacts.open(threadId, attachment); expect(r.url).toBe('blob:updated'); r.release()
+ await expect(env.client.artifacts.open(threadId, { ...attachment, artifact_id: uuid(41) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+ create.mockRestore(); revoke.mockRestore()
+})
+describe('open() blob type: only inline-rendered media keep their real type', () => {
+ const run = async (mime: string) => {
+  const body = 'synthetic media'
+  const fetcher = vi.fn(async () => new Response(body, { headers: { 'Content-Type': mime, 'Content-Length': String(body.length), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="f"', 'X-Content-Type-Options': 'nosniff' } }))
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:typed'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  const r = await env.client.artifacts.open(threadId, { ...attachment, mime_type: mime, size_bytes: body.length })
+  const blob = create.mock.calls[0]![0] as Blob
+  r.release(); create.mockRestore()
+  return blob.type
+ }
+ // I1: a PDF never opens from a blob: in the app origin; the View panel uses the Dooers Threads' view link.
+ it.each(['application/pdf', 'text/html', 'application/xml', 'text/xml', 'application/json', 'text/plain', 'application/xhtml+xml', 'application/octet-stream', 'audio/x+xml', 'audio/svg+xml', 'audio/x-foo+xml', 'video/mp4', 'font/woff2'])('%s becomes application/octet-stream', async (mime) => {
+  expect(await run(mime)).toBe('application/octet-stream')
+ })
+ it.each(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/avif', 'image/bmp', 'audio/webm', 'audio/mpeg'])('%s keeps its type', async (mime) => {
+  expect(await run(mime)).toBe(mime)
+ })
+})
+
+describe('attachments sweep: production parity of the upload and of SVG', () => {
+ const svgBody = '<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><script>alert(1)</script><rect width="4" height="4"/></svg>'
+ it('F2: SVG shows as an image from a data: URL, never from a same-origin blob: URL', async () => {
+  const fetcher = vi.fn(async () => new Response(svgBody, { headers: { 'Content-Type': 'image/svg+xml', 'Content-Length': String(svgBody.length), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="f.svg"', 'X-Content-Type-Options': 'nosniff' } }))
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL'); const revoke = vi.spyOn(URL, 'revokeObjectURL'); create.mockClear(); revoke.mockClear()
+  const r = await env.client.artifacts.open(threadId, { ...attachment, filename: 'f.svg', mime_type: 'image/svg+xml', size_bytes: svgBody.length })
+  expect(r.mimeType).toBe('image/svg+xml')
+  expect(r.url.startsWith('data:image/svg+xml;base64,')).toBe(true)
+  expect(atob(r.url.slice('data:image/svg+xml;base64,'.length))).toBe(svgBody)
+  expect(create).not.toHaveBeenCalled()
+  r.release(); expect(revoke).not.toHaveBeenCalled()
+  // Any blob: of SVG/XML stays a download, never a document in the app origin.
+  expect(dooersThreadsBlobType('image/svg+xml')).toBe('application/octet-stream')
+ })
+ it('an empty file (0 byte) uploads and opens, as production stores the empty upload', async () => {
+  const sent: { size_bytes: number; sha256: string }[] = []
+  const fetcher = vi.fn(async (url, init) => {
+   if (String(url).endsWith('/download'))
+    return new Response(null, { headers: { 'Content-Type': 'text/plain', 'Content-Length': '0', 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="vazio.txt"', 'X-Content-Type-Options': 'nosniff' } })
+   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent.push(meta)
+   return json(uploaded(meta), 201)
+  })
+  const env = await setup(fetcher)
+  const id = env.client.artifacts.add(new Blob([], { type: 'text/plain' }), 'vazio.txt')
+  await env.client.artifacts.retry(id)
+  expect(sent).toEqual([expect.objectContaining({ size_bytes: 0, sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855' })])
+  expect(env.client.artifacts.getSnapshot()[0]?.state).toBe('ready')
+  env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+  const empty: DooersThreadsAttachment = { ...attachment, filename: 'vazio.txt', mime_type: 'text/plain', size_bytes: 0 }
+  const e = event(1); e.payload.content = [empty]
+  const t = thread('1'); t.capabilities.push('attachments.durable')
+  env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:empty')
+  const r = await env.client.artifacts.open(threadId, empty)
+  expect(r.url).toBe('blob:empty')
+  expect((create.mock.calls[0]![0] as Blob).size).toBe(0)
+  r.release(); create.mockRestore()
+ })
+ it('R2: a file over 25 MiB shows production\'s text before any request', async () => {
+  const fetcher = vi.fn(); const { client } = await setup(fetcher)
+  const big = { size: 26214401, type: 'application/pdf' } as Blob
+  expect(() => client.artifacts.add(big, 'grande.pdf')).toThrow('File exceeds 26214400 byte limit')
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it.each([
+  [413, 'PAYLOAD_TOO_LARGE', 'Limite de tamanho excedido.', 'File exceeds 26214400 byte limit'],
+  [422, 'VALIDATION_FAILED', 'A operação não atende às regras exigidas.', 'A operação não atende às regras exigidas.'],
+  [429, 'QUOTA_EXCEEDED', 'Quota excedida.', 'Quota excedida.'],
+ ])('R2: a %i %s shows the cause, not a generic text', async (status, code, message, shown) => {
+  const fetcher = vi.fn(async () => json({ error: { code, message, retryable: false, request_id: uuid(99) } }, status))
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await expect(client.artifacts.retry(id)).rejects.toMatchObject({ code, message: shown })
+ })
+ it('R2: a network failure shows the browser text, as production', async () => {
+  const fetcher = vi.fn(async () => { throw new TypeError('Failed to fetch') })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await expect(client.artifacts.retry(id)).rejects.toMatchObject({ code: 'NETWORK_ERROR', message: 'Failed to fetch' })
+ })
+ it('F3: six files chosen at once all upload, at most four requests at the same time', async () => {
+  let active = 0, peak = 0
+  const fetcher = vi.fn(async (_url, init) => {
+   active++; peak = Math.max(peak, active)
+   await new Promise((resolve) => setTimeout(resolve, 20))
+   active--
+   return json(uploaded(JSON.parse(String((init!.body as FormData).get('metadata')))), 201)
+  })
+  const { client } = await setup(fetcher)
+  const ids = Array.from({ length: 6 }, (_, n) => client.artifacts.add(file(), `image-${n}.png`))
+  await Promise.all(ids.map((id) => client.artifacts.retry(id)))
+  expect(fetcher).toHaveBeenCalledTimes(6); expect(peak).toBe(4)
+  expect(client.artifacts.getSnapshot().every((draft) => draft.state === 'ready')).toBe(true)
+ })
+ it('F3: a 429 (too many uploads at the same time) waits Retry-After and sends the same intention again', async () => {
+  const keys: string[] = []
+  const fetcher = vi.fn(async (_url, init) => {
+   keys.push((init!.headers as Record<string, string>)['Idempotency-Key']!)
+   if (keys.length === 1) return json({ error: { code: 'RATE_LIMITED', message: 'Limite de requisições excedido.', retryable: true, request_id: uuid(99), details: { retry_after_seconds: 1 } } }, 429)
+   return json(uploaded(JSON.parse(String((init!.body as FormData).get('metadata')))), 201)
+  })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(file(), 'image.png')
+  await client.artifacts.retry(id)
+  expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1])
+  expect(client.artifacts.getSnapshot()[0]?.state).toBe('ready')
+ })
+ it('R1: a .doc and a file of unknown type upload; the attachment carries the type the Dooers Threads stored', async () => {
+  // The three uploads run in parallel and each SHA-256 (WebCrypto) ends at its own time: the request
+  // order is not the selection order. Keyed by name; `content()` keeps the selection order.
+  const sent: Record<string, string> = {}
+  const fetcher = vi.fn(async (_url, init) => {
+   const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); sent[meta.filename] = meta.mime_type
+   const stored = meta.filename.endsWith('.bin') ? 'application/octet-stream' : meta.mime_type
+   return json(uploaded({ ...meta, mime_type: stored === 'application/octet-stream' && meta.filename.endsWith('.csv') ? 'text/csv' : stored }), 201)
+  })
+  const { client } = await setup(fetcher)
+  const doc = client.artifacts.add(new Blob(['ole'], { type: 'application/msword' }), 'contrato.doc')
+  const bin = client.artifacts.add(new Blob(['raw']), 'dados.bin')
+  const csv = client.artifacts.add(new Blob(['a,b']), 'dados.csv')
+  await Promise.all([doc, bin, csv].map((id) => client.artifacts.retry(id)))
+  expect(sent).toEqual({ 'contrato.doc': 'application/msword', 'dados.bin': 'application/octet-stream', 'dados.csv': 'application/octet-stream' })
+  expect(client.artifacts.content().map((part) => part.mime_type)).toEqual(['application/msword', 'application/octet-stream', 'text/csv'])
+ })
+})
+
+describe('round 2 of the attachments review', () => {
+ const meta = (init: RequestInit | undefined) => JSON.parse(String((init!.body as FormData).get('metadata')))
+ it('I1: keeps NFD and NFC, escapes the multipart characters as the browser, and an empty name is upload', async () => {
+  const sent: { meta: string; part: string }[] = []
+  const fetcher = vi.fn(async (_url, init) => {
+   const body = init!.body as FormData
+   sent.push({ meta: meta(init).filename, part: (body.get('file') as File).name })
+   return json(uploaded(meta(init)), 201)
+  })
+  const { client } = await setup(fetcher)
+  const names = ['Relatório.pdf'.normalize('NFD'), 'Relatório.pdf'.normalize('NFC'), '  Relatório.pdf  ', 'a"b\r\nc.pdf', '']
+  const ids = names.map((name) => client.artifacts.add(new Blob(['x'], { type: 'application/pdf' }), name))
+  await Promise.all(ids.map((id) => client.artifacts.retry(id)))
+  const expected = ['Relatório.pdf'.normalize('NFD'), 'Relatório.pdf'.normalize('NFC'), '  Relatório.pdf  ', 'a%22b%0D%0Ac.pdf', 'upload']
+  expect(sent.map((s) => s.meta).sort()).toEqual([...expected].sort())
+  // The multipart part carries the same name, so the Dooers Threads' header check matches.
+  for (const s of sent) expect(s.part).toBe(s.meta)
+  expect(client.artifacts.content().map((part) => part.filename)).toEqual(expected)
+  expect('Relatório.pdf'.normalize('NFD')).not.toBe('Relatório.pdf'.normalize('NFC'))
+ })
+ const headOk = (headers: Record<string, string> = {}) => new Response(null, { status: 200, headers: { 'Content-Type': 'image/png', 'Content-Length': String(file().size), 'Cache-Control': 'private, no-store', 'Content-Disposition': 'attachment; filename="image.png"', 'X-Content-Type-Options': 'nosniff', ...headers } })
+ it('M3/M7: renew checks the access with a HEAD (no byte of the file) and keeps the same URL; the old object no longer revokes it', async () => {
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'HEAD' ? headOk() : bytes())
+  const env = await setup(fetcher); await history(env)
+  const create = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  // Spies of earlier tests in this file stay installed: count only this test's calls.
+  create.mockClear(); revoke.mockClear()
+  vi.useFakeTimers()
+  const first = await env.client.artifacts.open(threadId, attachment)
+  vi.advanceTimersByTime(50000)
+  const renewed = await env.client.artifacts.renew(first)
+  expect(fetcher).toHaveBeenCalledTimes(2)
+  const [url, init] = fetcher.mock.calls[1]!
+  expect(url).toBe(`https://dooers-threads.example/api/v1/artifacts/${attachment.artifact_id}/download`)
+  expect(init!.method).toBe('HEAD')
+  expect((init!.headers as Record<string, string>).Range).toBeUndefined()
+  expect(renewed.url).toBe(first.url); expect(renewed.expiresAt).toBeGreaterThan(first.expiresAt)
+  expect(create).toHaveBeenCalledTimes(1)
+  first.release(); vi.advanceTimersByTime(15000); expect(revoke).not.toHaveBeenCalled()
+  vi.advanceTimersByTime(50000); expect(revoke).toHaveBeenCalledWith('blob:private-object')
+  // A released resource is not renewed: the hook opens the file again.
+  await expect(env.client.artifacts.renew(renewed)).rejects.toMatchObject({ code: 'ARTIFACT_NOT_READY' })
+ })
+ it('M3: renew refuses a HEAD that is not the same file, and maps a refusal by its status', async () => {
+  let head = headOk({ 'Content-Length': '999' })
+  const fetcher = vi.fn(async (_url: string, init?: RequestInit) => init?.method === 'HEAD' ? head : bytes())
+  const env = await setup(fetcher); await history(env)
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:private-object'); vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  const first = await env.client.artifacts.open(threadId, attachment)
+  await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+  head = headOk({ 'Content-Disposition': 'inline' })
+  await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+  for (const [status, code] of [[404, 'NOT_FOUND'], [429, 'RATE_LIMITED'], [503, 'DEPENDENCY_UNAVAILABLE'], [409, 'ARTIFACT_NOT_READY']] as const) {
+   head = new Response(null, { status })
+   await expect(env.client.artifacts.renew(first)).rejects.toMatchObject({ code })
+  }
+  head = headOk()
+  await expect(env.client.artifacts.renew(first)).resolves.toMatchObject({ url: 'blob:private-object' })
+ })
+ it('M9: a waiter woken for a free slot whose upload was removed passes the slot to the next waiter', async () => {
+  const manager = new DooersThreadsArtifacts({ workspaceId: null, request: vi.fn(), failure: () => {} }) as any
+  for (let n = 0; n < 4; n++) await manager.uploadSlot(new AbortController().signal)
+  const first = new AbortController(), second = new AbortController()
+  const a = manager.uploadSlot(first.signal), b = manager.uploadSlot(second.signal)
+  a.catch(() => {})
+  await Promise.resolve()
+  // The release wakes the first waiter; its upload is removed before it runs (same tick).
+  manager.releaseUploadSlot(); first.abort()
+  await expect(a).rejects.toMatchObject({ code: 'DISCONNECTED' })
+  const outcome = await Promise.race([b.then(() => 'slot'), new Promise((resolve) => setTimeout(() => resolve('stuck'), 50))])
+  expect(outcome).toBe('slot'); expect(manager.uploading).toBe(4)
+ })
+})
+
+describe('I1: the View panel opens a PDF from the Dooers Threads origin, never from a blob: in the app origin', () => {
+ const pdf: DooersThreadsAttachment = { ...attachment, filename: 'doc.pdf', mime_type: 'application/pdf' }
+ async function pdfHistory(env: Awaited<ReturnType<typeof setup>>) {
+  env.client.retainThread(threadId); await tick(); env.socket.ackSubscribe()
+  const e = event(1); e.payload.content = [pdf]
+  const t = thread('1'); t.capabilities.push('attachments.durable')
+  env.socket.frame('thread.snapshot', { thread: t, events: [e], watermark: '1', next_cursor: null, has_more: false }); env.socket.caught('1'); await tick()
+ }
+ const link = (url: string) => json({ url, expires_at: new Date(Date.now() + 3600000).toISOString() })
+ it('asks the Dooers Threads for the view link with the bearer and an empty body', async () => {
+  const fetcher = vi.fn(async () => link('https://dooers-threads.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).resolves.toMatchObject({ url: 'https://dooers-threads.example/api/v1/artifact-links/abc.def' })
+  const [url, init] = fetcher.mock.calls[0]! as unknown as [string, RequestInit]
+  expect(url).toBe(`https://dooers-threads.example/api/v1/artifacts/${pdf.artifact_id}/links`)
+  expect(init.method).toBe('POST'); expect(init.body).toBe('{}'); expect(init.credentials).toBe('omit')
+  expect((init.headers as Record<string, string>).Authorization).toMatch(/^Bearer /)
+ })
+ it.each([
+  ['another origin', 'https://outra.example/api/v1/artifact-links/abc.def'],
+  ['another path', 'https://dooers-threads.example/api/v1/artifacts/x/download'],
+  ['a query', 'https://dooers-threads.example/api/v1/artifact-links/abc.def?x=1'],
+ ])('refuses a link on %s', async (_name, url) => {
+  const env = await setup(vi.fn(async () => link(url))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'PROTOCOL_ERROR' })
+ })
+ it('N3: has no view link when the Dooers Threads is on the app origin (a proxy): UNSUPPORTED_CAPABILITY, without a request', async () => {
+  vi.stubGlobal('location', { origin: 'https://dooers-threads.example' })
+  const fetcher = vi.fn(async () => link('https://dooers-threads.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await pdfHistory(env)
+  // The web downloads the PDF on this code only; every other refusal is shown to the person.
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it('N3: the Dooers Threads without links answers UNSUPPORTED_CAPABILITY, and the session and the thread stay open', async () => {
+  const env = await setup(vi.fn(async () => json({ error: { code: 'UNSUPPORTED_CAPABILITY', message: 'Capacidade não suportada.', retryable: false, request_id: uuid(5) } }, 422))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'UNSUPPORTED_CAPABILITY' })
+  expect(env.client.getConnection().status).toBe('connected')
+ })
+ it('has no view link for another type, nor for a file the history does not cite', async () => {
+  const fetcher = vi.fn(async () => link('https://dooers-threads.example/api/v1/artifact-links/abc.def'))
+  const env = await setup(fetcher); await history(env)
+  await expect(env.client.artifacts.viewLink(threadId, attachment)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+  await expect(env.client.artifacts.viewLink(threadId, { ...pdf, artifact_id: uuid(77) })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+  expect(fetcher).not.toHaveBeenCalled()
+ })
+ it('shows the refusal of the Dooers Threads', async () => {
+  const env = await setup(vi.fn(async () => json({ error: { code: 'VALIDATION_FAILED', message: 'A operação não atende às regras exigidas.', retryable: false, request_id: uuid(5) } }, 422))); await pdfHistory(env)
+  await expect(env.client.artifacts.viewLink(threadId, pdf)).rejects.toMatchObject({ code: 'VALIDATION_FAILED' })
+ })
+})
+
+describe('M6: every Dooers Threads upload path sends the name production sends', () => {
+ it.each([
+  ['  relatório.pdf  ', 'relatório.pdf'],
+  ['   ', 'upload'],
+ ])('a form field upload of %j is named %j', async (selected, expected) => {
+  const requests: string[] = []
+  const fetcher = vi.fn(async (_url, init) => { const meta = JSON.parse(String((init!.body as FormData).get('metadata'))); requests.push(meta.filename); return json(uploaded(meta), 201) })
+  const { client } = await setup(fetcher)
+  const id = client.artifacts.add(new File(['x'], 'ignored.txt', { type: 'text/plain' }), productionUploadFilename(new File(['x'], 'ignored.txt'), selected))
+  await ready(client, id)
+  expect(requests).toEqual([expected === 'upload' ? 'ignored.txt' : expected])
+ })
+ it('productionUploadFilename: trim, the File name, upload, and recording.webm for a Blob', () => {
+  expect(productionUploadFilename(new File(['x'], ' a.txt '), '  b.txt ')).toBe('b.txt')
+  expect(productionUploadFilename(new File(['x'], ' a.txt '))).toBe('a.txt')
+  expect(productionUploadFilename(new File(['x'], '  '), '  ')).toBe('upload')
+  expect(productionUploadFilename(new Blob(['x'], { type: 'audio/webm;codecs=opus' }))).toBe('recording.webm')
+  expect(productionUploadFilename(new Blob(['x'], { type: 'audio/webm' }), ' voz.webm ')).toBe('voz.webm')
+ })
+})

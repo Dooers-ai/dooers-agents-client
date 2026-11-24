@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Dooers Threads rename
+
+- Rename the Maestro transport to Dooers Threads: entries `dooers-agents-client/dooers-threads` and `dooers-agents-client/dooers-threads/contracts`, classes `DooersThreadsAgentClient`, `DooersThreadsClient`, `DooersThreadsClientError`, transport value `"dooers_threads"`, persisted keys `dooers-threads.*`, vendored contract `vendor/dooers-threads-v1` (manifest sha256 `b764561c5385b9e84ed6c955704dff7de31b0f30f1a38a6555f289b4e6b423cf`).
+
 ## Unreleased — Maestro E04-09/10 (local)
 
 - Add scoped Maestro thread store and React hooks with exact contiguous replay cursors, independent historical pagination, subscription references, bounded recovery and revocation cleanup.

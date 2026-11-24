@@ -685,7 +685,7 @@ export class AgentClient {
     this.send('thread.delete', { thread_id: threadId })
   }
 
-  /** Legacy runtimes have no removal frame; only the Maestro transport removes participants. */
+  /** Legacy runtimes have no removal frame; only the Dooers Threads transport removes participants. */
   removeParticipant(_threadId: string, _userId: string): Promise<boolean> {
     this.onError?.({
       code: 'UNSUPPORTED',
@@ -695,7 +695,7 @@ export class AgentClient {
     return Promise.resolve(false)
   }
 
-  /** Legacy runtimes have no owner designation; only the Maestro transport assigns a thread owner. */
+  /** Legacy runtimes have no owner designation; only the Dooers Threads transport assigns a thread owner. */
   assignThreadOwner(_threadId: string, _userId: string): Promise<boolean> {
     this.onError?.({
       code: 'UNSUPPORTED',
@@ -705,7 +705,7 @@ export class AgentClient {
     return Promise.resolve(false)
   }
 
-  /** Legacy runtimes have no archive state; only the Maestro transport archives conversations. */
+  /** Legacy runtimes have no archive state; only the Dooers Threads transport archives conversations. */
   archiveThread(_threadId: string): Promise<boolean> {
     return this.unsupportedArchive()
   }
@@ -730,7 +730,7 @@ export class AgentClient {
       userName?: string | null
       userEmail?: string | null
       identityIds?: string[]
-      /** Legacy runtimes only accept people; agents are added through Maestro. */
+      /** Legacy runtimes only accept people; agents are added through Dooers Threads. */
       kind?: 'human' | 'agent'
     }
   ): Promise<boolean> {
@@ -966,7 +966,7 @@ export class AgentClient {
 
   // --- Messaging ---
 
-  /** Maestro-only composer state. Legacy runtimes have no invocation selector. */
+  /** Dooers Threads-only composer state. Legacy runtimes have no invocation selector. */
   getInvocationSelection(
     _threadId?: string,
     _text = ''

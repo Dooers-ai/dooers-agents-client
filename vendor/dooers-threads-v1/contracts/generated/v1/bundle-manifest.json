@@ -1,0 +1,66 @@
+{
+  "artifacts": {
+    "authorization-rules.json": "50fa784198dae865afc444514e00229f4d7c470d9b1bf4c2606be21aaa2ae5ab",
+    "catalog-delivery.json": "cf689ecd6fb0c476d98f190d61ee91080d33613d4e07dc9c43099ab76ca0f54a",
+    "catalog-identity.json": "e2b01fd69939c25f577b0603c07a34158306a2d053eade42bb3fa94921294ac7",
+    "catalog-public.json": "ab5731d07220d4600c98fa5d5a25a37aedfae070e3c40f40918818db98186827",
+    "delivery-rules.json": "f451f76a6492b98a0b68c83f25b143dbccf019557f01f6039c4e602864ed4d69",
+    "fixtures.json": "78ccb7b756cc0f2e8699c7519db7521288a7c39ec00d0f7084790d789335452d",
+    "openapi/core.json": "6ea9ba7da447493e3c8594001e5d2b7bdbb96364ad3a66df2737a1fd81591259",
+    "openapi/internal.json": "53e6aa190bf8fce2c596c70a84a30c09b67f0a171c920cf2860bbbbb0884db8a",
+    "openapi/public.json": "1e5a3e38b3b4839ee3308173521872834a142e55639a58746b692b03e4b2a65a",
+    "openapi/runtime.json": "420d56f1cc4331bd5d0b533f12aa162c4533b8df86aba09a385a70c000342f4e",
+    "python/requirements.in": "d72cfe90574d1a1ac97b91263b9b6c9ed97cbcfc9b0f10fa56a09ffbd46218f7",
+    "python/requirements.lock": "004045153477d0ad4a6e8b1346535278f17e76446d00598ce79a9a659e828f23",
+    "python/semantics.py": "97c91d7cb834a0207f45c92ce8794e1cceb0297ab39fcbcfa602bb9dee10f29b",
+    "python/validate.py": "252247ea55fd4d17c46176ebae3620d352832c016f918f8e3b489f34265a3e59",
+    "schemas.json": "ac77d920976e8eec9e36948068dbe97fd5ef05566a3b55f348a13734200366c9"
+  },
+  "generator": {
+    "json_schema": "2020-12",
+    "name": "dooers-threads-contract-harness",
+    "version": 1,
+    "zod": "4.4.3"
+  },
+  "integrity": "SHA-256 detects corruption/drift; release trust/signature is supplied by the package or artifact channel. This is not the E00-10 global manifest.",
+  "protocol_version": 1,
+  "required_extensions": [
+    "x-dooers-threads-semantic",
+    "x-dooers-threads-string-length",
+    "x-dooers-threads-url"
+  ],
+  "schema_version": 1,
+  "source_files": {
+    "docs/contracts/catalog-delivery.json": "3e70b26b46f5fa9c6dbf9c89e07a5331a681e556d870b6d52164d0b59290ccfc",
+    "docs/contracts/catalog-identity.json": "0e74d977c6b7686400a10c13e126c4a739cc834e27c98474779172891b772026",
+    "docs/contracts/catalog-public.json": "3966193567640dec3daa5fa1e49751ca0db479cccf2f1de047a55fb020b6e62d",
+    "docs/contracts/fixtures/v1/delivery.json": "84a00f9f25cfa220c8d9ee8b41011936dd719526362377d2c6386dc9df6685e6",
+    "docs/contracts/fixtures/v1/identity.json": "8cb7a6ad93686bebc45a1151527b9663df60ad472f68f88982b26c771f6709bf",
+    "docs/contracts/fixtures/v1/public-publication.json": "9d5655db25647342fdd2d15051df7c201778784a30a92ff7bc691809d644d9c1",
+    "docs/contracts/fixtures/v1/public.json": "5b39fb69389a380d5a52d62e92975549f768ed33dd3ca86879e530e0d91c7fb2",
+    "docs/contracts/harness/README.md": "62a31491b53e23ed93ce54daa55137edbe985a615567dc2ae7b6886d25cb4c5d",
+    "docs/contracts/harness/boundary-fixtures.json": "0fa1e07bfe7b29248954f4e2c587e5109002f51403169d85eb5c0a9043d2ff82",
+    "docs/contracts/harness/cli.ts": "f72e4659989011d7f9b06464d56d341f575895d38334e56685a8e32051f57d0e",
+    "docs/contracts/harness/generate.ts": "6ab9a7a93db47a1709ce538f152bf8926c0fdc0698c20459c0417c81d8a0c737",
+    "docs/contracts/harness/openapi.ts": "dc58703319f46d83e1636daf08c17b1a45f26bf8592d80aac982af82716febbc",
+    "docs/contracts/harness/python/requirements.in": "d72cfe90574d1a1ac97b91263b9b6c9ed97cbcfc9b0f10fa56a09ffbd46218f7",
+    "docs/contracts/harness/python/requirements.lock": "004045153477d0ad4a6e8b1346535278f17e76446d00598ce79a9a659e828f23",
+    "docs/contracts/harness/python/semantics.py": "97c91d7cb834a0207f45c92ce8794e1cceb0297ab39fcbcfa602bb9dee10f29b",
+    "docs/contracts/harness/python/test_validate.py": "7d8b0dc1e80f4473db0cac3f5e40e7fa1f50a11b3e311a1697fc5972e6875b1b",
+    "docs/contracts/harness/python/validate.py": "252247ea55fd4d17c46176ebae3620d352832c016f918f8e3b489f34265a3e59",
+    "docs/contracts/harness/registry.ts": "8427c0a70bdd53bffacd5648650ea2ab014de7261249ab8ab27cd54b1418ec18",
+    "docs/contracts/v1/common.ts": "a527f148c8493aeee6127ee0fae4227f0abdd7e041a4c8a5e511b5d080f23dca",
+    "docs/contracts/v1/delivery.ts": "73cf50803c09a5d9f13ced10e1aac51e02544652556f4d569829f1ea4483a129",
+    "docs/contracts/v1/identity.ts": "43660517d9e9649067a089938e2a02529bc12e399b63c549d02c1e0e4e4ba954",
+    "docs/contracts/v1/public.ts": "e5722c289247bee827fc90357a8c3119ae3abe8eebac5cc9af2d7d767af2bed4"
+  },
+  "source_revision": "sha256:b5a56f52148f047f94d1e8f10b2b144ed47e7e6430bea22d7bec9d85257c9b63",
+  "validation": {
+    "fixtures": {
+      "invalid": 630,
+      "total": 1114,
+      "valid": 484
+    },
+    "schemas": 194
+  }
+}

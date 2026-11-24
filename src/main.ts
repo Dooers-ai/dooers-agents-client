@@ -8,6 +8,15 @@ export type {
   UploadResult,
 } from './client'
 export { AgentServerClient } from './client'
+export { DOOERS_THREADS_SUPERVISION_READ_ONLY } from './dooers-threads/types'
+export type {
+  AgentDooersThreadsOptions,
+  AgentDooersThreadsVisitorGuest,
+  AgentDooersThreadsVisitorOptions,
+} from './dooers-threads-agent-client'
+export { DooersThreadsAgentClient } from './dooers-threads-agent-client'
+export type { DooersThreadsNameResolver } from './dooers-threads-legacy'
+export { DOOERS_THREADS_AGENT_ROLE } from './dooers-threads-legacy'
 export { apiMessagesUrlToWebSocketUrl } from './helpers/api-messages-url-to-ws'
 export {
   CHAT_CONTEXT_MIN_SERVER_VERSION,
@@ -30,16 +39,16 @@ export { useAnalytics } from './hooks/use-analytics'
 export { useAudioRecorder } from './hooks/use-audio-recorder'
 // Hooks
 export { useConnection } from './hooks/use-connection'
+export type {
+  DooersThreadsArtifactPart,
+  DooersThreadsArtifactUrlResult,
+  UseDooersThreadsArtifactUrlOptions,
+} from './hooks/use-dooers-threads-artifact-url'
+export { useDooersThreadsArtifactUrl } from './hooks/use-dooers-threads-artifact-url'
 export { useFeedback, useRememberFeedback } from './hooks/use-feedback'
 export { useForm } from './hooks/use-form'
 export type { FormFileMetadata } from './hooks/use-form-file-upload'
 export { useFormFileUpload } from './hooks/use-form-file-upload'
-export type {
-  MaestroArtifactPart,
-  MaestroArtifactUrlResult,
-  UseMaestroArtifactUrlOptions,
-} from './hooks/use-maestro-artifact-url'
-export { useMaestroArtifactUrl } from './hooks/use-maestro-artifact-url'
 export type { UseMemoriesOptions } from './hooks/use-memories'
 export { useMemories } from './hooks/use-memories'
 export { useMessage } from './hooks/use-message'
@@ -52,15 +61,6 @@ export type { UseThreadArtifactsOptions } from './hooks/use-thread-artifacts'
 export { useThreadArtifacts } from './hooks/use-thread-artifacts'
 export { useThreadSearch, useThreadsActions, useThreadsList } from './hooks/use-threads'
 export { useUpload } from './hooks/use-upload'
-export { MAESTRO_SUPERVISION_READ_ONLY } from './maestro/types'
-export type {
-  AgentMaestroOptions,
-  AgentMaestroVisitorGuest,
-  AgentMaestroVisitorOptions,
-} from './maestro-agent-client'
-export { MaestroAgentClient } from './maestro-agent-client'
-export type { MaestroNameResolver } from './maestro-legacy'
-export { MAESTRO_AGENT_ROLE } from './maestro-legacy'
 export type { AgentProviderProps } from './provider'
 export { AgentProvider, useAgentContext } from './provider'
 // Types

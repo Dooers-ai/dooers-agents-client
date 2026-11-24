@@ -1,0 +1,60 @@
+{
+  "consumer_manifest_version": 1,
+  "task": "E04-01",
+  "consumer": "dooers-agents-client",
+  "package_version": "0.17.1",
+  "publication": "none",
+  "integration": "contracts_only",
+  "protocol_version": 1,
+  "schema_version": 1,
+  "source_repository": "dooers-service-threads",
+  "source_manifest_sha256": "b764561c5385b9e84ed6c955704dff7de31b0f30f1a38a6555f289b4e6b423cf",
+  "source_revision": "sha256:b5a56f52148f047f94d1e8f10b2b144ed47e7e6430bea22d7bec9d85257c9b63",
+  "bundle_manifest_sha256": "a30d3ba2fe7d14b08b3b672293697a0bab9044c6b0f254e460e15dd975be0dc4",
+  "runtime_dependency": {
+    "zod": "4.4.3"
+  },
+  "entrypoint": "dooers-agents-client/dooers-threads/contracts",
+  "source_consumers": [
+    "dooers-service-threads",
+    "dooers-agents-client"
+  ],
+  "files": {
+    "src/protocol/dooers-threads/vendor/common.ts": {
+      "source": "docs/contracts/v1/common.ts",
+      "sha256": "a527f148c8493aeee6127ee0fae4227f0abdd7e041a4c8a5e511b5d080f23dca"
+    },
+    "src/protocol/dooers-threads/vendor/public.ts": {
+      "source": "docs/contracts/v1/public.ts",
+      "sha256": "e5722c289247bee827fc90357a8c3119ae3abe8eebac5cc9af2d7d767af2bed4"
+    },
+    "src/protocol/dooers-threads/vendor/identity.ts": {
+      "source": "docs/contracts/v1/identity.ts",
+      "sha256": "43660517d9e9649067a089938e2a02529bc12e399b63c549d02c1e0e4e4ba954"
+    },
+    "vendor/dooers-threads-v1/contracts/fixtures/v1/public.json": {
+      "source": "docs/contracts/fixtures/v1/public.json",
+      "sha256": "5b39fb69389a380d5a52d62e92975549f768ed33dd3ca86879e530e0d91c7fb2"
+    },
+    "vendor/dooers-threads-v1/contracts/fixtures/v1/public-publication.json": {
+      "source": "docs/contracts/fixtures/v1/public-publication.json",
+      "sha256": "9d5655db25647342fdd2d15051df7c201778784a30a92ff7bc691809d644d9c1"
+    },
+    "vendor/dooers-threads-v1/contracts/harness/boundary-fixtures.json": {
+      "source": "docs/contracts/harness/boundary-fixtures.json",
+      "sha256": "0fa1e07bfe7b29248954f4e2c587e5109002f51403169d85eb5c0a9043d2ff82"
+    },
+    "vendor/dooers-threads-v1/contracts/catalog-public.json": {
+      "source": "docs/contracts/catalog-public.json",
+      "sha256": "3966193567640dec3daa5fa1e49751ca0db479cccf2f1de047a55fb020b6e62d"
+    },
+    "vendor/dooers-threads-v1/contracts/manifest.json": {
+      "source": "docs/contracts/manifest.json",
+      "sha256": "b764561c5385b9e84ed6c955704dff7de31b0f30f1a38a6555f289b4e6b423cf"
+    },
+    "vendor/dooers-threads-v1/contracts/generated/v1/bundle-manifest.json": {
+      "source": "docs/contracts/generated/v1/bundle-manifest.json",
+      "sha256": "a30d3ba2fe7d14b08b3b672293697a0bab9044c6b0f254e460e15dd975be0dc4"
+    }
+  }
+}

@@ -16,12 +16,12 @@ describe('toFormElement', () => {
       name: 'a', label: 'A', order: 0, required: false, disabled: false, type: 'text_input', placeholder: null, default: null, inputType: 'text',
     })
   })
-  it('Maestro: an unknown element keeps its base fields and its original type, never required, with no default', () => {
+  it('Dooers Threads: an unknown element keeps its base fields and its original type, never required, with no default', () => {
     expect(toFormElement(slider, { tolerateUnknown: true })).toEqual({
       name: 'nivel', label: 'Nível', order: 2, required: false, disabled: false, type: 'slider',
     })
   })
-  it('Maestro: toFormEventData keeps every element, and an unknown one does not block validation', () => {
+  it('Dooers Threads: toFormEventData keeps every element, and an unknown one does not block validation', () => {
     const data = toFormEventData(
       { message: 'x', elements: [{ type: 'text_input', name: 'a', label: 'A', required: true }, slider] },
       { tolerateUnknown: true }
@@ -34,7 +34,7 @@ describe('toFormElement', () => {
     expect(data.elements.some((element) => element.required && element.type === 'slider')).toBe(false)
     expect('default' in data.elements[1]!).toBe(false)
   })
-  it('Maestro: known elements are identical with and without the option', () => {
+  it('Dooers Threads: known elements are identical with and without the option', () => {
     const raw = { message: 'x', elements: [{ type: 'select_input', name: 's', label: 'S', options: [{ value: 'a', label: 'A' }] }] }
     expect(toFormEventData(raw, { tolerateUnknown: true })).toEqual(toFormEventData(raw))
   })

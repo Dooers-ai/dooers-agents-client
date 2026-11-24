@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useMemo, useRef }
 import { useStore as useZustandStore } from 'zustand'
 import { useShallow } from 'zustand/shallow'
 import { AgentClient, type AgentConnectionConfig, type OnErrorCallback } from './client'
-import { type AgentMaestroOptions, MaestroAgentClient } from './maestro-agent-client'
+import { type AgentDooersThreadsOptions, DooersThreadsAgentClient } from './dooers-threads-agent-client'
 import { type AgentState, type AgentStore, createAgentStore } from './store'
 
 interface AgentContextValue {
@@ -39,27 +39,27 @@ export interface AgentProviderProps {
    */
   httpBaseUrl?: string
   /**
-   * When set, the selected agent is served by Maestro: the same hooks talk to the
-   * Maestro API (HTTP/WS) instead of the agent runtime WebSocket, and ``url`` is ignored.
+   * When set, the selected agent is served by Dooers Threads: the same hooks talk to the
+   * Dooers Threads API (HTTP/WS) instead of the agent runtime WebSocket, and ``url`` is ignored.
    */
-  maestro?: AgentMaestroOptions
+  dooersThreads?: AgentDooersThreadsOptions
   onError?: OnErrorCallback
   children: ReactNode
 }
 
-/** Session identity of the Maestro transport; a change creates a fresh client and store. */
-function maestroKey(maestro: AgentMaestroOptions | undefined): string {
-  if (!maestro) return ''
+/** Session identity of the Dooers Threads transport; a change creates a fresh client and store. */
+function dooersThreadsKey(dooersThreads: AgentDooersThreadsOptions | undefined): string {
+  if (!dooersThreads) return ''
   return JSON.stringify([
-    maestro.endpoint,
-    maestro.apiPrefix ?? null,
-    maestro.allowInsecureLocalhost === true,
-    maestro.forms === true,
-    maestro.scope.principalId,
-    maestro.scope.organizationId,
-    maestro.scope.workspaceId,
-    maestro.scope.actorType ?? null,
-    Boolean(maestro.visitor),
+    dooersThreads.endpoint,
+    dooersThreads.apiPrefix ?? null,
+    dooersThreads.allowInsecureLocalhost === true,
+    dooersThreads.forms === true,
+    dooersThreads.scope.principalId,
+    dooersThreads.scope.organizationId,
+    dooersThreads.scope.workspaceId,
+    dooersThreads.scope.actorType ?? null,
+    Boolean(dooersThreads.visitor),
   ])
 }
 
@@ -83,28 +83,28 @@ export function AgentProvider({
   channelMeta,
   uploadUrl,
   httpBaseUrl,
-  maestro,
+  dooersThreads,
   onError,
   children,
 }: AgentProviderProps) {
-  const maestroRef = useRef(maestro)
-  maestroRef.current = maestro
-  const transportKey = maestroKey(maestro)
+  const dooersThreadsRef = useRef(dooersThreads)
+  dooersThreadsRef.current = dooersThreads
+  const transportKey = dooersThreadsKey(dooersThreads)
 
-  // Legacy and Maestro transports never share a store: switching agents between
+  // Legacy and Dooers Threads transports never share a store: switching agents between
   // authorities starts from an empty, isolated state.
   const { store, client } = useMemo(() => {
     const store = createAgentStore()
     const actions = store.getState().actions
-    const options = maestroRef.current
+    const options = dooersThreadsRef.current
     const client =
       transportKey && options
-        ? new MaestroAgentClient(actions, {
+        ? new DooersThreadsAgentClient(actions, {
             ...options,
             authToken:
               typeof options.authToken === 'function'
                 ? (context) => {
-                    const current = maestroRef.current?.authToken ?? options.authToken
+                    const current = dooersThreadsRef.current?.authToken ?? options.authToken
                     return typeof current === 'function' ? current(context) : current
                   }
                 : options.authToken,
@@ -112,13 +112,13 @@ export function AgentProvider({
               ? {
                   supervisionAuthToken: (context: Parameters<Extract<typeof options.authToken, (...a: never[]) => unknown>>[0]) => {
                     const current =
-                      maestroRef.current?.supervisionAuthToken ?? options.supervisionAuthToken
+                      dooersThreadsRef.current?.supervisionAuthToken ?? options.supervisionAuthToken
                     return typeof current === 'function' ? current(context) : (current as string)
                   },
                 }
               : {}),
             // Names arrive later from application queries; always use the latest resolver.
-            resolveName: (kind, id) => maestroRef.current?.resolveName?.(kind, id),
+            resolveName: (kind, id) => dooersThreadsRef.current?.resolveName?.(kind, id),
           })
         : new AgentClient(actions)
     client.setMemoryCursorReader(() => store.getState().memory.cursor)
@@ -198,14 +198,14 @@ export function AgentProvider({
   connectionConfigRef.current = connectionConfig
 
   // Hard reconnect only when endpoint or agent identity changes.
-  // A newer name resolver re-projects what is already on screen (Maestro stores generic names).
-  const resolveName = maestro?.resolveName
+  // A newer name resolver re-projects what is already on screen (Dooers Threads stores generic names).
+  const resolveName = dooersThreads?.resolveName
   useEffect(() => {
-    if (resolveName && client instanceof MaestroAgentClient) client.refreshProjection()
+    if (resolveName && client instanceof DooersThreadsAgentClient) client.refreshProjection()
   }, [client, resolveName])
 
-  // Maestro connects to its configured endpoint; the agent runtime URL is not used.
-  const target = transportKey ? (maestroRef.current?.endpoint ?? '') : (url ?? '')
+  // Dooers Threads connects to its configured endpoint; the agent runtime URL is not used.
+  const target = transportKey ? (dooersThreadsRef.current?.endpoint ?? '') : (url ?? '')
   useEffect(() => {
     if (!target || !agentId) {
       client.disconnect()

@@ -1,7 +1,7 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: { main: "src/main.ts", "maestro/index": "src/maestro/index.ts", "maestro/contracts": "src/protocol/maestro/contracts.ts" },
+  entry: { main: "src/main.ts", "dooers-threads/index": "src/dooers-threads/index.ts", "dooers-threads/contracts": "src/protocol/dooers-threads/contracts.ts" },
   format: ["esm", "cjs"],
   dts: true,
   sourcemap: true,
