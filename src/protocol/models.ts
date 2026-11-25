@@ -302,6 +302,7 @@ export interface WireSettingsField {
   visibility?: 'internal' | 'creator' | 'user'
   value: unknown
   placeholder: string | null
+  hint?: string | null
   options: WireSettingsSelectOption[] | null
   min: number | null
   max: number | null
@@ -319,6 +320,7 @@ export interface WireSettingsFieldGroup {
   fields: WireSettingsField[]
   collapsible: 'open' | 'closed' | null
   visibility?: 'internal' | 'creator' | 'user'
+  hint?: string | null
 }
 
 export type WireSettingsItem = WireSettingsField | WireSettingsFieldGroup
