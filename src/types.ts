@@ -334,6 +334,7 @@ export type SettingsFieldType =
   | 'text'
   | 'number'
   | 'select'
+  | 'multiselect'
   | 'checkbox'
   | 'textarea'
   | 'password'
@@ -360,6 +361,8 @@ export interface SettingsField {
   visibility: SettingsFieldVisibility
   value: unknown
   placeholder: string | null
+  /** Help text for an (i) icon next to the label (agents-server 0.32+). */
+  hint: string | null
   options: SettingsSelectOption[] | null
   min: number | null
   max: number | null
@@ -377,6 +380,7 @@ export interface SettingsFieldGroup {
   fields: SettingsField[]
   collapsible: 'open' | 'closed' | null
   visibility: SettingsFieldVisibility
+  hint: string | null
 }
 
 export type SettingsItem = SettingsField | SettingsFieldGroup
@@ -681,6 +685,7 @@ export function toSettingsField(w: WireSettingsField): SettingsField {
     visibility: w.visibility ?? 'user',
     value: w.value,
     placeholder: w.placeholder,
+    hint: w.hint ?? null,
     options: w.options,
     min: w.min,
     max: w.max,
@@ -702,6 +707,7 @@ export function toSettingsItem(w: WireSettingsItem): SettingsItem {
       fields: g.fields.map(toSettingsField),
       collapsible: g.collapsible,
       visibility: g.visibility ?? 'user',
+      hint: g.hint ?? null,
     }
   }
   return toSettingsField(w as WireSettingsField)
